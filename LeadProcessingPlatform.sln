@@ -1,6 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_infrastructure", "_infrastructure", "{0A32C129-9332-4598-B496-6347DDA5B901}"
+	ProjectSection(SolutionItems) = preProject
+		_infrastructure\README.md = _infrastructure\README.md
+		_infrastructure\kafka\init-topics.sh = _infrastructure\kafka\init-topics.sh
+		_infrastructure\kafka\log4j.properties = _infrastructure\kafka\log4j.properties
+		_infrastructure\postgres\init\01-create-databases.sh = _infrastructure\postgres\init\01-create-databases.sh
+		_infrastructure\scripts\wait-for-it.sh = _infrastructure\scripts\wait-for-it.sh
+		_infrastructure\pgadmin\servers.json = _infrastructure\pgadmin\servers.json
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "services", "services", "{088EA90F-AD61-48FE-A100-B75E7ED1E6FD}"
 EndProject
@@ -81,6 +89,16 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DistributionService.Tests", "tests\UnitTests\DistributionService.Tests\DistributionService.Tests.csproj", "{0EE02955-B890-4B56-8732-B8798D8A5156}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoadTests.Host", "tests\LoadTests\LoadTests.Host\LoadTests.Host.csproj", "{135724A9-79FB-4EBA-836F-166C5F939B61}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_solutionItems", "_solutionItems", "{CF2DDAD1-AEB8-43A3-812B-05B4BDA13CDD}"
+	ProjectSection(SolutionItems) = preProject
+		.dockerignore = .dockerignore
+		.env = .env
+		.gitignore = .gitignore
+		docker-compose.yml = docker-compose.yml
+		NuGet.config = NuGet.config
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
