@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Domain\DistributionService.Domain.csproj" />
+        <ProjectReference Include="..\DistributionService.Domain\DistributionService.Domain.csproj" />
         <ProjectReference Include="..\..\..\shared\IntegrationEvents\IntegrationEvents.csproj" />
         <ProjectReference Include="..\..\..\shared\SharedKernel\SharedKernel.csproj" />
     </ItemGroup>

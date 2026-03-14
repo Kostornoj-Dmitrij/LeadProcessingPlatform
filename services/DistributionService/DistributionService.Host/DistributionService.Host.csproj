@@ -7,18 +7,20 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Application\DistributionService.Application.csproj" />
-        <ProjectReference Include="..\Infrastructure\DistributionService.Infrastructure.csproj" />
+        <ProjectReference Include="..\DistributionService.Application\DistributionService.Application.csproj" />
+        <ProjectReference Include="..\DistributionService.Infrastructure\DistributionService.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+        <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.3" />
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.2" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.1" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.2" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.1" />
     </ItemGroup>
 
     <ItemGroup>

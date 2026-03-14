@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Application\EnrichmentService.Application.csproj" />
-        <ProjectReference Include="..\Domain\EnrichmentService.Domain.csproj" />
+        <ProjectReference Include="..\EnrichmentService.Application\EnrichmentService.Application.csproj" />
+        <ProjectReference Include="..\EnrichmentService.Domain\EnrichmentService.Domain.csproj" />
         <ProjectReference Include="..\..\..\shared\IntegrationEvents\IntegrationEvents.csproj" />
         <ProjectReference Include="..\..\..\shared\SharedKernel\SharedKernel.csproj" />
     </ItemGroup>

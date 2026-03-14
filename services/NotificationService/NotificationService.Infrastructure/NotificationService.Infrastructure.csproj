@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Application\NotificationService.Application.csproj" />
-        <ProjectReference Include="..\Domain\NotificationService.Domain.csproj" />
+        <ProjectReference Include="..\NotificationService.Application\NotificationService.Application.csproj" />
+        <ProjectReference Include="..\NotificationService.Domain\NotificationService.Domain.csproj" />
         <ProjectReference Include="..\..\..\shared\IntegrationEvents\IntegrationEvents.csproj" />
         <ProjectReference Include="..\..\..\shared\SharedKernel\SharedKernel.csproj" />
     </ItemGroup>

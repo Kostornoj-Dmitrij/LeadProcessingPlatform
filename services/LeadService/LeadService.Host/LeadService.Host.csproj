@@ -7,12 +7,19 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Application\LeadService.Application.csproj" />
-        <ProjectReference Include="..\Infrastructure\LeadService.Infrastructure.csproj" />
+        <ProjectReference Include="..\LeadService.Application\LeadService.Application.csproj" />
+        <ProjectReference Include="..\LeadService.Infrastructure\LeadService.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="NSwag.AspNetCore" Version="14.2.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0-preview.1">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
     </ItemGroup>
 
     <ItemGroup>
