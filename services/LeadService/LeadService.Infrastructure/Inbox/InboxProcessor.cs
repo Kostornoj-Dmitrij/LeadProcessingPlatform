@@ -1,0 +1,207 @@
+﻿using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using System.Text.Json;
+using MediatR;
+using SharedKernel.Events;
+using IntegrationEvents;
+using Confluent.Kafka;
+using System.Text;
+
+namespace LeadService.Infrastructure.Inbox;
+
+/// <summary>
+/// Фоновый процессор для обработки сообщений из Inbox
+/// </summary>
+public class InboxProcessor(
+    IServiceScopeFactory scopeFactory,
+    ILogger<InboxProcessor> logger)
+    : BackgroundService
+{
+    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(2);
+    private readonly int _batchSize = 50;
+    private const int MaxRetryAttempts = 5;
+    private static readonly ActivitySource ActivitySource = new("LeadService.InboxProcessor");
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        logger.LogInformation("Inbox Processor started");
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await ProcessPendingMessages(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing inbox messages");
+            }
+
+            await Task.Delay(_pollingInterval, stoppingToken);
+        }
+
+        logger.LogInformation("Inbox Processor stopped");
+    }
+
+    private async Task ProcessPendingMessages(CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var inboxStore = scope.ServiceProvider.GetRequiredService<IInboxStore>();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var deadLetterQueue = scope.ServiceProvider.GetRequiredService<IDeadLetterQueue>();
+
+        var messages = await inboxStore.GetPendingMessagesAsync(_batchSize, cancellationToken);
+
+        if (!messages.Any())
+            return;
+
+        logger.LogInformation("Processing {Count} inbox messages", messages.Count);
+
+        foreach (var message in messages)
+        {
+            using var activity = StartActivityForMessage(message);
+
+            try
+            {
+                await ProcessMessageAsync(message, mediator, cancellationToken);
+                await inboxStore.MarkAsProcessedAsync(message.Id, cancellationToken);
+
+                activity?.SetStatus(ActivityStatusCode.Ok);
+
+                logger.LogDebug(
+                    "Successfully processed inbox message {MessageId} of type {EventType}",
+                    message.MessageId, message.EventType);
+            }
+            catch (Exception ex)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                activity?.AddException(ex);
+                logger.LogError(ex, 
+                    "Failed to process inbox message {MessageId}, attempt {Attempts}", 
+                    message.MessageId, 
+                    message.ProcessingAttempts + 1);
+
+                var shouldRetry = IsTransientError(ex) && message.ProcessingAttempts < MaxRetryAttempts;
+                
+                if (shouldRetry)
+                {
+                    var nextRetryAt = DateTime.UtcNow.AddSeconds(Math.Pow(2, message.ProcessingAttempts + 1));
+                    
+                    await inboxStore.IncrementAttemptsAsync(
+                        message.Id,
+                        ex.Message,
+                        nextRetryAt,
+                        cancellationToken);
+                    
+                    logger.LogInformation(
+                        "Scheduled retry #{Attempts} for message {MessageId} at {NextRetryAt}",
+                        message.ProcessingAttempts + 1,
+                        message.MessageId,
+                        nextRetryAt);
+                }
+                else
+                {
+                    var kafkaMessage = CreateKafkaMessageFromInbox(message);
+                    await deadLetterQueue.SendAsync(message.Topic, kafkaMessage, ex, cancellationToken);
+                    await inboxStore.MoveToDeadLetterQueueAsync(message.Id, ex.Message, cancellationToken);
+                    
+                    logger.LogWarning(
+                        "Message {MessageId} moved to DLQ after {Attempts} attempts",
+                        message.MessageId,
+                        message.ProcessingAttempts + 1);
+                }
+            }
+        }
+    }
+
+    private Activity? StartActivityForMessage(InboxMessage message)
+    {
+        Activity? activity = null;
+        
+        try
+        {
+            using var jsonDoc = JsonDocument.Parse(message.Payload);
+            if (jsonDoc.RootElement.TryGetProperty("eventId", out var eventIdElement))
+            {
+                var eventId = eventIdElement.GetString();
+                
+                activity = ActivitySource.StartActivity(
+                    $"Process {message.EventType}",
+                    ActivityKind.Consumer);
+                
+                if (activity != null)
+                {
+                    activity.SetTag("messaging.system", "kafka");
+                    activity.SetTag("messaging.destination", message.Topic);
+                    activity.SetTag("messaging.message_id", message.MessageId);
+                    activity.SetTag("messaging.kafka.partition", message.Key);
+                    activity.SetTag("event.type", message.EventType);
+                    activity.SetTag("event.id", eventId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to parse message for trace context");
+        }
+        
+        return activity;
+    }
+
+    private async Task ProcessMessageAsync(
+        InboxMessage message,
+        IMediator mediator,
+        CancellationToken cancellationToken)
+    {
+        var eventType = Type.GetType(message.EventType);
+        if (eventType == null)
+        {
+            throw new InvalidOperationException($"Unknown event type: {message.EventType}");
+        }
+
+        var @event = JsonSerializer.Deserialize(message.Payload, eventType) as IIntegrationEvent;
+        if (@event == null)
+        {
+            throw new InvalidOperationException($"Failed to deserialize event: {message.EventType}");
+        }
+
+        var wrapperType = typeof(IntegrationEventWrapper<>).MakeGenericType(eventType);
+        var wrapper = Activator.CreateInstance(wrapperType, @event);
+
+        if (wrapper == null)
+            throw new InvalidOperationException("Failed to create wrapper for event");
+
+        await mediator.Publish(wrapper, cancellationToken);
+    }
+
+    private Message<string, string> CreateKafkaMessageFromInbox(InboxMessage message)
+    {
+        return new Message<string, string>
+        {
+            Key = message.Key,
+            Value = message.Payload,
+            Headers = new Headers
+            {
+                { "event-type", Encoding.UTF8.GetBytes(message.EventType) },
+                { "message-id", Encoding.UTF8.GetBytes(message.MessageId) },
+                { "original-topic", Encoding.UTF8.GetBytes(message.Topic) },
+                { "inbox-message-id", Encoding.UTF8.GetBytes(message.Id.ToString()) }
+            }
+        };
+    }
+
+    private bool IsTransientError(Exception ex)
+    {
+        return ex switch
+        {
+            DbUpdateConcurrencyException => true,
+            DbUpdateException dbEx when dbEx.InnerException?.Message.Contains("deadlock") == true => true,
+            TimeoutException => true,
+            Npgsql.NpgsqlException { IsTransient: true } => true,
+            _ => false
+        };
+    }
+}
