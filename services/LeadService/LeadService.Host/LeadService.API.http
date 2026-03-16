@@ -1,6 +1,38 @@
-@LeadService.API_HostAddress = http://localhost:5271
+@LeadService_HostAddress = http://localhost:5001
 
-GET {{LeadService.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Create a new lead
+POST {{LeadService_HostAddress}}/api/leads
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
 
-###
+{
+  "source": "web_form",
+  "companyName": "Acme Corporation",
+  "contactPerson": "John Doe",
+  "email": "john.doe@acme.com",
+  "phone": "+1-555-123-4567",
+  "customFields": {
+    "industry": "Technology",
+    "employeeCount": "50-100",
+    "interest": "Enterprise Plan"
+  }
+}
+
+### Create lead with minimal data
+POST {{LeadService_HostAddress}}/api/leads
+Content-Type: application/json
+
+{
+  "source": "landing_page",
+  "companyName": "TechStart Inc",
+  "email": "info@techstart.io"
+}
+
+### Get lead by ID
+GET {{LeadService_HostAddress}}/api/leads/3fa85f64-5717-4562-b3fc-2c963f66afa6
+
+### Get leads by status
+GET {{LeadService_HostAddress}}/api/leads?status=Initial&limit=10
+
+### Health check
+GET {{LeadService_HostAddress}}/health
