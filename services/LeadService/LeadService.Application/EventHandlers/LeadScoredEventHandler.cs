@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using IntegrationEvents.ScoringEvents;
-using LeadService.Application.Common.Interfaces;
+using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using SharedKernel.Events;
@@ -12,7 +12,6 @@ namespace LeadService.Application.EventHandlers;
 /// Обработчик события LeadScored от Scoring Service
 /// </summary>
 public class LeadScoredEventHandler(
-    IApplicationDbContext context,
     IUnitOfWork unitOfWork,
     ILogger<LeadScoredEventHandler> logger)
     : INotificationHandler<IntegrationEventWrapper<LeadScoredIntegrationEvent>>
@@ -25,7 +24,7 @@ public class LeadScoredEventHandler(
 
         try
         {
-            var lead = await context.Leads
+            var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
 
             if (lead == null)

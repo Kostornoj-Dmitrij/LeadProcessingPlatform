@@ -26,9 +26,6 @@ public static class DependencyInjection
                 configuration.GetConnectionString("DefaultConnection"),
                 b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
             .UseLoggerFactory(sp.GetRequiredService<ILoggerFactory>()));
-
-        services.AddScoped<IApplicationDbContext>(provider => 
-            provider.GetRequiredService<ApplicationDbContext>());
         
         services.AddScoped<IUnitOfWork>(provider => 
             provider.GetRequiredService<ApplicationDbContext>());

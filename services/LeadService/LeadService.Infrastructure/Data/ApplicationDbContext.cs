@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using LeadService.Domain.Entities;
-using LeadService.Application.Common.Interfaces;
 using LeadService.Infrastructure.Data.Entities;
 using SharedKernel.Entities;
 using System.Reflection;
@@ -8,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using SharedKernel.Events;
 using IUnitOfWork = SharedKernel.Base.IUnitOfWork;
 using LeadService.Infrastructure.Outbox;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 
 namespace LeadService.Infrastructure.Data;
@@ -15,7 +15,7 @@ namespace LeadService.Infrastructure.Data;
 /// <summary>
 /// Контекст базы данных для сервиса лидов
 /// </summary>
-public class ApplicationDbContext : DbContext, IApplicationDbContext, IUnitOfWork
+public class ApplicationDbContext : DbContext, IUnitOfWork
 {
     private readonly IDomainEventToOutboxConverter _outboxConverter;
     private readonly ILogger<ApplicationDbContext> _logger;
@@ -51,6 +51,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext, IUnitOfWor
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
     }
+
+    DbSet<T> IUnitOfWork.Set<T>() where T : class => Set<T>();
+    EntityEntry<T> IUnitOfWork.Entry<T>(T entity) where T : class => Entry(entity);
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

@@ -1,19 +1,20 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using LeadService.Application.Common.Interfaces;
 using LeadService.Application.DTOs;
+using LeadService.Domain.Entities;
+using SharedKernel.Base;
 
 namespace LeadService.Application.Queries.GetLeadsByStatus;
 
 /// <summary>
 /// Обработчик запроса на получение списка лидов с фильтрацией по статусу
 /// </summary>
-public class GetLeadsByStatusQueryHandler(IApplicationDbContext context)
+public class GetLeadsByStatusQueryHandler(IUnitOfWork unitOfWork)
     : IRequestHandler<GetLeadsByStatusQuery, List<LeadDto>>
 {
     public async Task<List<LeadDto>> Handle(GetLeadsByStatusQuery request, CancellationToken cancellationToken)
     {
-        var query = context.Leads
+        var query = unitOfWork.Set<Lead>()
             .Include(x => x.CustomFields)
             .AsQueryable();
 

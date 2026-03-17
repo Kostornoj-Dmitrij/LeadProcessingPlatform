@@ -1,18 +1,19 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using LeadService.Application.Common.Interfaces;
 using LeadService.Application.DTOs;
+using LeadService.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using SharedKernel.Base;
 
 namespace LeadService.Application.Queries.GetLeadById;
 
 /// <summary>
 /// Обработчик запроса на получение лида по идентификатору
 /// </summary>
-public class GetLeadByIdQueryHandler(IApplicationDbContext context) : IRequestHandler<GetLeadByIdQuery, LeadDto?>
+public class GetLeadByIdQueryHandler(IUnitOfWork unitOfWork) : IRequestHandler<GetLeadByIdQuery, LeadDto?>
 {
     public async Task<LeadDto?> Handle(GetLeadByIdQuery request, CancellationToken cancellationToken)
     {
-        var lead = await context.Leads
+        var lead = await unitOfWork.Set<Lead>()
             .Include(x => x.CustomFields)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 

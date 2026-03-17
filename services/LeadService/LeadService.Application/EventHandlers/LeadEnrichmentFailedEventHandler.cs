@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using IntegrationEvents.EnrichmentEvents;
-using LeadService.Application.Common.Interfaces;
+using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using SharedKernel.Events;
@@ -12,7 +12,6 @@ namespace LeadService.Application.EventHandlers;
 /// Обработчик события LeadEnrichmentFailed от Enrichment Service
 /// </summary>
 public class LeadEnrichmentFailedEventHandler(
-    IApplicationDbContext context,
     IUnitOfWork unitOfWork,
     ILogger<LeadEnrichmentFailedEventHandler> logger)
     : INotificationHandler<IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent>>
@@ -25,7 +24,7 @@ public class LeadEnrichmentFailedEventHandler(
 
         try
         {
-            var lead = await context.Leads
+            var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
             
             if (lead == null)

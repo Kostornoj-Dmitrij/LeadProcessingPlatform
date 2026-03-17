@@ -7,6 +7,7 @@ using LeadService.Application.DTOs;
 using LeadService.Domain.Entities;
 using IntegrationEvents.LeadEvents;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Base;
 using SharedKernel.Entities;
 
 namespace LeadService.Application.Commands.CreateLead;
@@ -15,7 +16,7 @@ namespace LeadService.Application.Commands.CreateLead;
 /// Обработчик команды создания нового лида
 /// </summary>
 public class CreateLeadCommandHandler(
-    IApplicationDbContext context,
+    IUnitOfWork unitOfWork,
     IIdempotencyRepository idempotencyRepository,
     ILogger<CreateLeadCommandHandler> logger)
     : IRequestHandler<CreateLeadCommand, LeadDto>
@@ -85,7 +86,7 @@ public class CreateLeadCommandHandler(
             customFields: request.CustomFields
         );
 
-        await context.Leads.AddAsync(lead, cancellationToken);
+        await unitOfWork.Set<Lead>().AddAsync(lead, cancellationToken);
 
         var integrationEvent = new LeadCreatedIntegrationEvent
         {
@@ -110,7 +111,7 @@ public class CreateLeadCommandHandler(
             ProcessingAttempts = 0
         };
 
-        await context.OutboxMessages.AddAsync(outboxMessage, cancellationToken);
+        await unitOfWork.Set<OutboxMessage>().AddAsync(outboxMessage, cancellationToken);
 
         return MapToDto(lead);
     }

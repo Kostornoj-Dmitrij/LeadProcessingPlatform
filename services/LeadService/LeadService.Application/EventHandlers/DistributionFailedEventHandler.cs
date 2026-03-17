@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using IntegrationEvents.DistributionEvents;
-using LeadService.Application.Common.Interfaces;
+using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using SharedKernel.Events;
@@ -12,7 +12,6 @@ namespace LeadService.Application.EventHandlers;
 /// Обработчик события DistributionFailed от Distribution Service
 /// </summary>
 public class DistributionFailedEventHandler(
-    IApplicationDbContext context,
     IUnitOfWork unitOfWork,
     ILogger<DistributionFailedEventHandler> logger)
     : INotificationHandler<IntegrationEventWrapper<DistributionFailedIntegrationEvent>>
@@ -25,7 +24,7 @@ public class DistributionFailedEventHandler(
 
         try
         {
-            var lead = await context.Leads
+            var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
             
             if (lead == null)

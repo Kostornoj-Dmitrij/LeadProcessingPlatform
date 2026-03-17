@@ -1,10 +1,10 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using IntegrationEvents.EnrichmentEvents;
-using LeadService.Application.Common.Interfaces;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using System.Text.Json;
+using LeadService.Domain.Entities;
 using SharedKernel.Events;
 
 namespace LeadService.Application.EventHandlers;
@@ -13,7 +13,6 @@ namespace LeadService.Application.EventHandlers;
 /// Обработчик события LeadEnriched от Enrichment Service
 /// </summary>
 public class LeadEnrichedEventHandler(
-    IApplicationDbContext context,
     IUnitOfWork unitOfWork,
     ILogger<LeadEnrichedEventHandler> logger)
     : INotificationHandler<IntegrationEventWrapper<LeadEnrichedIntegrationEvent>>
@@ -26,7 +25,7 @@ public class LeadEnrichedEventHandler(
 
         try
         {
-            var lead = await context.Leads
+            var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
 
             if (lead == null)
