@@ -233,7 +233,18 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             }
         }
 
-        var eventType = Type.GetType($"IntegrationEvents.{eventTypeName}, IntegrationEvents");
+        var eventType = Type.GetType(eventTypeName);
+        if (eventType == null && eventTypeName.Contains(','))
+        {
+            var className = eventTypeName.Split(',')[0].Trim();
+            var lastDot = className.LastIndexOf('.');
+            if (lastDot > 0)
+            {
+                var simpleName = className.Substring(lastDot + 1);
+                eventType = Type.GetType($"IntegrationEvents.{simpleName}, IntegrationEvents");
+            }
+        }
+
         if (eventType == null)
         {
             throw new InvalidOperationException($"Unknown event type: {eventTypeName}");
