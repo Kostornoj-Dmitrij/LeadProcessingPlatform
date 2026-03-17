@@ -94,7 +94,6 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
 
         builder.Property(x => x.Version)
             .HasColumnName("xmin")
-            .HasColumnType("xid")
             .ValueGeneratedOnAddOrUpdate()
             .IsConcurrencyToken();
         

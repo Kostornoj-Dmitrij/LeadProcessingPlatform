@@ -1,5 +1,8 @@
 ﻿namespace LeadService.Domain.Enums;
 
+/// <summary>
+/// Статусы лида
+/// </summary>
 public enum LeadStatus
 {
     /// <summary>
