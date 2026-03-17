@@ -84,6 +84,14 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         _logger.LogInformation("Kafka Consumer started");
         _isRunning = true;
 
+        var topics = new[]
+        {
+            "enrichment-events",
+            "scoring-events",
+            "distribution-events",
+            "saga-events"
+        };
+        Subscribe(topics);
         try
         {
             while (!stoppingToken.IsCancellationRequested)
