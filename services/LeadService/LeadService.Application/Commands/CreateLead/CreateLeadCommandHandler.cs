@@ -6,10 +6,8 @@ using MediatR;
 using LeadService.Application.Common.Interfaces;
 using LeadService.Application.DTOs;
 using LeadService.Domain.Entities;
-using IntegrationEvents.LeadEvents;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
-using SharedKernel.Entities;
 
 namespace LeadService.Application.Commands.CreateLead;
 
@@ -110,30 +108,6 @@ public class CreateLeadCommandHandler(
 
         await unitOfWork.Set<Lead>().AddAsync(lead, cancellationToken);
 
-        var integrationEvent = new LeadCreatedIntegrationEvent
-        {
-            LeadId = lead.Id,
-            Source = lead.Source,
-            CompanyName = lead.CompanyName.Value,
-            ContactPerson = lead.ContactPerson,
-            Email = lead.Email.Value,
-            Phone = lead.Phone?.Value,
-            CustomFields = request.CustomFields,
-            ExternalLeadId = lead.ExternalLeadId
-        };
-
-        var outboxMessage = new OutboxMessage
-        {
-            Id = Guid.NewGuid(),
-            AggregateType = "lead",
-            AggregateId = lead.Id.ToString(),
-            EventType = integrationEvent.GetType().AssemblyQualifiedName!,
-            Payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType()),
-            CreatedAt = DateTime.UtcNow,
-            ProcessingAttempts = 0
-        };
-
-        await unitOfWork.Set<OutboxMessage>().AddAsync(outboxMessage, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return MapToDto(lead);
