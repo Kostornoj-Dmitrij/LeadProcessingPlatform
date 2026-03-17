@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using Confluent.Kafka;
 using LeadService.Application.Common.Interfaces;
 using LeadService.Infrastructure.Inbox;
@@ -23,6 +24,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     private readonly string _dlqTopic;
     private readonly int _maxRetryAttempts = 3;
     private bool _isRunning;
+    private static readonly ActivitySource ActivitySource = new("LeadService.KafkaConsumer");
 
     public KafkaConsumer(
         IConfiguration configuration,
@@ -179,6 +181,50 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         var eventTypeName = Encoding.UTF8.GetString(eventTypeBytes);
         var eventId = Encoding.UTF8.GetString(eventIdBytes);
 
+        string? traceId = null;
+        string? traceState = null;
+        ActivityContext parentContext = default;
+
+        if (consumeResult.Message.Headers.TryGetLastBytes("trace-id", out var traceIdBytes))
+        {
+            traceId = Encoding.UTF8.GetString(traceIdBytes);
+
+            if (ActivityContext.TryParse(traceId, null, out var parsedContext))
+            {
+                parentContext = parsedContext;
+            }
+        }
+        if (consumeResult.Message.Headers.TryGetLastBytes("tracestate", out var traceStateBytes))
+        {
+            traceState = Encoding.UTF8.GetString(traceStateBytes);
+        }
+
+        using var activity = ActivitySource.StartActivity(
+            $"Kafka Consumer {eventTypeName}",
+            ActivityKind.Consumer,
+            parentContext: parentContext);
+
+        if (activity != null)
+        {
+            activity.SetTag("messaging.system", "kafka");
+            activity.SetTag("messaging.destination", consumeResult.Topic);
+            activity.SetTag("messaging.message_id", eventId);
+            activity.SetTag("messaging.kafka.partition", consumeResult.Partition.Value);
+            activity.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
+            activity.SetTag("event.type", eventTypeName);
+            activity.SetTag("event.id", eventId);
+            
+            if (traceId != null)
+            {
+                activity.SetTag("trace.parent", traceId);
+            }
+
+            if (traceState != null)
+            {
+                activity.SetTag("trace.state", traceState);
+            }
+        }
+
         var eventType = Type.GetType($"IntegrationEvents.{eventTypeName}, IntegrationEvents");
         if (eventType == null)
         {
@@ -194,6 +240,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             key: consumeResult.Message.Key,
             eventType: eventType.AssemblyQualifiedName!,
             payload: consumeResult.Message.Value,
+            traceId: traceId,
             cancellationToken: cancellationToken);
 
         if (!added)

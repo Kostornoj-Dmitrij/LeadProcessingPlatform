@@ -11,6 +11,7 @@ public interface IInboxStore
         string key, 
         string eventType, 
         string payload,
+        string? traceId,
         CancellationToken cancellationToken = default);
 
     Task<List<InboxMessage>> GetPendingMessagesAsync(

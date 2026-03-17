@@ -17,6 +17,8 @@ public class InboxMessage
 
     public string Payload { get; set; } = string.Empty;
 
+    public string? TraceId { get; set; }
+
     public DateTime ReceivedAt { get; set; }
 
     public DateTime? ProcessedAt { get; set; }

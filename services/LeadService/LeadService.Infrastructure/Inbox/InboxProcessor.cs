@@ -62,7 +62,46 @@ public class InboxProcessor(
 
         foreach (var message in messages)
         {
-            using var activity = StartActivityForMessage(message);
+            ActivityContext parentContext = default;
+            if (!string.IsNullOrEmpty(message.TraceId))
+            {
+                if (ActivityContext.TryParse(message.TraceId, null, out var parsedContext))
+                {
+                    parentContext = parsedContext;
+                    logger.LogDebug("Restored parent context from TraceId: {TraceId}", message.TraceId);
+                }
+                else
+                {
+                    logger.LogDebug("Failed to parse TraceId: {TraceId}", message.TraceId);
+                }
+            }
+
+            using var activity = ActivitySource.StartActivity(
+                $"Process {message.EventType}",
+                ActivityKind.Consumer,
+                parentContext: parentContext);
+
+            if (activity != null)
+            {
+                activity.SetTag("messaging.system", "kafka");
+                activity.SetTag("messaging.destination", message.Topic);
+                activity.SetTag("messaging.message_id", message.MessageId);
+                activity.SetTag("messaging.kafka.partition", message.Key);
+                activity.SetTag("event.type", message.EventType);
+
+                try
+                {
+                    using var jsonDoc = JsonDocument.Parse(message.Payload);
+                    if (jsonDoc.RootElement.TryGetProperty("eventId", out var eventIdElement))
+                    {
+                        activity.SetTag("event.id", eventIdElement.GetString());
+                    }
+                }
+                catch
+                {
+                    // Игнорируем
+                }
+            }
 
             try
             {
@@ -115,40 +154,6 @@ public class InboxProcessor(
                 }
             }
         }
-    }
-
-    private Activity? StartActivityForMessage(InboxMessage message)
-    {
-        Activity? activity = null;
-        
-        try
-        {
-            using var jsonDoc = JsonDocument.Parse(message.Payload);
-            if (jsonDoc.RootElement.TryGetProperty("eventId", out var eventIdElement))
-            {
-                var eventId = eventIdElement.GetString();
-                
-                activity = ActivitySource.StartActivity(
-                    $"Process {message.EventType}",
-                    ActivityKind.Consumer);
-                
-                if (activity != null)
-                {
-                    activity.SetTag("messaging.system", "kafka");
-                    activity.SetTag("messaging.destination", message.Topic);
-                    activity.SetTag("messaging.message_id", message.MessageId);
-                    activity.SetTag("messaging.kafka.partition", message.Key);
-                    activity.SetTag("event.type", message.EventType);
-                    activity.SetTag("event.id", eventId);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Failed to parse message for trace context");
-        }
-        
-        return activity;
     }
 
     private async Task ProcessMessageAsync(

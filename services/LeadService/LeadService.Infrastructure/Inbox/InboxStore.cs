@@ -20,6 +20,7 @@ public class InboxStore(
         string key,
         string eventType,
         string payload,
+        string? traceId,
         CancellationToken cancellationToken = default)
     {
         try
@@ -32,6 +33,7 @@ public class InboxStore(
                 Key = key,
                 EventType = eventType,
                 Payload = payload,
+                TraceId = traceId,
                 ReceivedAt = DateTime.UtcNow,
                 ProcessingAttempts = 0
             };
