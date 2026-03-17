@@ -1,5 +1,4 @@
-﻿using Npgsql;
-using OpenTelemetry.Resources;
+﻿using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 
@@ -34,10 +33,10 @@ public static class OpenTelemetryExtensions
                     options.RecordException = true;
                 })
                 .AddHttpClientInstrumentation()
-                .AddNpgsql()
                 .AddSource("LeadService.InboxProcessor")
                 .AddSource("LeadService.OutboxPublisher")
                 .AddSource("LeadService.KafkaConsumer")
+                .AddProcessor(new DatabaseFilterProcessor())
                 .AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint)))
             .WithMetrics(metrics => metrics
                 .AddAspNetCoreInstrumentation()

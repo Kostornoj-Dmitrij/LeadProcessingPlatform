@@ -12,7 +12,7 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
 {
     public void Configure(EntityTypeBuilder<Lead> builder)
     {
-        builder.ToTable("Leads");
+        builder.ToTable("leads");
         
         builder.HasKey(x => x.Id);
         
@@ -20,7 +20,7 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
             .HasConversion(
                 v => v.Value,
                 v => CompanyName.CreateUnsafe(v))
-            .HasColumnName("CompanyName")
+            .HasColumnName("company_name")
             .HasMaxLength(255)
             .IsRequired();
         
@@ -28,7 +28,7 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
             .HasConversion(
                 v => v.Value,
                 v => Email.CreateUnsafe(v))
-            .HasColumnName("Email")
+            .HasColumnName("email")
             .HasMaxLength(255)
             .IsRequired();
         
@@ -36,60 +36,60 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
             .HasConversion(
                 v => v != null ? v.Value : null,
                 v => v != null ? Phone.CreateUnsafe(v) : null)
-            .HasColumnName("Phone")
+            .HasColumnName("phone")
             .HasMaxLength(50);
         
         builder.Property(x => x.Id)
-            .HasColumnName("Id")
+            .HasColumnName("id")
             .IsRequired();
         
         builder.Property(x => x.ExternalLeadId)
-            .HasColumnName("ExternalLeadId")
+            .HasColumnName("external_lead_id")
             .HasMaxLength(255);
         
         builder.Property(x => x.Source)
-            .HasColumnName("Source")
+            .HasColumnName("source")
             .HasMaxLength(100)
             .IsRequired();
         
         builder.Property(x => x.ContactPerson)
-            .HasColumnName("ContactPerson")
+            .HasColumnName("contact_person")
             .HasMaxLength(255);
         
         builder.Property(x => x.Status)
-            .HasColumnName("Status")
+            .HasColumnName("status")
             .HasConversion<int>()
             .IsRequired();
         
         builder.Property(x => x.Score)
-            .HasColumnName("Score");
+            .HasColumnName("score");
 
         builder.Property(x => x.IsEnrichmentCompensated)
-            .HasColumnName("IsEnrichmentCompensated")
+            .HasColumnName("is_enrichment_compensated")
             .HasDefaultValue(false);
 
         builder.Property(x => x.IsScoringCompensated)
-            .HasColumnName("IsScoringCompensated")
+            .HasColumnName("is_scoring_compensated")
             .HasDefaultValue(false);
 
         builder.Property(x => x.IsEnrichmentReceived)
-            .HasColumnName("IsEnrichmentReceived")
+            .HasColumnName("is_enrichment_received")
             .HasDefaultValue(false);
 
         builder.Property(x => x.IsScoringReceived)
-            .HasColumnName("IsScoringReceived")
+            .HasColumnName("is_scoring_received")
             .HasDefaultValue(false);
 
         builder.Property(x => x.EnrichedData)
-            .HasColumnName("EnrichedData")
+            .HasColumnName("enriched_data")
             .HasColumnType("jsonb");
         
         builder.Property(x => x.CreatedAt)
-            .HasColumnName("CreatedAt")
+            .HasColumnName("created_at")
             .IsRequired();
         
         builder.Property(x => x.UpdatedAt)
-            .HasColumnName("UpdatedAt")
+            .HasColumnName("updated_at")
             .IsRequired();
 
         builder.Property(x => x.Version)
@@ -99,17 +99,17 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
         
         builder.HasIndex(x => x.ExternalLeadId)
             .IsUnique()
-            .HasDatabaseName("IX_Leads_ExternalLeadId")
-            .HasFilter("ExternalLeadId IS NOT NULL");
+            .HasDatabaseName("ix_leads_external_lead_id")
+            .HasFilter("external_lead_id IS NOT NULL");
         
         builder.HasIndex(x => x.Email)
-            .HasDatabaseName("IX_Leads_Email");
+            .HasDatabaseName("ix_leads_email");
         
         builder.HasIndex(x => x.Status)
-            .HasDatabaseName("IX_Leads_Status");
+            .HasDatabaseName("ix_leads_status");
         
         builder.HasIndex(x => x.CreatedAt)
-            .HasDatabaseName("IX_Leads_CreatedAt");
+            .HasDatabaseName("ix_leads_created_at");
         
         builder.HasMany(x => x.CustomFields)
             .WithOne()

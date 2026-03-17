@@ -37,9 +37,14 @@ kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
   --replication-factor 1
 
 kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic dlq \
+  --topic lead-service-dlq \
   --partitions 3 \
   --replication-factor 1
 
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic healthcheck \
+  --partitions 1 \
+  --replication-factor 1
+  
 echo "Topics created:"
 kafka-topics --bootstrap-server kafka:29092 --list

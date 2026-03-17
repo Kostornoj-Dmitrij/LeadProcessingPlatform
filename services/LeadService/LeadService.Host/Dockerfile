@@ -21,7 +21,7 @@ WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-COPY _infrastructure/wait-for-it.sh /wait-for-it.sh
+COPY _infrastructure/scripts/wait-for-it.sh /wait-for-it.sh
 RUN chmod +x /wait-for-it.sh
 
 COPY --from=build /app/publish .

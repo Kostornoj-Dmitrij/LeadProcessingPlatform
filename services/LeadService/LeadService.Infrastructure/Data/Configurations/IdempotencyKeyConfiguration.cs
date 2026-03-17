@@ -1,6 +1,6 @@
-﻿using LeadService.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using LeadService.Domain.Entities;
 using SharedKernel.Entities;
 
 namespace LeadService.Infrastructure.Data.Configurations;
@@ -12,39 +12,43 @@ public class IdempotencyKeyConfiguration : IEntityTypeConfiguration<IdempotencyK
 {
     public void Configure(EntityTypeBuilder<IdempotencyKey> builder)
     {
-        builder.ToTable("IdempotencyKeys");
+        builder.ToTable("idempotency_keys");
         builder.HasKey(x => x.Id);
-        
+
+        builder.Property(x => x.Id)
+            .HasColumnName("id")
+            .IsRequired();
+
         builder.Property(x => x.Key)
-            .HasColumnName("IdempotencyKey")
+            .HasColumnName("key")
             .HasMaxLength(255)
             .IsRequired();
         
         builder.Property(x => x.LeadId)
-            .HasColumnName("LeadId");
+            .HasColumnName("lead_id");
         
         builder.Property(x => x.RequestHash)
-            .HasColumnName("RequestHash")
+            .HasColumnName("request_hash")
             .HasColumnType("bytea")
             .IsRequired();
         
         builder.Property(x => x.ResponseCode)
-            .HasColumnName("ResponseCode");
+            .HasColumnName("response_code");
         
         builder.Property(x => x.ResponseBody)
-            .HasColumnName("ResponseBody")
+            .HasColumnName("response_body")
             .HasColumnType("jsonb");
         
         builder.Property(x => x.CreatedAt)
-            .HasColumnName("CreatedAt")
+            .HasColumnName("created_at")
             .IsRequired();
         
         builder.Property(x => x.LockedUntil)
-            .HasColumnName("LockedUntil");
+            .HasColumnName("locked_until");
         
         builder.HasIndex(x => x.Key)
             .IsUnique()
-            .HasDatabaseName("IX_IdempotencyKeys_Key");
+            .HasDatabaseName("ix_idempotency_keys_key");
         
         builder.HasOne<Lead>()
             .WithOne()

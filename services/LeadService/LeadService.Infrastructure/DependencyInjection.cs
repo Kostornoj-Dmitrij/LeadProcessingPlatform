@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using LeadService.Application.Common.Interfaces;
 using LeadService.Infrastructure.Data;
+using LeadService.Infrastructure.Data.Repositories;
 using LeadService.Infrastructure.EventBus;
 using LeadService.Infrastructure.Outbox;
 using LeadService.Infrastructure.Inbox;
@@ -29,7 +30,8 @@ public static class DependencyInjection
         
         services.AddScoped<IUnitOfWork>(provider => 
             provider.GetRequiredService<ApplicationDbContext>());
-        
+
+        services.AddScoped<IIdempotencyRepository, IdempotencyRepository>();
         services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
 
         services.AddSingleton<KafkaEventBus>();

@@ -45,9 +45,6 @@ builder.Services.AddHealthChecks()
         name: "kafka",
         tags: ["messaging", "kafka"]);
 
-builder.Services.AddScoped<GlobalExceptionHandler>();
-builder.Services.AddScoped<RequestLoggingMiddleware>();
-
 builder.Services.AddOpenApiDocument(config =>
 {
     config.DocumentName = "v1";
@@ -73,8 +70,9 @@ else
     app.UseHsts();
 }
 
-app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalExceptionHandler>();
+app.UseMiddleware<RequestLoggingMiddleware>();
+
 
 app.UseRouting();
 app.UseAuthorization();

@@ -11,25 +11,28 @@ public class LeadCustomFieldConfiguration : IEntityTypeConfiguration<LeadCustomF
 {
     public void Configure(EntityTypeBuilder<LeadCustomField> builder)
     {
-        builder.ToTable("LeadCustomFields");
-        
+        builder.ToTable("lead_custom_fields");
         builder.HasKey(x => x.Id);
-        
+
+        builder.Property(x => x.Id)
+            .HasColumnName("id")
+            .IsRequired();
+
         builder.Property(x => x.LeadId)
-            .HasColumnName("LeadId")
+            .HasColumnName("lead_id")
             .IsRequired();
         
         builder.Property(x => x.FieldName)
-            .HasColumnName("FieldName")
+            .HasColumnName("field_name")
             .HasMaxLength(100)
             .IsRequired();
         
         builder.Property(x => x.FieldValue)
-            .HasColumnName("FieldValue")
+            .HasColumnName("field_value")
             .IsRequired();
         
         builder.HasIndex(x => new { x.LeadId, x.FieldName })
             .IsUnique()
-            .HasDatabaseName("IX_LeadCustomFields_LeadId_FieldName");
+            .HasDatabaseName("ix_lead_custom_fields_lead_id_field_name");
     }
 }

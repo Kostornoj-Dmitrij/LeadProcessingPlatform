@@ -11,44 +11,48 @@ public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage
 {
     public void Configure(EntityTypeBuilder<OutboxMessage> builder)
     {
-        builder.ToTable("OutboxMessages");
+        builder.ToTable("outbox_messages");
         builder.HasKey(x => x.Id);
-        
+
+        builder.Property(x => x.Id)
+            .HasColumnName("id")
+            .IsRequired();
+
         builder.Property(x => x.AggregateType)
-            .HasColumnName("AggregateType")
+            .HasColumnName("aggregate_type")
             .HasMaxLength(100)
             .IsRequired();
         
         builder.Property(x => x.AggregateId)
-            .HasColumnName("AggregateId")
+            .HasColumnName("aggregate_id")
             .HasMaxLength(255)
             .IsRequired();
         
         builder.Property(x => x.EventType)
-            .HasColumnName("EventType")
-            .HasMaxLength(100)
+            .HasColumnName("event_type")
+            .HasMaxLength(500)
             .IsRequired();
         
         builder.Property(x => x.Payload)
-            .HasColumnName("Payload")
+            .HasColumnName("payload")
             .HasColumnType("jsonb")
             .IsRequired();
         
         builder.Property(x => x.CreatedAt)
-            .HasColumnName("CreatedAt")
+            .HasColumnName("created_at")
             .IsRequired();
         
         builder.Property(x => x.ProcessedAt)
-            .HasColumnName("ProcessedAt");
+            .HasColumnName("processed_at");
         
         builder.Property(x => x.ProcessingAttempts)
-            .HasColumnName("ProcessingAttempts")
+            .HasColumnName("processing_attempts")
             .HasDefaultValue(0);
         
         builder.Property(x => x.ErrorMessage)
-            .HasColumnName("ErrorMessage");
+            .HasColumnName("error_message");
         
         builder.HasIndex(x => x.ProcessedAt)
-            .HasDatabaseName("IX_OutboxMessages_ProcessedAt");
+            .HasDatabaseName("ix_outbox_messages_processed_at");
     }
 }

@@ -11,55 +11,59 @@ public class InboxMessageConfiguration : IEntityTypeConfiguration<InboxMessage>
 {
     public void Configure(EntityTypeBuilder<InboxMessage> builder)
     {
-        builder.ToTable("InboxMessages");
+        builder.ToTable("inbox_messages");
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.Id)
+            .HasColumnName("id")
+            .IsRequired();
+
         builder.Property(x => x.MessageId)
-            .HasColumnName("MessageId")
+            .HasColumnName("message_id")
             .HasMaxLength(255)
             .IsRequired();
 
         builder.Property(x => x.Topic)
-            .HasColumnName("Topic")
+            .HasColumnName("topic")
             .HasMaxLength(255)
             .IsRequired();
 
         builder.Property(x => x.Key)
-            .HasColumnName("Key")
+            .HasColumnName("key")
             .HasMaxLength(255);
 
         builder.Property(x => x.EventType)
-            .HasColumnName("EventType")
+            .HasColumnName("event_type")
             .HasMaxLength(500)
             .IsRequired();
 
         builder.Property(x => x.Payload)
-            .HasColumnName("Payload")
+            .HasColumnName("payload")
             .HasColumnType("jsonb")
             .IsRequired();
 
         builder.Property(x => x.ReceivedAt)
-            .HasColumnName("ReceivedAt")
+            .HasColumnName("received_at")
             .IsRequired();
 
         builder.Property(x => x.ProcessedAt)
-            .HasColumnName("ProcessedAt");
+            .HasColumnName("processed_at");
 
         builder.Property(x => x.ProcessingAttempts)
-            .HasColumnName("ProcessingAttempts")
+            .HasColumnName("processing_attempts")
             .HasDefaultValue(0);
 
         builder.Property(x => x.ErrorMessage)
-            .HasColumnName("ErrorMessage");
+            .HasColumnName("error_message");
 
         builder.Property(x => x.NextRetryAt)
-            .HasColumnName("NextRetryAt");
+            .HasColumnName("next_retry_at");
 
         builder.HasIndex(x => x.MessageId)
             .IsUnique()
-            .HasDatabaseName("IX_InboxMessages_MessageId");
+            .HasDatabaseName("ix_inbox_messages_message_id");
 
         builder.HasIndex(x => new { x.ProcessedAt, x.NextRetryAt })
-            .HasDatabaseName("IX_InboxMessages_ProcessedAt_NextRetryAt");
+            .HasDatabaseName("ix_inbox_messages_processed_at_next_retry_at");
     }
 }

@@ -11,38 +11,41 @@ public class LeadStatusHistoryConfiguration : IEntityTypeConfiguration<LeadStatu
 {
     public void Configure(EntityTypeBuilder<LeadStatusHistory> builder)
     {
-        builder.ToTable("LeadStatusHistory");
-        
+        builder.ToTable("lead_status_history");
         builder.HasKey(x => x.Id);
-        
+
+        builder.Property(x => x.Id)
+            .HasColumnName("id")
+            .IsRequired();
+
         builder.Property(x => x.LeadId)
-            .HasColumnName("LeadId")
+            .HasColumnName("lead_id")
             .IsRequired();
         
         builder.Property(x => x.OldStatus)
-            .HasColumnName("OldStatus")
+            .HasColumnName("old_status")
             .HasMaxLength(50);
         
         builder.Property(x => x.NewStatus)
-            .HasColumnName("NewStatus")
+            .HasColumnName("new_status")
             .HasMaxLength(50)
             .IsRequired();
         
         builder.Property(x => x.ChangedAt)
-            .HasColumnName("ChangedAt")
+            .HasColumnName("changed_at")
             .IsRequired();
         
         builder.Property(x => x.Reason)
-            .HasColumnName("Reason");
+            .HasColumnName("reason");
         
         builder.Property(x => x.EventId)
-            .HasColumnName("EventId");
+            .HasColumnName("event_id");
         
         builder.HasIndex(x => x.LeadId)
-            .HasDatabaseName("IX_LeadStatusHistory_LeadId");
+            .HasDatabaseName("ix_lead_status_history_lead_id");
         
         builder.HasIndex(x => x.ChangedAt)
-            .HasDatabaseName("IX_LeadStatusHistory_ChangedAt");
+            .HasDatabaseName("ix_lead_status_history_changed_at");
         
         builder.HasOne(x => x.Lead)
             .WithMany()

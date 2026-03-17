@@ -8,14 +8,14 @@ namespace LeadService.Host.Middleware;
 /// <summary>
 /// Глобальный обработчик исключений
 /// </summary>
-public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IMiddleware
+public class GlobalExceptionHandler(RequestDelegate next, ILogger<GlobalExceptionHandler> logger)
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public async Task InvokeAsync(HttpContext context, RequestDelegate next)
+    public async Task InvokeAsync(HttpContext context)
     {
         try
         {

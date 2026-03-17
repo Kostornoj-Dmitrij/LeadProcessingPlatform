@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using MediatR;
 using LeadService.Application.Common.Interfaces;
 using LeadService.Application.DTOs;
@@ -21,11 +22,6 @@ public class CreateLeadCommandHandler(
     ILogger<CreateLeadCommandHandler> logger)
     : IRequestHandler<CreateLeadCommand, LeadDto>
 {
-    private readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
     public async Task<LeadDto> Handle(CreateLeadCommand request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(request.ExternalLeadId))
@@ -48,10 +44,32 @@ public class CreateLeadCommandHandler(
 
         if (idempotencyKey.ResponseCode.HasValue)
         {
-            logger.LogInformation("Returning cached response for idempotency key {Key}", 
+            logger.LogInformation("Returning cached response for idempotency key {Key}",
                 request.ExternalLeadId);
-                
-            return JsonSerializer.Deserialize<LeadDto>(idempotencyKey.ResponseBody!, _jsonOptions)!;        }
+
+            var cachedResponse = JsonSerializer.Deserialize<LeadDto>(
+                idempotencyKey.ResponseBody!,
+                new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter() }
+                });
+            if (cachedResponse == null || cachedResponse.Id == Guid.Empty)
+            {
+                logger.LogWarning("Cached response for key {Key} is invalid, reprocessing",
+                    request.ExternalLeadId);
+                var result = await CreateLeadInternal(request, cancellationToken);
+                await idempotencyRepository.UpdateWithResultAsync(
+                    idempotencyKey.Id,
+                    result.Id,
+                    200,
+                    JsonSerializer.Serialize(result),
+                    cancellationToken);
+                return result;
+            }
+
+            return cachedResponse;
+        }
 
         try
         {
@@ -61,7 +79,11 @@ public class CreateLeadCommandHandler(
                 idempotencyKey.Id,
                 result.Id,
                 200,
-                JsonSerializer.Serialize(result),
+                JsonSerializer.Serialize(result, new JsonSerializerOptions 
+                { 
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter() }
+                }),
                 cancellationToken);
 
             return result;
@@ -112,6 +134,7 @@ public class CreateLeadCommandHandler(
         };
 
         await unitOfWork.Set<OutboxMessage>().AddAsync(outboxMessage, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return MapToDto(lead);
     }
