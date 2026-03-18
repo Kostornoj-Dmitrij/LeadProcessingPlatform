@@ -77,11 +77,7 @@ public class CreateLeadCommandHandler(
                 idempotencyKey.Id,
                 result.Id,
                 200,
-                JsonSerializer.Serialize(result, new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    Converters = { new JsonStringEnumConverter() }
-                }),
+                JsonSerializer.Serialize(result),
                 cancellationToken);
 
             return result;

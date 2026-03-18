@@ -167,7 +167,12 @@ public class InboxProcessor(
             throw new InvalidOperationException($"Unknown event type: {message.EventType}");
         }
 
-        var @event = JsonSerializer.Deserialize(message.Payload, eventType) as IIntegrationEvent;
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+    
+        var @event = JsonSerializer.Deserialize(message.Payload, eventType, options) as IIntegrationEvent;
         if (@event == null)
         {
             throw new InvalidOperationException($"Failed to deserialize event: {message.EventType}");
