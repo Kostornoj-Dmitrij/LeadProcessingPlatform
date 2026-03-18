@@ -20,6 +20,11 @@ public class CreateLeadCommandHandler(
     ILogger<CreateLeadCommandHandler> logger)
     : IRequestHandler<CreateLeadCommand, LeadDto>
 {
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
     public async Task<LeadDto> Handle(CreateLeadCommand request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(request.ExternalLeadId))
@@ -47,11 +52,7 @@ public class CreateLeadCommandHandler(
 
             var cachedResponse = JsonSerializer.Deserialize<LeadDto>(
                 idempotencyKey.ResponseBody!,
-                new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    Converters = { new JsonStringEnumConverter() }
-                });
+                _jsonOptions);
             if (cachedResponse == null || cachedResponse.Id == Guid.Empty)
             {
                 logger.LogWarning("Cached response for key {Key} is invalid, reprocessing",
@@ -61,7 +62,7 @@ public class CreateLeadCommandHandler(
                     idempotencyKey.Id,
                     result.Id,
                     200,
-                    JsonSerializer.Serialize(result),
+                    JsonSerializer.Serialize(result, _jsonOptions),
                     cancellationToken);
                 return result;
             }
@@ -77,7 +78,7 @@ public class CreateLeadCommandHandler(
                 idempotencyKey.Id,
                 result.Id,
                 200,
-                JsonSerializer.Serialize(result),
+                JsonSerializer.Serialize(result, _jsonOptions),
                 cancellationToken);
 
             return result;

@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Confluent.Kafka;
 using LeadService.Application.Common.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -16,6 +17,11 @@ public class KafkaEventBus : IEventBus
     private readonly IProducer<string, string> _producer;
     private readonly ILogger<KafkaEventBus> _logger;
     private readonly Dictionary<Type, string> _eventToTopicMap;
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     public KafkaEventBus(
         IConfiguration configuration,
@@ -64,10 +70,7 @@ public class KafkaEventBus : IEventBus
         try
         {
             var topic = GetTopicForEvent(integrationEvent);
-            var messageValue = JsonSerializer.Serialize(@event, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
+            var messageValue = JsonSerializer.Serialize(@event, JsonOptions);
             
             var message = new Message<string, string>
             {

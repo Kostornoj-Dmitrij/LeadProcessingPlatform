@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +13,8 @@ public class GlobalExceptionHandler(RequestDelegate next, ILogger<GlobalExceptio
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     public async Task InvokeAsync(HttpContext context)

@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 using IntegrationEvents;
 using IntegrationEvents.LeadEvents;
 using IntegrationEvents.EnrichmentEvents;
@@ -19,7 +20,8 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     public List<OutboxMessage> Convert(
