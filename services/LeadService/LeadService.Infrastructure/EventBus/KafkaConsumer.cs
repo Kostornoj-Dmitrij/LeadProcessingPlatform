@@ -207,6 +207,8 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             traceState = Encoding.UTF8.GetString(traceStateBytes);
         }
 
+        _logger.LogWarning("RAW MESSAGE - Topic: {Topic}, Key: {Key}, Value: {Value}", 
+            consumeResult.Topic, consumeResult.Message.Key, consumeResult.Message.Value);
         using var activity = ActivitySource.StartActivity(
             $"Kafka Consumer {eventTypeName}",
             ActivityKind.Consumer,
