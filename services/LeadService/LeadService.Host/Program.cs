@@ -6,6 +6,7 @@ using LeadService.Host.Middleware;
 using LeadService.Host.Options;
 using Microsoft.AspNetCore.Http.Json;
 using System.Text.Json.Serialization;
+using Confluent.Kafka;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,7 +39,7 @@ builder.Services.AddHealthChecks()
         name: "postgres",
         tags: ["db", "postgres"])
     .AddKafka(
-        new Confluent.Kafka.ProducerConfig 
+        new ProducerConfig 
         { 
             BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] 
         },
@@ -73,7 +74,6 @@ else
 app.UseMiddleware<GlobalExceptionHandler>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
-
 app.UseRouting();
 app.UseAuthorization();
 
@@ -83,6 +83,64 @@ app.MapHealthChecks("/health");
 if (app.Environment.IsDevelopment())
 {
     await app.ApplyMigrationsAsync();
+    await WaitForKafkaTopicsAsync(app.Services);
 }
 
 app.Run();
+
+async Task WaitForKafkaTopicsAsync(IServiceProvider services)
+{
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    var configuration = services.GetRequiredService<IConfiguration>();
+    
+    var bootstrapServers = configuration["Kafka:BootstrapServers"];
+    var requiredTopics = new[] 
+    { 
+        "enrichment-events", 
+        "scoring-events", 
+        "distribution-events", 
+        "saga-events",
+        "notification-events",
+        "lead-events"
+    };
+    
+    var maxRetries = 60;
+    var retryDelay = TimeSpan.FromSeconds(2);
+    
+    using var adminClient = new AdminClientBuilder(new AdminClientConfig
+    {
+        BootstrapServers = bootstrapServers
+    }).Build();
+    
+    for (int attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        try
+        {
+            var metadata = adminClient.GetMetadata(TimeSpan.FromSeconds(10));
+            var existingTopics = metadata.Topics
+                .Where(t => t.Error.Code == ErrorCode.NoError)
+                .Select(t => t.Topic)
+                .ToHashSet();
+            
+            var missingTopics = requiredTopics.Except(existingTopics).ToList();
+            
+            if (!missingTopics.Any())
+            {
+                logger.LogInformation("All Kafka topics are available");
+                return;
+            }
+            
+            logger.LogInformation("Waiting for topics: {MissingTopics} (attempt {Attempt}/{MaxRetries})", 
+                string.Join(", ", missingTopics), attempt, maxRetries);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning("Kafka not ready: {Message} (attempt {Attempt}/{MaxRetries})", 
+                ex.Message, attempt, maxRetries);
+        }
+        
+        await Task.Delay(retryDelay);
+    }
+    
+    logger.LogWarning("Not all topics are available after {MaxRetries} attempts. Continuing anyway...", maxRetries);
+}

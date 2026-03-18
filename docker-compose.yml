@@ -177,6 +177,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
     networks:
       - lead-network
     restart: unless-stopped
