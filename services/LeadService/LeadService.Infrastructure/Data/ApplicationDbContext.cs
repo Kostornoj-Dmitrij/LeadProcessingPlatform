@@ -3,6 +3,7 @@ using LeadService.Domain.Entities;
 using LeadService.Infrastructure.Data.Entities;
 using SharedKernel.Entities;
 using System.Reflection;
+using LeadService.Domain.Enums;
 using Microsoft.EntityFrameworkCore.Storage;
 using SharedKernel.Events;
 using IUnitOfWork = SharedKernel.Base.IUnitOfWork;
@@ -67,6 +68,34 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
                 }
             }
         
+            var statusHistories = new List<LeadStatusHistory>();
+        
+            foreach (var entry in ChangeTracker.Entries<Lead>())
+            {
+                if (entry.State == EntityState.Modified)
+                {
+                    var originalStatus = (LeadStatus?)entry.OriginalValues["Status"];
+                    var currentStatus = entry.Entity.Status;
+                
+                    if (originalStatus != currentStatus)
+                    {
+                        statusHistories.Add(new LeadStatusHistory
+                        {
+                            Id = Guid.NewGuid(),
+                            LeadId = entry.Entity.Id,
+                            OldStatus = originalStatus?.ToString(),
+                            NewStatus = currentStatus.ToString(),
+                            ChangedAt = DateTime.UtcNow,
+                            EventId = entry.Entity.DomainEvents.LastOrDefault()?.EventId
+                        });
+                    }
+                }
+            }
+        
+            if (statusHistories.Any())
+            {
+                await LeadStatusHistories.AddRangeAsync(statusHistories, cancellationToken);
+            }
             var aggregatesWithEvents = new List<(Lead aggregate, List<IDomainEvent> events)>();
             
             foreach (var entry in ChangeTracker.Entries<Lead>())
