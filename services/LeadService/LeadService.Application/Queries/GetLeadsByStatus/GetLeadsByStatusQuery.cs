@@ -10,6 +10,8 @@ namespace LeadService.Application.Queries.GetLeadsByStatus;
 public class GetLeadsByStatusQuery : IRequest<List<LeadDto>>
 {
     public LeadStatus? Status { get; init; }
+
     public int? Limit { get; init; }
+
     public int? Offset { get; init; }
 }

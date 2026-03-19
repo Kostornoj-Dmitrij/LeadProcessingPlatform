@@ -14,7 +14,10 @@ public abstract class IntegrationEvent : IIntegrationEvent
     }
 
     public Guid EventId { get; set; }
+
     public DateTime OccurredOnUtc { get; set; }
+
     public string? EventType { get; set; }
+
     public int SchemaVersion { get; set; }
 }

@@ -15,9 +15,13 @@ public class LeadQualifiedDomainEvent(
     : DomainEvent
 {
     public Guid LeadId { get; } = leadId;
+
     public int Score { get; } = score;
+
     public string CompanyName { get; } = companyName;
+
     public string? ContactPerson { get; } = contactPerson;
+
     public string Email { get; } = email;
 
     public EnrichedDataDto? EnrichedData { get; } = enrichedData;

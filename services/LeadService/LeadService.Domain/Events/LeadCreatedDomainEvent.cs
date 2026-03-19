@@ -17,11 +17,18 @@ public sealed class LeadCreatedDomainEvent(
     : DomainEvent
 {
     public Guid LeadId { get; } = leadId;
+
     public string Source { get; } = source;
+
     public string CompanyName { get; } = companyName;
+
     public string? ContactPerson { get; } = contactPerson;
+
     public string Email { get; } = email;
+
     public string? Phone { get; } = phone;
+
     public string? ExternalLeadId { get; } = externalLeadId;
+
     public Dictionary<string, string>? CustomFields { get; } = customFields;
 }

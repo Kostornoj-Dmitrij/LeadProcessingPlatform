@@ -10,10 +10,14 @@ namespace SharedKernel.Base;
 public interface IUnitOfWork
 {
     DbSet<T> Set<T>() where T : class;
+
     EntityEntry<T> Entry<T>(T entity) where T : class;
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
+
     Task CommitTransactionAsync(CancellationToken cancellationToken = default);
+
     Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
 }

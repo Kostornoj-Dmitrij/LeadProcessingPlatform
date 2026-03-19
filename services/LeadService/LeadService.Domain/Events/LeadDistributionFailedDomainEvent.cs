@@ -8,5 +8,6 @@ namespace LeadService.Domain.Events;
 public sealed class LeadDistributionFailedDomainEvent(Guid leadId, string reason) : DomainEvent
 {
     public Guid LeadId { get; } = leadId;
+
     public string Reason { get; } = reason;
 }
