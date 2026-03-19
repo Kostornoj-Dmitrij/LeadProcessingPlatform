@@ -13,7 +13,7 @@ public sealed class Email : ValueObject
     {
         Value = value;
     }
-    
+
     public static Email Create(string email)
     {
         if (string.IsNullOrWhiteSpace(email))

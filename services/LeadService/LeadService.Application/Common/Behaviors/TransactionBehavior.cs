@@ -22,13 +22,13 @@ public class TransactionBehavior<TRequest, TResponse>(
         {
             logger.LogDebug("Beginning transaction for {RequestType}", typeof(TRequest).Name);
             await unitOfWork.BeginTransactionAsync(cancellationToken);
-            
+
             try
             {
                 var response = await next(cancellationToken);
-                
+
                 await unitOfWork.CommitTransactionAsync(cancellationToken);
-                
+
                 logger.LogDebug("Transaction committed for {RequestType}", typeof(TRequest).Name);
                 return response;
             }
@@ -39,7 +39,7 @@ public class TransactionBehavior<TRequest, TResponse>(
                 throw;
             }
         }
-        
+
         return await next(cancellationToken);
     }
 }

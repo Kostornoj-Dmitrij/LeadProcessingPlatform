@@ -13,9 +13,9 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
     public void Configure(EntityTypeBuilder<Lead> builder)
     {
         builder.ToTable("leads");
-        
+
         builder.HasKey(x => x.Id);
-        
+
         builder.Property(x => x.CompanyName)
             .HasConversion(
                 v => v.Value,
@@ -23,7 +23,7 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
             .HasColumnName("company_name")
             .HasMaxLength(255)
             .IsRequired();
-        
+
         builder.Property(x => x.Email)
             .HasConversion(
                 v => v.Value,
@@ -31,36 +31,36 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
             .HasColumnName("email")
             .HasMaxLength(255)
             .IsRequired();
-        
+
         builder.Property(x => x.Phone)
             .HasConversion(
                 v => v != null ? v.Value : null,
                 v => v != null ? Phone.CreateUnsafe(v) : null)
             .HasColumnName("phone")
             .HasMaxLength(50);
-        
+
         builder.Property(x => x.Id)
             .HasColumnName("id")
             .IsRequired();
-        
+
         builder.Property(x => x.ExternalLeadId)
             .HasColumnName("external_lead_id")
             .HasMaxLength(255);
-        
+
         builder.Property(x => x.Source)
             .HasColumnName("source")
             .HasMaxLength(100)
             .IsRequired();
-        
+
         builder.Property(x => x.ContactPerson)
             .HasColumnName("contact_person")
             .HasMaxLength(255);
-        
+
         builder.Property(x => x.Status)
             .HasColumnName("status")
             .HasConversion<int>()
             .IsRequired();
-        
+
         builder.Property(x => x.Score)
             .HasColumnName("score");
 
@@ -83,11 +83,11 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
         builder.Property(x => x.EnrichedData)
             .HasColumnName("enriched_data")
             .HasColumnType("jsonb");
-        
+
         builder.Property(x => x.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
-        
+
         builder.Property(x => x.UpdatedAt)
             .HasColumnName("updated_at")
             .IsRequired();
@@ -96,21 +96,21 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
             .HasColumnName("xmin")
             .ValueGeneratedOnAddOrUpdate()
             .IsConcurrencyToken();
-        
+
         builder.HasIndex(x => x.ExternalLeadId)
             .IsUnique()
             .HasDatabaseName("ix_leads_external_lead_id")
             .HasFilter("external_lead_id IS NOT NULL");
-        
+
         builder.HasIndex(x => x.Email)
             .HasDatabaseName("ix_leads_email");
-        
+
         builder.HasIndex(x => x.Status)
             .HasDatabaseName("ix_leads_status");
-        
+
         builder.HasIndex(x => x.CreatedAt)
             .HasDatabaseName("ix_leads_created_at");
-        
+
         builder.HasMany(x => x.CustomFields)
             .WithOne()
             .HasForeignKey(x => x.LeadId)

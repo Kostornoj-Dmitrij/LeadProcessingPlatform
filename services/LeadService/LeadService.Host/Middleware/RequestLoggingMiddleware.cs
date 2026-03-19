@@ -11,7 +11,7 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
     public async Task InvokeAsync(HttpContext context)
     {
         var stopwatch = Stopwatch.StartNew();
-        
+
         await LogRequest(context);
 
         var originalBodyStream = context.Response.Body;
@@ -41,7 +41,7 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
         context.Request.Body.Seek(0, SeekOrigin.Begin);
 
         var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
-        
+
         logger.LogInformation(
             "HTTP Request {TraceId} - {Method} {Path} - Query: {Query} - Body: {Body}",
             traceId,

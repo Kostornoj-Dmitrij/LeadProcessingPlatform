@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using SharedKernel.Json;
 
 namespace LeadService.Host.Middleware;
 
@@ -11,12 +11,6 @@ namespace LeadService.Host.Middleware;
 /// </summary>
 public class GlobalExceptionHandler(RequestDelegate next, ILogger<GlobalExceptionHandler> logger)
 {
-    private readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() }
-    };
-
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -43,43 +37,43 @@ public class GlobalExceptionHandler(RequestDelegate next, ILogger<GlobalExceptio
                 "Validation failed",
                 validationEx.Errors.Select(e => new { e.PropertyName, e.ErrorMessage })
             ),
-            
+
             InvalidOperationException { Message: "Request is being processed by another instance" } => (
                 409,
                 "Request is being processed by another instance",
                 null
             ),
-            
+
             InvalidOperationException invalidOpEx => (
                 400,
                 invalidOpEx.Message,
                 null
             ),
-            
+
             ArgumentException argEx => (
                 400,
                 argEx.Message,
                 null
             ),
-            
+
             KeyNotFoundException keyNotFoundEx => (
                 404,
                 keyNotFoundEx.Message,
                 null
             ),
-            
+
             DbUpdateConcurrencyException => (
                 409,
                 "Concurrency conflict occurred. Please retry.",
                 null
             ),
-            
+
             Npgsql.NpgsqlException { IsTransient: true } => (
                 503,
                 "Database temporarily unavailable. Please retry.",
                 null
             ),
-            
+
             _ => (
                 500,
                 "An internal server error occurred.",
@@ -97,6 +91,6 @@ public class GlobalExceptionHandler(RequestDelegate next, ILogger<GlobalExceptio
             TraceId = Activity.Current?.Id ?? context.TraceIdentifier
         };
 
-        await response.WriteAsync(JsonSerializer.Serialize(errorResponse, _jsonOptions));
+        await response.WriteAsync(JsonSerializer.Serialize(errorResponse, JsonDefaults.Options));
     }
 }

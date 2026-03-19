@@ -32,7 +32,7 @@ public class LeadsController(IMediator mediator, ILogger<LeadsController> logger
         }
 
         var result = await mediator.Send(command);
-        
+
         return Accepted(result);
     }
 

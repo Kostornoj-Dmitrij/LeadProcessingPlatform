@@ -4,6 +4,7 @@ using LeadService.Domain.ValueObjects;
 using SharedKernel.Base;
 using SharedKernel.Events;
 using System.Text.Json;
+using SharedKernel.Json;
 
 namespace LeadService.Domain.Entities;
 
@@ -69,7 +70,7 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Lead ID cannot be empty.", nameof(id));
-            
+
         if (string.IsNullOrWhiteSpace(source))
             throw new ArgumentException("Source cannot be empty.", nameof(source));
 
@@ -84,7 +85,7 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
             Status = LeadStatus.Initial,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
-            
+
             IsEnrichmentReceived = false,
             IsScoringReceived = false,
             IsEnrichmentCompensated = false,
@@ -159,8 +160,8 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
         {
             try
             {
-                enrichedData = JsonSerializer.Deserialize<EnrichedDataDto>(EnrichedData);
-                
+                enrichedData = JsonSerializer.Deserialize<EnrichedDataDto>(EnrichedData, JsonDefaults.Options);
+
                 if (enrichedData == null)
                 {
                     System.Diagnostics.Debug.WriteLine($"Failed to deserialize EnrichedData for lead {Id}: result is null");
@@ -260,7 +261,7 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
             return;
 
         var previousStatus = Status;
-        
+
         Status = LeadStatus.Closed;
         UpdatedAt = DateTime.UtcNow;
 

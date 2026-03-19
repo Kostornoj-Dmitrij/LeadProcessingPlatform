@@ -10,6 +10,7 @@ using LeadService.Infrastructure.Inbox;
 using IntegrationEvents;
 using SharedKernel.Entities;
 using Confluent.Kafka;
+using SharedKernel.Json;
 
 namespace LeadService.Infrastructure.Outbox;
 
@@ -42,7 +43,7 @@ public class OutboxPublisher(
 
             await Task.Delay(_pollingInterval, stoppingToken);
         }
-        
+
         logger.LogInformation("Outbox Publisher stopped");
     }
 
@@ -78,7 +79,7 @@ public class OutboxPublisher(
                     continue;
                 }
 
-                var @event = JsonSerializer.Deserialize(message.Payload, eventType);
+                var @event = JsonSerializer.Deserialize(message.Payload, eventType, JsonDefaults.Options);
                 if (@event == null)
                 {
                     logger.LogWarning("Failed to deserialize event: {EventType}", message.EventType);
@@ -98,7 +99,7 @@ public class OutboxPublisher(
                 }
 
                 await eventBus.PublishAsync(integrationEvent, cancellationToken);
-                
+
                 message.ProcessedAt = DateTime.UtcNow;
                 message.ErrorMessage = null;
                 
@@ -109,7 +110,7 @@ public class OutboxPublisher(
             {
                 message.ProcessingAttempts++;
                 message.ErrorMessage = ex.Message;
-                
+
                 logger.LogError(ex, "Failed to publish outbox message {MessageId}, attempt {Attempts}", 
                     message.Id, message.ProcessingAttempts);
 
@@ -133,10 +134,10 @@ public class OutboxPublisher(
         {
             var kafkaMessage = CreateKafkaMessageFromOutbox(message);
             await deadLetterQueue.SendAsync("outbox", kafkaMessage, exception, cancellationToken);
-            
+
             message.ProcessedAt = DateTime.UtcNow;
             message.ErrorMessage = $"MOVED TO DLQ: {exception.Message}";
-            
+
             logger.LogWarning(
                 "Outbox message {MessageId} moved to DLQ after {Attempts} attempts. Error: {Error}",
                 message.Id,

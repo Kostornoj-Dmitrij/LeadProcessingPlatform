@@ -31,7 +31,7 @@ public class IdempotencyRepository(
     {
         var now = DateTime.UtcNow;
         var lockedUntil = now.Add(lockDuration);
-        
+
         var sql = @"
             INSERT INTO idempotency_keys (id, key, request_hash, created_at, locked_until)
             VALUES (gen_random_uuid(), @key, @requestHash, @now, @lockedUntil)
@@ -61,7 +61,7 @@ public class IdempotencyRepository(
                 "UPDATE idempotency_keys SET locked_until = NULL WHERE id = @id",
                 new NpgsqlParameter("@id", lockedKey.Id),
                 cancellationToken);
-            
+
             throw new InvalidOperationException("Idempotency key used with different request data");
         }
         return await context.IdempotencyKeys.FindAsync([lockedKey.Id], cancellationToken);
@@ -81,7 +81,7 @@ public class IdempotencyRepository(
             key.ResponseCode = responseCode;
             key.ResponseBody = responseBody;
             key.LockedUntil = null;
-            
+
             await context.SaveChangesAsync(cancellationToken);
         }
     }

@@ -6,7 +6,7 @@
 public class KafkaOptions
 {
     public const string SectionName = "Kafka";
-    
+
     public string BootstrapServers { get; set; } = string.Empty;
     public string GroupId { get; set; } = "lead-service";
     public string DlqTopic { get; set; } = "lead-service-dlq";

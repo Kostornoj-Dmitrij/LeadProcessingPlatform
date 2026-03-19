@@ -13,14 +13,14 @@ public static class HostExtensions
         using var scope = app.Services.CreateScope();
         var services = scope.ServiceProvider;
         var logger = services.GetRequiredService<ILogger<Program>>();
-        
+
         try
         {
             var context = services.GetRequiredService<ApplicationDbContext>();
             logger.LogInformation("Applying database migrations...");
-            
+
             await context.Database.MigrateAsync();
-            
+
             logger.LogInformation("Database migrations applied successfully");
         }
         catch (Exception ex)

@@ -9,6 +9,7 @@ using SharedKernel.Events;
 using IntegrationEvents;
 using Confluent.Kafka;
 using System.Text;
+using SharedKernel.Json;
 
 namespace LeadService.Infrastructure.Inbox;
 
@@ -124,17 +125,17 @@ public class InboxProcessor(
                     message.ProcessingAttempts + 1);
 
                 var shouldRetry = IsTransientError(ex) && message.ProcessingAttempts < MaxRetryAttempts;
-                
+
                 if (shouldRetry)
                 {
                     var nextRetryAt = DateTime.UtcNow.AddSeconds(Math.Pow(2, message.ProcessingAttempts + 1));
-                    
+
                     await inboxStore.IncrementAttemptsAsync(
                         message.Id,
                         ex.Message,
                         nextRetryAt,
                         cancellationToken);
-                    
+
                     logger.LogInformation(
                         "Scheduled retry #{Attempts} for message {MessageId} at {NextRetryAt}",
                         message.ProcessingAttempts + 1,
@@ -146,7 +147,7 @@ public class InboxProcessor(
                     var kafkaMessage = CreateKafkaMessageFromInbox(message);
                     await deadLetterQueue.SendAsync(message.Topic, kafkaMessage, ex, cancellationToken);
                     await inboxStore.MoveToDeadLetterQueueAsync(message.Id, ex.Message, cancellationToken);
-                    
+
                     logger.LogWarning(
                         "Message {MessageId} moved to DLQ after {Attempts} attempts",
                         message.MessageId,
@@ -167,12 +168,7 @@ public class InboxProcessor(
             throw new InvalidOperationException($"Unknown event type: {message.EventType}");
         }
 
-        var options = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-    
-        var @event = JsonSerializer.Deserialize(message.Payload, eventType, options) as IIntegrationEvent;
+        var @event = JsonSerializer.Deserialize(message.Payload, eventType, JsonDefaults.Options) as IIntegrationEvent;
         if (@event == null)
         {
             throw new InvalidOperationException($"Failed to deserialize event: {message.EventType}");

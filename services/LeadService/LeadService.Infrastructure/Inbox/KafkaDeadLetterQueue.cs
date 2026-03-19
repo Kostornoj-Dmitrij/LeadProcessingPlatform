@@ -19,14 +19,14 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
         ILogger<KafkaDeadLetterQueue> logger)
     {
         _logger = logger;
-        
+
         var producerConfig = new ProducerConfig
         {
             BootstrapServers = configuration["Kafka:BootstrapServers"],
             EnableIdempotence = true,
             Acks = Acks.All
         };
-        
+
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
         _dlqTopic = configuration["Kafka:DlqTopic"] ?? "lead-service-dlq";
     }
@@ -60,7 +60,7 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
         }
 
         await _producer.ProduceAsync(_dlqTopic, deadLetterMessage, cancellationToken);
-        
+
         _logger.LogWarning(
             "Message moved to DLQ. Original topic: {Topic}, Key: {Key}, Error: {Error}",
             originalTopic,

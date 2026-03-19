@@ -19,24 +19,24 @@ public class DistributionFailedEventHandler(
     public async Task Handle(IntegrationEventWrapper<DistributionFailedIntegrationEvent> wrapper, CancellationToken cancellationToken)
     {
         var @event = wrapper.Event;
-        
+
         logger.LogInformation("Processing DistributionFailed for lead {LeadId}", @event.LeadId);
 
         try
         {
             var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
-            
+
             if (lead == null)
             {
                 logger.LogWarning("Lead not found: {LeadId}", @event.LeadId);
                 return;
             }
-            
+
             lead.MarkDistributionFailed(@event.Reason);
             
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Lead {LeadId} marked as distribution failed", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

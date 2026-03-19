@@ -5,7 +5,9 @@ using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using System.Text.Json;
 using LeadService.Domain.Entities;
+using LeadService.Domain.Events;
 using SharedKernel.Events;
+using SharedKernel.Json;
 
 namespace LeadService.Application.EventHandlers;
 
@@ -20,7 +22,7 @@ public class LeadEnrichedEventHandler(
     public async Task Handle(IntegrationEventWrapper<LeadEnrichedIntegrationEvent> wrapper, CancellationToken cancellationToken)
     {
         var @event = wrapper.Event;
-        
+
         logger.LogInformation("Processing LeadEnriched for lead {LeadId}", @event.LeadId);
 
         try
@@ -34,19 +36,20 @@ public class LeadEnrichedEventHandler(
                 return;
             }
 
-            var enrichedDataJson = JsonSerializer.Serialize(new
+            var enrichedData = new EnrichedDataDto
             {
-                @event.Industry,
-                @event.CompanySize,
-                @event.Website,
-                @event.RevenueRange,
-                @event.Version
-            });
-            
+                Industry = @event.Industry,
+                CompanySize = @event.CompanySize,
+                Website = @event.Website,
+                RevenueRange = @event.RevenueRange,
+                Version = @event.Version
+            };
+            var enrichedDataJson = JsonSerializer.Serialize(enrichedData, JsonDefaults.Options);
+
             lead.MarkEnrichmentReceived(enrichedDataJson);
-        
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Successfully processed enrichment for lead {LeadId}", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

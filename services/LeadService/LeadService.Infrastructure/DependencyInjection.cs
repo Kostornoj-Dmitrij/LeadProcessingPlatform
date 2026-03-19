@@ -27,7 +27,7 @@ public static class DependencyInjection
                 configuration.GetConnectionString("DefaultConnection"),
                 b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
             .UseLoggerFactory(sp.GetRequiredService<ILoggerFactory>()));
-        
+
         services.AddScoped<IUnitOfWork>(provider => 
             provider.GetRequiredService<ApplicationDbContext>());
 
@@ -36,17 +36,17 @@ public static class DependencyInjection
 
         services.AddSingleton<KafkaEventBus>();
         services.AddSingleton<IEventBus>(sp => sp.GetRequiredService<KafkaEventBus>());
-        
+
         services.AddScoped<IInboxStore, InboxStore>();
         services.AddSingleton<IDeadLetterQueue, KafkaDeadLetterQueue>();
         services.AddHostedService<InboxProcessor>();
-        
+
         services.AddHostedService<KafkaConsumer>();
         services.AddScoped<IKafkaConsumer>(sp => 
             sp.GetServices<IHostedService>().OfType<KafkaConsumer>().First());
-        
+
         services.AddHostedService<OutboxPublisher>();
-        
+
         return services;
     }
 }

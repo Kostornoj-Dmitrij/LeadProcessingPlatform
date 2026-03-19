@@ -38,15 +38,13 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
         _outboxConverter = null!;
         _logger = null!;
     }
-    
+
     public DbSet<Lead> Leads => Set<Lead>();
     public DbSet<LeadCustomField> LeadCustomFields => Set<LeadCustomField>();
-    
     public DbSet<IdempotencyKey> IdempotencyKeys => Set<IdempotencyKey>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
-    
     public DbSet<LeadStatusHistory> LeadStatusHistories => Set<LeadStatusHistory>();
-    
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -67,16 +65,16 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
                     entry.Entity.UpdateTimestamp();
                 }
             }
-        
+
             var statusHistories = new List<LeadStatusHistory>();
-        
+
             foreach (var entry in ChangeTracker.Entries<Lead>())
             {
                 if (entry.State == EntityState.Modified)
                 {
                     var originalStatus = (LeadStatus?)entry.OriginalValues["Status"];
                     var currentStatus = entry.Entity.Status;
-                
+
                     if (originalStatus != currentStatus)
                     {
                         statusHistories.Add(new LeadStatusHistory
@@ -91,13 +89,13 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
                     }
                 }
             }
-        
+
             if (statusHistories.Any())
             {
                 await LeadStatusHistories.AddRangeAsync(statusHistories, cancellationToken);
             }
             var aggregatesWithEvents = new List<(Lead aggregate, List<IDomainEvent> events)>();
-            
+
             foreach (var entry in ChangeTracker.Entries<Lead>())
             {
                 var events = entry.Entity.DomainEvents.ToList();
@@ -106,30 +104,30 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
                     aggregatesWithEvents.Add((entry.Entity, events));
                 }
             }
-        
+
             foreach (var (aggregate, events) in aggregatesWithEvents)
             {
                 var outboxMessages = _outboxConverter.Convert(
                     aggregate.Id.ToString(),
                     "lead",
                     events);
-                
+
                 await OutboxMessages.AddRangeAsync(outboxMessages, cancellationToken);
             }
-        
+
             foreach (var entry in ChangeTracker.Entries<Lead>())
             {
                 entry.Entity.ClearDomainEvents();
             }
-        
+
             var result = await base.SaveChangesAsync(cancellationToken);
-        
+
             return result;
         }
         catch (DbUpdateConcurrencyException ex)
         {
             _logger.LogWarning(ex, "Concurrency conflict detected while saving changes for lead");
-            
+
             foreach (var entry in ex.Entries)
             {
                 if (entry.Entity is Lead lead)
@@ -144,7 +142,6 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
                     }
                 }
             }
-            
             throw;
         }
     }

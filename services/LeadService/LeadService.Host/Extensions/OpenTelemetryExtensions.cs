@@ -15,7 +15,7 @@ public static class OpenTelemetryExtensions
         string serviceName)
     {
         var otlpEndpoint = configuration["OpenTelemetry:Endpoint"] ?? "http://aspire-dashboard:18889";
-        
+
         services.AddOpenTelemetry()
             .ConfigureResource(resource => resource
                 .AddService(serviceName)

@@ -92,7 +92,7 @@ async Task WaitForKafkaTopicsAsync(IServiceProvider services)
 {
     var logger = services.GetRequiredService<ILogger<Program>>();
     var configuration = services.GetRequiredService<IConfiguration>();
-    
+
     var bootstrapServers = configuration["Kafka:BootstrapServers"];
     var requiredTopics = new[] 
     { 
@@ -103,15 +103,15 @@ async Task WaitForKafkaTopicsAsync(IServiceProvider services)
         "notification-events",
         "lead-events"
     };
-    
+
     var maxRetries = 60;
     var retryDelay = TimeSpan.FromSeconds(2);
-    
+
     using var adminClient = new AdminClientBuilder(new AdminClientConfig
     {
         BootstrapServers = bootstrapServers
     }).Build();
-    
+
     for (int attempt = 1; attempt <= maxRetries; attempt++)
     {
         try
@@ -121,15 +121,15 @@ async Task WaitForKafkaTopicsAsync(IServiceProvider services)
                 .Where(t => t.Error.Code == ErrorCode.NoError)
                 .Select(t => t.Topic)
                 .ToHashSet();
-            
+
             var missingTopics = requiredTopics.Except(existingTopics).ToList();
-            
+
             if (!missingTopics.Any())
             {
                 logger.LogInformation("All Kafka topics are available");
                 return;
             }
-            
+
             logger.LogInformation("Waiting for topics: {MissingTopics} (attempt {Attempt}/{MaxRetries})", 
                 string.Join(", ", missingTopics), attempt, maxRetries);
         }
@@ -138,9 +138,9 @@ async Task WaitForKafkaTopicsAsync(IServiceProvider services)
             logger.LogWarning("Kafka not ready: {Message} (attempt {Attempt}/{MaxRetries})", 
                 ex.Message, attempt, maxRetries);
         }
-        
+
         await Task.Delay(retryDelay);
     }
-    
+
     logger.LogWarning("Not all topics are available after {MaxRetries} attempts. Continuing anyway...", maxRetries);
 }

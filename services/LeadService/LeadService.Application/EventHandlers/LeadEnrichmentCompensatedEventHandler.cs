@@ -19,24 +19,24 @@ public class LeadEnrichmentCompensatedEventHandler(
     public async Task Handle(IntegrationEventWrapper<LeadEnrichmentCompensatedIntegrationEvent> wrapper, CancellationToken cancellationToken)
     {
         var @event = wrapper.Event;
-        
+
         logger.LogInformation("Processing LeadEnrichmentCompensated for lead {LeadId}", @event.LeadId);
 
         try
         {
             var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
-            
+
             if (lead == null)
             {
                 logger.LogWarning("Lead not found: {LeadId}", @event.LeadId);
                 return;
             }
-            
+
             lead.MarkEnrichmentCompensated();
-            
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Marked enrichment compensation as received for lead {LeadId}", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

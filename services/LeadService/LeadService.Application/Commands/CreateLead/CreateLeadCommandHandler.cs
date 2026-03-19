@@ -1,13 +1,13 @@
 ﻿using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json.Serialization;
 using MediatR;
 using LeadService.Application.Common.Interfaces;
 using LeadService.Application.DTOs;
 using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
+using SharedKernel.Json;
 
 namespace LeadService.Application.Commands.CreateLead;
 
@@ -20,11 +20,6 @@ public class CreateLeadCommandHandler(
     ILogger<CreateLeadCommandHandler> logger)
     : IRequestHandler<CreateLeadCommand, LeadDto>
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() }
-    };
     public async Task<LeadDto> Handle(CreateLeadCommand request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(request.ExternalLeadId))
@@ -52,7 +47,7 @@ public class CreateLeadCommandHandler(
 
             var cachedResponse = JsonSerializer.Deserialize<LeadDto>(
                 idempotencyKey.ResponseBody!,
-                _jsonOptions);
+                JsonDefaults.Options);
             if (cachedResponse == null || cachedResponse.Id == Guid.Empty)
             {
                 logger.LogWarning("Cached response for key {Key} is invalid, reprocessing",
@@ -62,7 +57,7 @@ public class CreateLeadCommandHandler(
                     idempotencyKey.Id,
                     result.Id,
                     200,
-                    JsonSerializer.Serialize(result, _jsonOptions),
+                    JsonSerializer.Serialize(result, JsonDefaults.Options),
                     cancellationToken);
                 return result;
             }
@@ -78,7 +73,7 @@ public class CreateLeadCommandHandler(
                 idempotencyKey.Id,
                 result.Id,
                 200,
-                JsonSerializer.Serialize(result, _jsonOptions),
+                JsonSerializer.Serialize(result, JsonDefaults.Options),
                 cancellationToken);
 
             return result;
@@ -120,8 +115,8 @@ public class CreateLeadCommandHandler(
             request.Phone,
             request.ContactPerson,
             request.CustomFields
-        });
-        
+        }, JsonDefaults.Options);
+
         return SHA256.HashData(Encoding.UTF8.GetBytes(json));
     }
 

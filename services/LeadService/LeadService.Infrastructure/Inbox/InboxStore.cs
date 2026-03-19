@@ -100,7 +100,7 @@ public class InboxStore(
             message.ProcessingAttempts++;
             message.ErrorMessage = errorMessage;
             message.NextRetryAt = nextRetryAt;
-            
+
             if (message.ProcessingAttempts >= MaxRetryAttempts)
             {
                 message.ProcessedAt = DateTime.UtcNow;
@@ -108,7 +108,7 @@ public class InboxStore(
                     "Message {MessageId} reached max attempts ({Attempts}). Marking as failed.",
                     message.MessageId, message.ProcessingAttempts);
             }
-            
+
             await context.SaveChangesAsync(cancellationToken);
         }
     }
@@ -131,9 +131,9 @@ public class InboxStore(
             message.ProcessedAt = DateTime.UtcNow;
             message.ErrorMessage = $"MOVED TO DLQ: {errorMessage}";
             message.ProcessingAttempts++;
-        
+
             await context.SaveChangesAsync(cancellationToken);
-        
+
             logger.LogWarning(
                 "Message {MessageId} moved to DLQ after {Attempts} attempts. Error: {Error}",
                 message.MessageId,

@@ -21,16 +21,16 @@ public class LeadCustomFieldConfiguration : IEntityTypeConfiguration<LeadCustomF
         builder.Property(x => x.LeadId)
             .HasColumnName("lead_id")
             .IsRequired();
-        
+
         builder.Property(x => x.FieldName)
             .HasColumnName("field_name")
             .HasMaxLength(100)
             .IsRequired();
-        
+
         builder.Property(x => x.FieldValue)
             .HasColumnName("field_value")
             .IsRequired();
-        
+
         builder.HasIndex(x => new { x.LeadId, x.FieldName })
             .IsUnique()
             .HasDatabaseName("ix_lead_custom_fields_lead_id_field_name");

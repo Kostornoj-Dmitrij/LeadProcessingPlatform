@@ -1,14 +1,12 @@
 ﻿using System.Text.Json;
-using System.Text.Json.Serialization;
 using IntegrationEvents;
 using IntegrationEvents.LeadEvents;
-using IntegrationEvents.EnrichmentEvents;
-using IntegrationEvents.ScoringEvents;
 using LeadService.Domain.Enums;
 using SharedKernel.Entities;
 using SharedKernel.Events;
 using LeadService.Domain.Events;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Json;
 using EnrichedDataDto = IntegrationEvents.LeadEvents.EnrichedDataDto;
 
 namespace LeadService.Infrastructure.Outbox;
@@ -18,12 +16,6 @@ namespace LeadService.Infrastructure.Outbox;
 /// </summary>
 public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> logger) : IDomainEventToOutboxConverter
 {
-    private readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() }
-    };
-
     public List<OutboxMessage> Convert(
         string aggregateId, 
         string aggregateType, 
@@ -43,13 +35,13 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
                 AggregateType = aggregateType,
                 AggregateId = aggregateId,
                 EventType = integrationEvent.GetType().AssemblyQualifiedName!,
-                Payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), _jsonOptions),
+                Payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), JsonDefaults.Options),
                 CreatedAt = DateTime.UtcNow,
                 ProcessingAttempts = 0
             };
 
             outboxMessages.Add(outboxMessage);
-            
+
             logger.LogDebug(
                 "Converted domain event {DomainEvent} to integration event {IntegrationEvent} for aggregate {AggregateId}",
                 domainEvent.GetType().Name,
@@ -75,7 +67,7 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
                 Phone = e.Phone,
                 CustomFields = e.CustomFields
             },
-            
+
             LeadQualifiedDomainEvent e => new LeadQualifiedIntegrationEvent
             {
                 LeadId = e.LeadId,
@@ -91,7 +83,7 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
                     RevenueRange = e.EnrichedData.RevenueRange
                 } : null
             },
-            
+
             LeadRejectedDomainEvent e => new LeadRejectedIntegrationEvent
             {
                 LeadId = e.LeadId,
@@ -99,38 +91,30 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
                 FailureType = e.FailureType,
                 ErrorDetails = e.Reason
             },
-            
+
             LeadDistributedDomainEvent e => new LeadDistributedIntegrationEvent
             {
                 LeadId = e.LeadId,
                 Target = e.Target
             },
-            
+
             LeadDistributionFailedDomainEvent e => new LeadDistributionFailedIntegrationEvent
             {
                 LeadId = e.LeadId,
                 Reason = e.Reason
             },
-            
-            EnrichmentCompensatedDomainEvent e => new LeadEnrichmentCompensatedIntegrationEvent
-            {
-                LeadId = e.LeadId,
-                Compensated = true
-            },
-            
-            ScoringCompensatedDomainEvent e => new LeadScoringCompensatedIntegrationEvent
-            {
-                LeadId = e.LeadId,
-                Compensated = true
-            },
-            
+
+            EnrichmentCompensatedDomainEvent => null,
+
+            ScoringCompensatedDomainEvent => null,
+
             LeadClosedDomainEvent { PreviousStatus: LeadStatus.Rejected } e => 
                 new LeadRejectedFinalIntegrationEvent
                 {
                     LeadId = e.LeadId,
                     FinalStatus = "Closed"
                 },
-            
+
             LeadClosedDomainEvent { PreviousStatus: LeadStatus.FailedDistribution } e => 
                 new LeadDistributionFailedFinalIntegrationEvent
                 {
@@ -144,7 +128,7 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
                     LeadId = e.LeadId,
                     FinalStatus = "Closed"
                 },
-            
+
             _ => null
         };
     }

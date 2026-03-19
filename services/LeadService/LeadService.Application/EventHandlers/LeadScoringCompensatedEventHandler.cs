@@ -19,24 +19,24 @@ public class LeadScoringCompensatedEventHandler(
     public async Task Handle(IntegrationEventWrapper<LeadScoringCompensatedIntegrationEvent> wrapper, CancellationToken cancellationToken)
     {
         var @event = wrapper.Event;
-        
+
         logger.LogInformation("Processing LeadScoringCompensated for lead {LeadId}", @event.LeadId);
 
         try
         {
             var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
-            
+
             if (lead == null)
             {
                 logger.LogWarning("Lead not found: {LeadId}", @event.LeadId);
                 return;
             }
-            
+
             lead.MarkScoringCompensated();
-            
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Marked scoring compensation as received for lead {LeadId}", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

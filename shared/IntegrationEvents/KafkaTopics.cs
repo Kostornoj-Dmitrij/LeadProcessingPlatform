@@ -12,7 +12,7 @@ public static class KafkaTopics
     private const string NotificationEvents = "notification-events";
     private const string SagaEvents = "saga-events";
     private const string DeadLetterQueue = "lead-service-dlq";
-    
+
     public static class Mappings
     {
         public static readonly Dictionary<Type, string> EventToTopic = new()
@@ -25,18 +25,18 @@ public static class KafkaTopics
             { typeof(LeadEvents.LeadRejectedFinalIntegrationEvent), LeadEvents },
             { typeof(LeadEvents.LeadDistributionFailedFinalIntegrationEvent), LeadEvents },
             { typeof(LeadEvents.LeadDistributedFinalIntegrationEvent), LeadEvents },
-            
+
             { typeof(EnrichmentEvents.LeadEnrichedIntegrationEvent), EnrichmentEvents },
             { typeof(EnrichmentEvents.LeadEnrichmentFailedIntegrationEvent), EnrichmentEvents },
             { typeof(EnrichmentEvents.LeadEnrichmentCompensatedIntegrationEvent), SagaEvents },
-            
+
             { typeof(ScoringEvents.LeadScoredIntegrationEvent), ScoringEvents },
             { typeof(ScoringEvents.LeadScoringFailedIntegrationEvent), ScoringEvents },
             { typeof(ScoringEvents.LeadScoringCompensatedIntegrationEvent), SagaEvents },
-            
+
             { typeof(DistributionEvents.DistributionSucceededIntegrationEvent), DistributionEvents },
             { typeof(DistributionEvents.DistributionFailedIntegrationEvent), DistributionEvents },
-            
+
             { typeof(NotificationEvents.NotificationSentIntegrationEvent), NotificationEvents }
         };
     }

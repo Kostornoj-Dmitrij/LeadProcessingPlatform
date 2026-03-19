@@ -19,24 +19,24 @@ public class LeadEnrichmentFailedEventHandler(
     public async Task Handle(IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent> wrapper, CancellationToken cancellationToken)
     {
         var @event = wrapper.Event;
-        
+
         logger.LogInformation("Processing LeadEnrichmentFailed for lead {LeadId}", @event.LeadId);
 
         try
         {
             var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
-            
+
             if (lead == null)
             {
                 logger.LogWarning("Lead not found: {LeadId}", @event.LeadId);
                 return;
             }
-            
+
             lead.Reject($"Enrichment failed: {@event.Reason}", "EnrichmentFailed");
-            
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Lead {LeadId} rejected due to enrichment failure", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

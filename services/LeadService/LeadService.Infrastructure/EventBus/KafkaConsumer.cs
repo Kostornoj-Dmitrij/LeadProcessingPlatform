@@ -60,7 +60,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         };
         _dlqProducer = new ProducerBuilder<string, string>(producerConfig).Build();
         _dlqTopic = configuration["Kafka:DlqTopic"] ?? "lead-service-dlq";
-        
+
         _isRunning = false;
     }
 
@@ -99,23 +99,23 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                 try
                 {
                     var consumeResult = _consumer.Consume(stoppingToken);
-                    
+
                     if (consumeResult == null || consumeResult.IsPartitionEOF)
                         continue;
 
                     await ProcessMessageWithRetryAsync(consumeResult, stoppingToken);
-                    
+
                     _consumer.StoreOffset(consumeResult);
                 }
                 catch (ConsumeException ex)
                 {
                     _logger.LogError(ex, "Consume error: {Error}", ex.Error.Reason);
-                    
+
                     if (ex.Error.IsFatal)
                     {
                         throw;
                     }
-                    
+
                     await Task.Delay(1000, stoppingToken);
                 }
             }
@@ -155,7 +155,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                     _logger.LogError(ex, 
                         "Max retry attempts reached for message. Moving to DLQ. Topic: {Topic}, Offset: {Offset}", 
                         consumeResult.Topic, consumeResult.Offset);
-                    
+
                     await MoveToDeadLetterQueueAsync(consumeResult, 
                         new Exception($"Max retry attempts ({_maxRetryAttempts}) exceeded. Last error: {ex.Message}"));
                     return;
@@ -169,7 +169,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                 _logger.LogError(ex, 
                     "Non-transient error processing message. Moving to DLQ. Topic: {Topic}, Offset: {Offset}", 
                     consumeResult.Topic, consumeResult.Offset);
-                
+
                 await MoveToDeadLetterQueueAsync(consumeResult, ex);
                 return;
             }
@@ -223,7 +223,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             activity.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
             activity.SetTag("event.type", eventTypeName);
             activity.SetTag("event.id", eventId);
-            
+
             if (traceId != null)
             {
                 activity.SetTag("trace.parent", traceId);
@@ -311,7 +311,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         }
 
         await _dlqProducer.ProduceAsync(_dlqTopic, deadLetterMessage);
-        
+
         _logger.LogWarning(
             "Message moved to DLQ. Original topic: {Topic}, Offset: {Offset}, Error: {Error}",
             consumeResult.Topic,

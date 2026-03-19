@@ -13,32 +13,32 @@ public class CreateLeadCommand : IRequest<LeadDto>, ICommand
     /// Внешний идентификатор для идемпотентности
     /// </summary>
     public string? ExternalLeadId { get; set; }
-    
+
     /// <summary>
     /// Источник поступления лида
     /// </summary>
     public string Source { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Название компании
     /// </summary>
     public string CompanyName { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Контактное лицо
     /// </summary>
     public string? ContactPerson { get; set; }
-    
+
     /// <summary>
     /// Email
     /// </summary>
     public string Email { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Телефон
     /// </summary>
     public string? Phone { get; set; }
-    
+
     /// <summary>
     /// Дополнительные поля
     /// </summary>

@@ -36,7 +36,7 @@ public class LeadScoredEventHandler(
             lead.MarkScoringReceived(@event.TotalScore);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Successfully processed scoring for lead {LeadId}", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

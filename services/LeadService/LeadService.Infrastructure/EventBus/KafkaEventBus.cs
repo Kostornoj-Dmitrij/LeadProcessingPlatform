@@ -1,11 +1,11 @@
 ﻿using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Confluent.Kafka;
 using LeadService.Application.Common.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using IntegrationEvents;
+using SharedKernel.Json;
 
 namespace LeadService.Infrastructure.EventBus;
 
@@ -17,18 +17,13 @@ public class KafkaEventBus : IEventBus
     private readonly IProducer<string, string> _producer;
     private readonly ILogger<KafkaEventBus> _logger;
     private readonly Dictionary<Type, string> _eventToTopicMap;
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() }
-    };
 
     public KafkaEventBus(
         IConfiguration configuration,
         ILogger<KafkaEventBus> logger)
     {
         _logger = logger;
-        
+
         var producerConfig = new ProducerConfig
         {
             BootstrapServers = configuration["Kafka:BootstrapServers"],
@@ -43,7 +38,7 @@ public class KafkaEventBus : IEventBus
             .SetErrorHandler((_, error) => 
                 _logger.LogError("Kafka producer error: {Error}", error.Reason))
             .Build();
-            
+
         _eventToTopicMap = KafkaTopics.Mappings.EventToTopic
             .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
     }
@@ -70,8 +65,8 @@ public class KafkaEventBus : IEventBus
         try
         {
             var topic = GetTopicForEvent(integrationEvent);
-            var messageValue = JsonSerializer.Serialize(@event, JsonOptions);
-            
+            var messageValue = JsonSerializer.Serialize(@event, JsonDefaults.Options);
+
             var message = new Message<string, string>
             {
                 Key = GetMessageKey(integrationEvent),
@@ -95,12 +90,12 @@ public class KafkaEventBus : IEventBus
                 {
                     message.Headers.Add("tracestate", Encoding.UTF8.GetBytes(currentActivity.TraceStateString));
                 }
-    
+
                 _logger.LogDebug("Added trace context to message: {TraceId}", currentActivity.Id);
             }
 
             var result = await _producer.ProduceAsync(topic, message, cancellationToken);
-            
+
             _logger.LogDebug(
                 "Published event {EventType} with ID {EventId} to topic {Topic} at partition {Partition}:{Offset}", 
                 integrationEvent.GetType().Name,
@@ -130,12 +125,12 @@ public class KafkaEventBus : IEventBus
     private string GetTopicForEvent(IIntegrationEvent @event)
     {
         var eventType = @event.GetType();
-        
+
         if (_eventToTopicMap.TryGetValue(eventType, out var topic))
         {
             return topic;
         }
-        
+
         throw new NotSupportedException($"No topic configured for event type {eventType.Name}");
     }
 
@@ -150,7 +145,7 @@ public class KafkaEventBus : IEventBus
                 return leadId.ToString()!;
             }
         }
-        
+
         return Guid.NewGuid().ToString();
     }
 

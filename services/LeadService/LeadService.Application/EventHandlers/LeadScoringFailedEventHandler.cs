@@ -19,24 +19,24 @@ public class LeadScoringFailedEventHandler(
     public async Task Handle(IntegrationEventWrapper<LeadScoringFailedIntegrationEvent> wrapper, CancellationToken cancellationToken)
     {
         var @event = wrapper.Event;
-        
+
         logger.LogInformation("Processing LeadScoringFailed for lead {LeadId}", @event.LeadId);
 
         try
         {
             var lead = await unitOfWork.Set<Lead>()
                 .FirstOrDefaultAsync(x => x.Id == @event.LeadId, cancellationToken);
-            
+
             if (lead == null)
             {
                 logger.LogWarning("Lead not found: {LeadId}", @event.LeadId);
                 return;
             }
-            
+
             lead.Reject($"Scoring failed: {@event.Reason}", "ScoringFailed");
-            
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Lead {LeadId} rejected due to scoring failure. Reason: {Reason}", 
                 lead.Id, @event.Reason);
         }

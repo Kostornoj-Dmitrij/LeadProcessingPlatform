@@ -27,7 +27,7 @@ public class DatabaseFilterProcessor : BaseProcessor<Activity>
                 }
             }
         }
-        
+
         if (activity.DisplayName.Contains("inbox") ||
             activity.DisplayName.Contains("outbox"))
         {
