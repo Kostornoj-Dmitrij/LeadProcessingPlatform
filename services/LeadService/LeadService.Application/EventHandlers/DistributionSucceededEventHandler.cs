@@ -34,10 +34,14 @@ public class DistributionSucceededEventHandler(
             }
             
             lead.MarkAsDistributed(@event.Target);
-            
             await unitOfWork.SaveChangesAsync(cancellationToken);
             
             logger.LogInformation("Lead {LeadId} marked as distributed", lead.Id);
+
+            lead.CloseAfterDistribution();
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            
+            logger.LogInformation("Lead {LeadId} successfully closed after distribution", lead.Id);
         }
         catch (DbUpdateConcurrencyException)
         {

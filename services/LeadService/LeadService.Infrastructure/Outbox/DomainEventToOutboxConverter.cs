@@ -137,6 +137,13 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
                     LeadId = e.LeadId,
                     FinalStatus = "Closed"
                 },
+
+            LeadClosedDomainEvent { PreviousStatus: LeadStatus.Distributed } e => 
+                new LeadDistributedFinalIntegrationEvent
+                {
+                    LeadId = e.LeadId,
+                    FinalStatus = "Closed"
+                },
             
             _ => null
         };

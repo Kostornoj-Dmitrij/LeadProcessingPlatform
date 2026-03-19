@@ -281,4 +281,15 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
     {
         _domainEvents.Clear();
     }
+
+    public void CloseAfterDistribution()
+    {
+        if (Status != LeadStatus.Distributed)
+            throw new InvalidOperationException($"Cannot close lead from status {Status}");
+
+        var previousStatus = Status;
+        Status = LeadStatus.Closed;
+        UpdatedAt = DateTime.UtcNow;
+        AddDomainEvent(new LeadClosedDomainEvent(Id, previousStatus));
+    }
 }

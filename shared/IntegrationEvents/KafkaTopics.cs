@@ -24,6 +24,7 @@ public static class KafkaTopics
             { typeof(LeadEvents.LeadDistributionFailedIntegrationEvent), LeadEvents },
             { typeof(LeadEvents.LeadRejectedFinalIntegrationEvent), LeadEvents },
             { typeof(LeadEvents.LeadDistributionFailedFinalIntegrationEvent), LeadEvents },
+            { typeof(LeadEvents.LeadDistributedFinalIntegrationEvent), LeadEvents },
             
             { typeof(EnrichmentEvents.LeadEnrichedIntegrationEvent), EnrichmentEvents },
             { typeof(EnrichmentEvents.LeadEnrichmentFailedIntegrationEvent), EnrichmentEvents },
