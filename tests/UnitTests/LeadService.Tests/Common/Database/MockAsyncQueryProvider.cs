@@ -31,13 +31,16 @@ public class MockAsyncQueryProvider<T>(IQueryProvider inner) : IAsyncQueryProvid
     public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = default)
     {
         var resultType = typeof(TResult).GetGenericArguments()[0];
-        var executionResult = typeof(IQueryProvider)
-            .GetMethod(nameof(IQueryProvider.Execute), 1, [typeof(Expression)])
-            ?.MakeGenericMethod(resultType)
-            .Invoke(this, [expression]);
 
-        return (TResult)typeof(Task).GetMethod(nameof(Task.FromResult))
-            ?.MakeGenericMethod(resultType)
-            .Invoke(null, [executionResult])!;
+        if (resultType == typeof(List<T>))
+        {
+            var items = inner.Execute<IEnumerable<T>>(expression).ToList();
+            var task = Task.FromResult(items);
+            return (TResult)(object)task;
+        }
+
+        var item = inner.Execute<T>(expression);
+        var singleTask = Task.FromResult(item);
+        return (TResult)(object)singleTask;
     }
 }
