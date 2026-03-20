@@ -1,6 +1,6 @@
 @LeadService_HostAddress = http://localhost:5001
 
-### Create a new lead
+### Создание лида (с идемпотентным ключом)
 POST {{LeadService_HostAddress}}/api/leads
 Content-Type: application/json
 Idempotency-Key: {{$guid}}
@@ -18,7 +18,7 @@ Idempotency-Key: {{$guid}}
   }
 }
 
-### Create lead with minimal data
+### Создание лида (без идемпотентного ключа)
 POST {{LeadService_HostAddress}}/api/leads
 Content-Type: application/json
 
@@ -28,11 +28,11 @@ Content-Type: application/json
   "email": "info@techstart.io"
 }
 
-### Get lead by ID
+### Получение лида по идентификатору
 GET {{LeadService_HostAddress}}/api/leads/3fa85f64-5717-4562-b3fc-2c963f66afa6
 
-### Get leads by status
+### Получение списка лидов с фильтрацией по статусу
 GET {{LeadService_HostAddress}}/api/leads?status=Initial&limit=10
 
-### Health check
+### Проверка состояния сервиса
 GET {{LeadService_HostAddress}}/health

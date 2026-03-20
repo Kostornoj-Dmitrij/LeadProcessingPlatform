@@ -1,6 +1,37 @@
-@ApiGateway.Host_HostAddress = http://localhost:5048
+@ApiGateway_HostAddress = http://localhost:8080
 
-GET {{ApiGateway.Host_HostAddress}}/weatherforecast/
-Accept: application/json
+### Создание лида через API Gateway (с идемпотентным ключом)
+POST {{ApiGateway_HostAddress}}/api/leads
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
 
-###
+{
+  "source": "gateway_test",
+  "companyName": "Test Gateway Corp",
+  "contactPerson": "Gateway User",
+  "email": "test@gateway.com",
+  "phone": "+1-555-999-8888",
+  "customFields": {
+    "testSource": "gateway",
+    "priority": "high"
+  }
+}
+
+### Создание лида через API Gateway (без идемпотентного ключа)
+POST {{ApiGateway_HostAddress}}/api/leads
+Content-Type: application/json
+
+{
+  "source": "gateway_simple",
+  "companyName": "Simple Gateway Test",
+  "email": "simple@gateway.com"
+}
+
+### Получение лида по идентификатору
+GET {{ApiGateway_HostAddress}}/api/leads/{id}
+
+### Получение списка лидов с фильтрацией по статусу
+GET {{ApiGateway_HostAddress}}/api/leads?status=Initial&limit=10
+
+### Проверка состояния API Gateway
+GET {{ApiGateway_HostAddress}}/health

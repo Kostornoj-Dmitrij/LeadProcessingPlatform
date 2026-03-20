@@ -170,8 +170,6 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: lead-service
       OpenTelemetry__Endpoint: http://aspire-dashboard:18889
-    ports:
-      - "${LEAD_SERVICE_PORT:-5001}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -195,8 +193,6 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: enrichment-service
       OpenTelemetry__Endpoint: http://aspire-dashboard:18889
-    ports:
-      - "${ENRICHMENT_SERVICE_PORT:-5002}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -218,8 +214,6 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: scoring-service
       OpenTelemetry__Endpoint: http://aspire-dashboard:18889
-    ports:
-      - "${SCORING_SERVICE_PORT:-5003}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -241,8 +235,6 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: distribution-service
       OpenTelemetry__Endpoint: http://aspire-dashboard:18889
-    ports:
-      - "${DISTRIBUTION_SERVICE_PORT:-5004}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -264,8 +256,6 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: notification-service
       OpenTelemetry__Endpoint: http://aspire-dashboard:18889
-    ports:
-      - "${NOTIFICATION_SERVICE_PORT:-5005}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -284,6 +274,7 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:8080
       Services__LeadService: http://lead-service:80
+      OpenTelemetry__Endpoint: http://aspire-dashboard:18889
     ports:
       - "${GATEWAY_HTTP_PORT:-8080}:8080"
     depends_on:

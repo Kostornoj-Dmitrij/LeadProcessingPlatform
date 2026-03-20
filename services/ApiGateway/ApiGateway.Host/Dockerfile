@@ -1,26 +1,22 @@
-﻿FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
-WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
-
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+﻿FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY services/ApiGateway/ApiGateway.Host/*.csproj services/ApiGateway/ApiGateway.Host/
 RUN dotnet restore services/ApiGateway/ApiGateway.Host/ApiGateway.Host.csproj
 
-COPY services/ApiGateway/ services/ApiGateway/
-WORKDIR /src/services/ApiGateway/ApiGateway.Host
-RUN dotnet build -c Release -o /app/build
+COPY . .
 
-FROM build AS publish
+WORKDIR /src/services/ApiGateway/ApiGateway.Host
 RUN dotnet publish -c Release -o /app/publish
 
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
-COPY --from=publish /app/publish .
+EXPOSE 8080
+EXPOSE 8081
+
+COPY _infrastructure/scripts/wait-for-it.sh /wait-for-it.sh
+RUN chmod +x /wait-for-it.sh
+
+COPY --from=build /app/publish .
 
 ENTRYPOINT ["dotnet", "ApiGateway.Host.dll"]
