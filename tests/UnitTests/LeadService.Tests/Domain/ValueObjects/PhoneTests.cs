@@ -9,6 +9,9 @@ namespace LeadService.Tests.Domain.ValueObjects;
 [Category("Domain")]
 public class PhoneTests
 {
+    private const string ValidPhone = "+79001234567";
+    private const string AnotherValidPhone = "+79007654321";
+
     [Test]
     [TestCase("+79001234567")]
     [TestCase("89001234567")]
@@ -25,11 +28,11 @@ public class PhoneTests
     [Test]
     public void Create_WithPhoneWithSpaces_ShouldTrim()
     {
-        var phone = "  +79001234567  ";
+        var phone = "     " + ValidPhone + "     ";
 
         var result = Phone.Create(phone);
 
-        Assert.That(result.Value, Is.EqualTo("+79001234567"));
+        Assert.That(result.Value, Is.EqualTo(ValidPhone));
     }
 
     [Test]
@@ -55,7 +58,7 @@ public class PhoneTests
     [Test]
     public void Create_WithNonDigitCharacters_ShouldExtractDigits()
     {
-        var phone = "abc+7 (900) 123-45-67 def";
+        var phone = "abc" + ValidPhone + "def";
 
         var result = Phone.Create(phone);
 
@@ -65,7 +68,7 @@ public class PhoneTests
     [Test]
     public void CreateUnsafe_ShouldNotValidate()
     {
-        var phone = "  +7 (900) 123-45-67  ";
+        var phone = "     " + ValidPhone + "     ";
 
         var result = Phone.CreateUnsafe(phone);
 
@@ -75,8 +78,8 @@ public class PhoneTests
     [Test]
     public void Equality_WithSameValue_ShouldBeEqual()
     {
-        var phone1 = Phone.Create("+79001234567");
-        var phone2 = Phone.Create("+79001234567");
+        var phone1 = Phone.Create(ValidPhone);
+        var phone2 = Phone.Create(ValidPhone);
 
         Assert.That(phone1, Is.EqualTo(phone2));
         Assert.That(phone1 == phone2, Is.True);
@@ -87,8 +90,8 @@ public class PhoneTests
     [Test]
     public void Equality_WithDifferentValue_ShouldNotBeEqual()
     {
-        var phone1 = Phone.Create("+79001234567");
-        var phone2 = Phone.Create("+79007654321");
+        var phone1 = Phone.Create(ValidPhone);
+        var phone2 = Phone.Create(AnotherValidPhone);
 
         Assert.That(phone1, Is.Not.EqualTo(phone2));
         Assert.That(phone1 == phone2, Is.False);
@@ -98,11 +101,10 @@ public class PhoneTests
     [Test]
     public void ToString_ShouldReturnOriginalValue()
     {
-        var originalPhone = "+7 (900) 123-45-67";
-        var phone = Phone.Create(originalPhone);
+        var phone = Phone.Create(ValidPhone);
 
         var result = phone.ToString();
 
-        Assert.That(result, Is.EqualTo(originalPhone));
+        Assert.That(result, Is.EqualTo(ValidPhone));
     }
 }

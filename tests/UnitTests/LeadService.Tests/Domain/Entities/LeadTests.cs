@@ -15,6 +15,9 @@ public class LeadTests
 {
     private const string Email = "email@test.com";
     private const string Phone = "79999999999";
+    private const string ValidEnrichedData = "{\"industry\":\"Tech\",\"companySize\":\"50-100\"}";
+    private const string InvalidEnrichedData = "{invalidData}";
+    private const string NullEnrichedData = "null";
 
     #region Create
 
@@ -96,7 +99,8 @@ public class LeadTests
         Assert.That(lead.EnrichedData, Is.EqualTo(enrichedData));
         Assert.That(lead.UpdatedAt, Is.GreaterThan(lead.CreatedAt));
         Assert.That(lead.DomainEvents, Has.Exactly(2).Items);
-        Assert.That(lead.DomainEvents, Has.Exactly(1).InstanceOf<EnrichmentReceivedDomainEvent>());
+        Assert.That(lead.DomainEvents,
+            Has.Exactly(1).InstanceOf<EnrichmentReceivedDomainEvent>());
     }
 
     [Test, AutoData]
@@ -123,7 +127,8 @@ public class LeadTests
         var ex = Assert.Throws<InvalidOperationException>(() => 
             lead.MarkEnrichmentReceived(enrichedData));
 
-        Assert.That(ex.Message, Does.Contain("Cannot receive enrichment in status Qualified"));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot receive enrichment in status Qualified"));
     }
     #endregion
 
@@ -140,7 +145,8 @@ public class LeadTests
         Assert.That(lead.Score, Is.EqualTo(score));
         Assert.That(lead.UpdatedAt, Is.GreaterThan(lead.CreatedAt));
         Assert.That(lead.DomainEvents, Has.Exactly(2).Items);
-        Assert.That(lead.DomainEvents, Has.Exactly(1).InstanceOf<ScoringReceivedDomainEvent>());
+        Assert.That(lead.DomainEvents,
+            Has.Exactly(1).InstanceOf<ScoringReceivedDomainEvent>());
     }
 
     [Test, AutoData]
@@ -166,7 +172,8 @@ public class LeadTests
         var ex = Assert.Throws<InvalidOperationException>(() => 
             lead.MarkScoringReceived(score));
 
-        Assert.That(ex.Message, Does.Contain("Cannot receive scoring in status Qualified"));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot receive scoring in status Qualified"));
     }
     #endregion
 
@@ -177,13 +184,12 @@ public class LeadTests
         [WithValidLead] Lead lead,
         int score)
     {
-        var enrichedData = "{\"industry\":\"Tech\",\"companySize\":\"50-100\"}";
-
-        lead.MarkEnrichmentReceived(enrichedData);
+        lead.MarkEnrichmentReceived(ValidEnrichedData);
         lead.MarkScoringReceived(score);
 
         Assert.That(lead.Status, Is.EqualTo(LeadStatus.Qualified));
-        Assert.That(lead.DomainEvents, Has.Exactly(1).InstanceOf<LeadQualifiedDomainEvent>());
+        Assert.That(lead.DomainEvents,
+            Has.Exactly(1).InstanceOf<LeadQualifiedDomainEvent>());
 
         var qualifiedEvent = lead.DomainEvents.OfType<LeadQualifiedDomainEvent>().First();
         Assert.That(qualifiedEvent.LeadId, Is.EqualTo(lead.Id));
@@ -217,8 +223,7 @@ public class LeadTests
         [WithValidLead] Lead lead,
         int score)
     {
-        var invalidJson = "{invalidData}";
-        lead.MarkEnrichmentReceived(invalidJson);
+        lead.MarkEnrichmentReceived(InvalidEnrichedData);
 
         var ex = Assert.Throws<InvalidOperationException>(() => 
             lead.MarkScoringReceived(score));
@@ -239,7 +244,8 @@ public class LeadTests
 
         Assert.That(lead.Status, Is.EqualTo(LeadStatus.Rejected));
         Assert.That(lead.UpdatedAt, Is.GreaterThan(lead.CreatedAt));
-        Assert.That(lead.DomainEvents, Has.Exactly(1).InstanceOf<LeadRejectedDomainEvent>());
+        Assert.That(lead.DomainEvents,
+            Has.Exactly(1).InstanceOf<LeadRejectedDomainEvent>());
 
         var rejectedEvent = lead.DomainEvents.OfType<LeadRejectedDomainEvent>().First();
         Assert.That(rejectedEvent.Reason, Is.EqualTo(reason));
@@ -268,7 +274,8 @@ public class LeadTests
         var ex = Assert.Throws<InvalidOperationException>(() => 
             lead.Reject(reason, failureType));
 
-        Assert.That(ex.Message, Does.Contain("Cannot reject lead from status Qualified"));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot reject lead from status Qualified"));
     }
     #endregion
 
@@ -282,7 +289,8 @@ public class LeadTests
         var ex = Assert.Throws<InvalidOperationException>(() => 
             lead.MarkAsDistributed(target));
 
-        Assert.That(ex.Message, Does.Contain("Cannot distribute lead from status Initial"));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot distribute lead from status Initial"));
     }
 
     [Test, AutoData]
@@ -310,7 +318,8 @@ public class LeadTests
         var ex = Assert.Throws<InvalidOperationException>(() => 
             lead.MarkDistributionFailed(reason));
 
-        Assert.That(ex.Message, Does.Contain("Cannot fail distribution from status Initial"));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot fail distribution from status Initial"));
     }
 
     [Test, AutoData]
@@ -336,7 +345,8 @@ public class LeadTests
     {
         var ex = Assert.Throws<InvalidOperationException>(lead.MarkEnrichmentCompensated);
 
-        Assert.That(ex.Message, Does.Contain("Cannot receive enrichment compensation in status Initial"));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot receive enrichment compensation in status Initial"));
     }
 
     [Test, AutoData]
@@ -397,7 +407,8 @@ public class LeadTests
     {
         var ex = Assert.Throws<InvalidOperationException>(lead.MarkScoringCompensated);
 
-        Assert.That(ex.Message, Does.Contain("Cannot receive scoring compensation in status Qualified"));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot receive scoring compensation in status Qualified"));
     }
 
     [Test, AutoData]
@@ -405,9 +416,7 @@ public class LeadTests
         [WithValidLead] Lead lead,
         int score)
     {
-        var enrichedData = "null";
-
-        lead.MarkEnrichmentReceived(enrichedData);
+        lead.MarkEnrichmentReceived(NullEnrichedData);
         lead.MarkScoringReceived(score);
 
         Assert.That(lead.Status, Is.EqualTo(LeadStatus.Qualified));
@@ -427,7 +436,8 @@ public class LeadTests
         lead.CloseAfterDistribution();
 
         Assert.That(lead.Status, Is.EqualTo(LeadStatus.Closed));
-        Assert.That(lead.DomainEvents, Has.Exactly(1).InstanceOf<LeadClosedDomainEvent>());
+        Assert.That(lead.DomainEvents,
+            Has.Exactly(1).InstanceOf<LeadClosedDomainEvent>());
 
         var closedEvent = lead.DomainEvents.OfType<LeadClosedDomainEvent>().First();
         Assert.That(closedEvent.PreviousStatus, Is.EqualTo(LeadStatus.Distributed));
@@ -439,7 +449,8 @@ public class LeadTests
     {
         var ex = Assert.Throws<InvalidOperationException>(lead.CloseAfterDistribution);
 
-        Assert.That(ex.Message, Does.Contain("Cannot close lead from status Qualified"));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot close lead from status Qualified"));
     }
     #endregion
 

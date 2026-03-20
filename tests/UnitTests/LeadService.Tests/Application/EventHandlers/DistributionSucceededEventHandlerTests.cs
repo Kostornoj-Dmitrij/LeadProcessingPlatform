@@ -57,7 +57,8 @@ public class DistributionSucceededEventHandlerTests : DatabaseTestBase
         await _sut.Handle(wrapper, CancellationToken.None);
 
         Assert.That(lead.Status, Is.EqualTo(LeadStatus.Closed));
-        UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+        UnitOfWorkMock.Verify(x => x.SaveChangesAsync(
+            It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Test, AutoData]
@@ -79,7 +80,8 @@ public class DistributionSucceededEventHandlerTests : DatabaseTestBase
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains($"Lead not found: {integrationEvent.LeadId}")),
+                It.Is<It.IsAnyType>((v, t) =>
+                    v.ToString()!.Contains($"Lead not found: {integrationEvent.LeadId}")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

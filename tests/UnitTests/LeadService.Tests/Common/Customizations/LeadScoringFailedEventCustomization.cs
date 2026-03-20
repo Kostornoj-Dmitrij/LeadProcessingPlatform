@@ -12,6 +12,6 @@ public class LeadScoringFailedEventCustomization : ICustomization
     {
         fixture.Customize<LeadScoringFailedIntegrationEvent>(composer => composer
             .With(e => e.LeadId, fixture.Create<Guid>())
-            .With(e => e.Reason, "Scoring engine unavailable"));
+            .With(e => e.Reason, "Scoring service unavailable"));
     }
 }

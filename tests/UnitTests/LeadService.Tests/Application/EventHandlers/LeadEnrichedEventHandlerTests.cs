@@ -103,7 +103,8 @@ public class LeadEnrichedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public void Handle_WhenGenericException_ShouldThrow(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent integrationEvent)
+        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent integrationEvent,
+        InvalidOperationException exception)
     {
         var leadType = typeof(Lead);
         leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
@@ -115,7 +116,6 @@ public class LeadEnrichedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<Lead>())
             .Returns(leadSetMock.Object);
 
-        var exception = new InvalidOperationException("Test error");
         UnitOfWorkMock
             .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(exception);
@@ -125,7 +125,7 @@ public class LeadEnrichedEventHandlerTests : DatabaseTestBase
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => 
             _sut.Handle(wrapper, CancellationToken.None));
 
-        Assert.That(ex.Message, Is.EqualTo("Test error"));
+        Assert.That(ex.Message, Is.EqualTo(exception.Message));
 
         _loggerMock.Verify(
             x => x.Log(
