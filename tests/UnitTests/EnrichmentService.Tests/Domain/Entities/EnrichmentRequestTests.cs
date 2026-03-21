@@ -1,0 +1,295 @@
+﻿using AutoFixture.NUnit3;
+using EnrichmentService.Domain.Entities;
+using EnrichmentService.Domain.Enums;
+using EnrichmentService.Domain.Events;
+using EnrichmentService.Tests.Common.Attributes;
+using NUnit.Framework;
+
+namespace EnrichmentService.Tests.Domain.Entities;
+
+/// <summary>
+/// Тесты для EnrichmentRequest
+/// </summary>
+[Category("Domain")]
+public class EnrichmentRequestTests
+{
+    #region Create
+
+    [Test, AutoData]
+    public void Create_WithValidData_ShouldCreateRequest(
+        Guid leadId,
+        string companyName,
+        string email,
+        string contactPerson,
+        Dictionary<string, string> customFields)
+    {
+        var request = EnrichmentRequest.Create(
+            leadId, companyName, email, contactPerson, customFields);
+
+        Assert.That(request.Id, Is.Not.EqualTo(Guid.Empty));
+        Assert.That(request.LeadId, Is.EqualTo(leadId));
+        Assert.That(request.CompanyName, Is.EqualTo(companyName));
+        Assert.That(request.Email, Is.EqualTo(email));
+        Assert.That(request.ContactPerson, Is.EqualTo(contactPerson));
+        Assert.That(request.CustomFields, Is.EqualTo(customFields));
+        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Pending));
+        Assert.That(request.RetryCount, Is.EqualTo(0));
+        Assert.That(request.LastAttemptAt, Is.Null);
+        Assert.That(request.ErrorMessage, Is.Null);
+        Assert.That(request.DomainEvents, Is.Empty);
+    }
+
+    [Test, AutoData]
+    public void Create_WithNullCustomFields_ShouldSetToNull(
+        Guid leadId,
+        string companyName,
+        string email,
+        string contactPerson)
+    {
+        var request = EnrichmentRequest.Create(
+            leadId, companyName, email, contactPerson, null);
+
+        Assert.That(request.CustomFields, Is.Null);
+    }
+
+    #endregion
+
+    #region StartProcessing
+
+    [Test, AutoData]
+    public void StartProcessing_ShouldChangeStatusToProcessing(
+        [WithValidEnrichmentRequest] EnrichmentRequest request)
+    {
+        request.StartProcessing();
+
+        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Processing));
+        Assert.That(request.LastAttemptAt,
+            Is.EqualTo(DateTime.UtcNow).Within(TimeSpan.FromSeconds(1)));
+    }
+
+    [Test, AutoData]
+    public void StartProcessing_WhenAlreadyProcessing_ShouldUpdateLastAttemptAt(
+        [WithValidEnrichmentRequest] EnrichmentRequest request)
+    {
+        request.StartProcessing();
+        var firstAttempt = request.LastAttemptAt;
+
+        Thread.Sleep(10);
+        request.StartProcessing();
+        var secondAttempt = request.LastAttemptAt;
+
+        Assert.That(secondAttempt, Is.GreaterThan(firstAttempt!));
+        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Processing));
+    }
+
+    #endregion
+
+    #region MarkCompleted
+
+    [Test, AutoData]
+    public void MarkCompleted_ShouldChangeStatusAndAddEvent(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string industry,
+        string companySize,
+        string website,
+        string revenueRange,
+        string rawResponse)
+    {
+        request.StartProcessing();
+        request.ClearDomainEvents();
+
+        request.MarkCompleted(industry, companySize, website, revenueRange, rawResponse);
+
+        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Completed));
+        Assert.That(request.LastAttemptAt, Is.EqualTo(DateTime.UtcNow).Within(TimeSpan.FromSeconds(1)));
+        Assert.That(request.DomainEvents, Has.Exactly(1).InstanceOf<LeadEnrichedDomainEvent>());
+
+        var domainEvent = request.DomainEvents.First() as LeadEnrichedDomainEvent;
+        Assert.That(domainEvent!.LeadId, Is.EqualTo(request.LeadId));
+        Assert.That(domainEvent.Industry, Is.EqualTo(industry));
+        Assert.That(domainEvent.CompanySize, Is.EqualTo(companySize));
+        Assert.That(domainEvent.Website, Is.EqualTo(website));
+        Assert.That(domainEvent.RevenueRange, Is.EqualTo(revenueRange));
+        Assert.That(domainEvent.Version, Is.EqualTo(1));
+    }
+
+    [Test, AutoData]
+    public void MarkCompleted_WithoutStartingProcessing_ShouldStillWork(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string industry, string companySize)
+    {
+        request.MarkCompleted(industry, companySize, null, null, null);
+
+        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Completed));
+        Assert.That(request.DomainEvents, Has.Exactly(1).InstanceOf<LeadEnrichedDomainEvent>());
+    }
+
+    #endregion
+
+    #region MarkFailed
+
+    [Test, AutoData]
+    public void MarkFailed_ShouldChangeStatusAndAddEvent(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage)
+    {
+        request.StartProcessing();
+        request.ClearDomainEvents();
+
+        request.MarkFailed(errorMessage);
+
+        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Failed));
+        Assert.That(request.LastAttemptAt, Is.EqualTo(DateTime.UtcNow).Within(TimeSpan.FromSeconds(1)));
+        Assert.That(request.ErrorMessage, Is.EqualTo(errorMessage));
+        Assert.That(request.RetryCount, Is.EqualTo(1));
+        Assert.That(request.DomainEvents, Has.Exactly(1).InstanceOf<LeadEnrichmentFailedDomainEvent>());
+
+        var domainEvent = request.DomainEvents.First() as LeadEnrichmentFailedDomainEvent;
+        Assert.That(domainEvent!.LeadId, Is.EqualTo(request.LeadId));
+        Assert.That(domainEvent.Reason, Is.EqualTo(errorMessage));
+        Assert.That(domainEvent.RetryCount, Is.EqualTo(1));
+    }
+
+    [Test, AutoData]
+    public void MarkFailed_MultipleTimes_ShouldIncrementRetryCount(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage1,
+        string errorMessage2,
+        string errorMessage3)
+    {
+        request.MarkFailed(errorMessage1);
+        Assert.That(request.RetryCount, Is.EqualTo(1));
+
+        request.MarkFailed(errorMessage2);
+        Assert.That(request.RetryCount, Is.EqualTo(2));
+
+        request.MarkFailed(errorMessage3);
+        Assert.That(request.RetryCount, Is.EqualTo(3));
+    }
+
+    #endregion
+
+    #region CanRetry
+
+    [Test, AutoData]
+    public void CanRetry_WhenRetryCountLessThanMax_ShouldReturnTrue(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage)
+    {
+        var maxRetries = 3;
+
+        for (int i = 0; i < maxRetries - 1; i++)
+        {
+            request.MarkFailed(errorMessage);
+        }
+
+        Assert.That(request.CanRetry(maxRetries), Is.True);
+    }
+
+    [Test, AutoData]
+    public void CanRetry_WhenRetryCountEqualToMax_ShouldReturnFalse(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage)
+    {
+        var maxRetries = 3;
+
+        for (int i = 0; i < maxRetries; i++)
+        {
+            request.MarkFailed(errorMessage);
+        }
+
+        Assert.That(request.CanRetry(maxRetries), Is.False);
+    }
+
+    [Test, AutoData]
+    public void CanRetry_WhenRetryCountGreaterThanMax_ShouldReturnFalse(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage)
+    {
+        var maxRetries = 2;
+
+        for (int i = 0; i < maxRetries + 1; i++)
+        {
+            request.MarkFailed(errorMessage);
+        }
+
+        Assert.That(request.CanRetry(maxRetries), Is.False);
+    }
+
+    #endregion
+
+    #region IsReadyForProcessing
+
+    [Test, AutoData]
+    public void IsReadyForProcessing_WhenPending_ShouldReturnTrue(
+        [WithValidEnrichmentRequest] EnrichmentRequest request)
+    {
+        Assert.That(request.IsReadyForProcessing(3), Is.True);
+    }
+
+    [Test, AutoData]
+    public void IsReadyForProcessing_WhenProcessing_ShouldReturnFalse(
+        [WithValidEnrichmentRequest] EnrichmentRequest request)
+    {
+        request.StartProcessing();
+
+        Assert.That(request.IsReadyForProcessing(3), Is.False);
+    }
+
+    [Test, AutoData]
+    public void IsReadyForProcessing_WhenCompleted_ShouldReturnFalse(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string industry,
+        string companySize)
+    {
+        request.MarkCompleted(industry, companySize, null, null, null);
+
+        Assert.That(request.IsReadyForProcessing(3), Is.False);
+    }
+
+    [Test, AutoData]
+    public void IsReadyForProcessing_WhenFailedAndCanRetry_ShouldReturnTrue(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage)
+    {
+        request.MarkFailed(errorMessage);
+
+        Assert.That(request.IsReadyForProcessing(3), Is.True);
+    }
+
+    [Test, AutoData]
+    public void IsReadyForProcessing_WhenFailedAndCannotRetry_ShouldReturnFalse(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage)
+    {
+        var maxRetries = 2;
+
+        for (int i = 0; i < maxRetries; i++)
+        {
+            request.MarkFailed(errorMessage);
+        }
+
+        Assert.That(request.IsReadyForProcessing(maxRetries), Is.False);
+    }
+
+    #endregion
+
+    #region ClearDomainEvents
+
+    [Test, AutoData]
+    public void ClearDomainEvents_ShouldClearEvents(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string  industry,
+        string companySize)
+    {
+        request.MarkCompleted(industry, companySize, null, null, null);
+
+        Assert.That(request.DomainEvents, Is.Not.Empty);
+
+        request.ClearDomainEvents();
+
+        Assert.That(request.DomainEvents, Is.Empty);
+    }
+
+    #endregion
+}
