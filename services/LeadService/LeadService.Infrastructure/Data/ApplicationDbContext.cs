@@ -10,6 +10,7 @@ using IUnitOfWork = SharedKernel.Base.IUnitOfWork;
 using LeadService.Infrastructure.Outbox;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
+using LeadService.Domain.Constants;
 
 namespace LeadService.Infrastructure.Data;
 
@@ -109,7 +110,7 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
             {
                 var outboxMessages = _outboxConverter.Convert(
                     aggregate.Id.ToString(),
-                    "lead",
+                    AggregateConstants.Lead,
                     events);
 
                 await OutboxMessages.AddRangeAsync(outboxMessages, cancellationToken);

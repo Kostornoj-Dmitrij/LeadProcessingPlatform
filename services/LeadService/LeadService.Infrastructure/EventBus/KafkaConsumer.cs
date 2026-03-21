@@ -2,6 +2,7 @@
 using System.Text;
 using Confluent.Kafka;
 using LeadService.Application.Common.Interfaces;
+using LeadService.Domain.Constants;
 using LeadService.Infrastructure.Inbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -298,7 +299,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                 { "error-message", Encoding.UTF8.GetBytes(exception.Message) },
                 { "error-type", Encoding.UTF8.GetBytes(exception.GetType().Name) },
                 { "timestamp", Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) },
-                { "source", "kafka-consumer"u8.ToArray() }
+                { "source", Encoding.UTF8.GetBytes(DlqConstants.KafkaConsumerSource) }
             }
         };
 

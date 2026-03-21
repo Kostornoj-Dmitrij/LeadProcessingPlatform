@@ -10,6 +10,7 @@ using LeadService.Infrastructure.Inbox;
 using IntegrationEvents;
 using SharedKernel.Entities;
 using Confluent.Kafka;
+using LeadService.Domain.Constants;
 using SharedKernel.Json;
 
 namespace LeadService.Infrastructure.Outbox;
@@ -133,10 +134,10 @@ public class OutboxPublisher(
         try
         {
             var kafkaMessage = CreateKafkaMessageFromOutbox(message);
-            await deadLetterQueue.SendAsync("outbox", kafkaMessage, exception, cancellationToken);
+            await deadLetterQueue.SendAsync(DlqConstants.OutboxSource, kafkaMessage, exception, cancellationToken);
 
             message.ProcessedAt = DateTime.UtcNow;
-            message.ErrorMessage = $"MOVED TO DLQ: {exception.Message}";
+            message.ErrorMessage = $"{DlqConstants.ErrorMessagePrefix}{exception.Message}";
 
             logger.LogWarning(
                 "Outbox message {MessageId} moved to DLQ after {Attempts} attempts. Error: {Error}",
@@ -162,7 +163,7 @@ public class OutboxPublisher(
                 { "aggregate-id", Encoding.UTF8.GetBytes(message.AggregateId) },
                 { "aggregate-type", Encoding.UTF8.GetBytes(message.AggregateType) },
                 { "outbox-message-id", Encoding.UTF8.GetBytes(message.Id.ToString()) },
-                { "original-source", "outbox-publisher"u8.ToArray() }
+                { "original-source", Encoding.UTF8.GetBytes(DlqConstants.OutboxSource) }
             }
         };
     }

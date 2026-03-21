@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using IntegrationEvents.ScoringEvents;
+using LeadService.Domain.Constants;
 using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
@@ -33,7 +34,7 @@ public class LeadScoringFailedEventHandler(
                 return;
             }
 
-            lead.Reject($"Scoring failed: {@event.Reason}", "ScoringFailed");
+            lead.Reject($"Scoring failed: {@event.Reason}", FailureTypeConstants.ScoringFailed);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 

@@ -5,6 +5,7 @@ using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using SharedKernel.Events;
+using LeadService.Domain.Constants;
 
 namespace LeadService.Application.EventHandlers;
 
@@ -33,7 +34,7 @@ public class LeadEnrichmentFailedEventHandler(
                 return;
             }
 
-            lead.Reject($"Enrichment failed: {@event.Reason}", "EnrichmentFailed");
+            lead.Reject($"Enrichment failed: {@event.Reason}", FailureTypeConstants.EnrichmentFailed);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 

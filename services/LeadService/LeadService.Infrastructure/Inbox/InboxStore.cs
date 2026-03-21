@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using LeadService.Domain.Constants;
+using Microsoft.EntityFrameworkCore;
 using LeadService.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
 
@@ -129,7 +130,7 @@ public class InboxStore(
         if (message != null)
         {
             message.ProcessedAt = DateTime.UtcNow;
-            message.ErrorMessage = $"MOVED TO DLQ: {errorMessage}";
+            message.ErrorMessage = $"{DlqConstants.ErrorMessagePrefix}{errorMessage}";
             message.ProcessingAttempts++;
 
             await context.SaveChangesAsync(cancellationToken);
