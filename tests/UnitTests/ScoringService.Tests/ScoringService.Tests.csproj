@@ -21,9 +21,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\services\ScoringService\ScoringService.Application\{ServiceName}.Application.csproj" />
-        <ProjectReference Include="..\..\services\ScoringService\ScoringService.Domain\{ServiceName}.Domain.csproj" />
-        <ProjectReference Include="..\..\services\ScoringService\ScoringService.Infrastructure\{ServiceName}.Infrastructure.csproj" />
+        <ProjectReference Include="..\..\services\ScoringService\ScoringService.Application\ScoringService.Application.csproj" />
+        <ProjectReference Include="..\..\services\ScoringService\ScoringService.Domain\ScoringService.Domain.csproj" />
+        <ProjectReference Include="..\..\services\ScoringService\ScoringService.Infrastructure\ScoringService.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>

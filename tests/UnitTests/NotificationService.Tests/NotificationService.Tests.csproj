@@ -21,9 +21,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\services\NotificationService\NotificationService.Application\{ServiceName}.Application.csproj" />
-        <ProjectReference Include="..\..\services\NotificationService\NotificationService.Domain\{ServiceName}.Domain.csproj" />
-        <ProjectReference Include="..\..\services\NotificationService\NotificationService.Infrastructure\{ServiceName}.Infrastructure.csproj" />
+        <ProjectReference Include="..\..\services\NotificationService\NotificationService.Application\NotificationService.Application.csproj" />
+        <ProjectReference Include="..\..\services\NotificationService\NotificationService.Domain\NotificationService.Domain.csproj" />
+        <ProjectReference Include="..\..\services\NotificationService\NotificationService.Infrastructure\NotificationService.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>

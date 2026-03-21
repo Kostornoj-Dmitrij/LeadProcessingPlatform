@@ -10,7 +10,7 @@ namespace LeadService.Tests.Common.Database;
 /// </summary>
 public abstract class DatabaseTestBase
 {
-    public Mock<IUnitOfWork> UnitOfWorkMock = null!;
+    protected Mock<IUnitOfWork> UnitOfWorkMock = null!;
 
     [SetUp]
     public virtual void BaseSetup()

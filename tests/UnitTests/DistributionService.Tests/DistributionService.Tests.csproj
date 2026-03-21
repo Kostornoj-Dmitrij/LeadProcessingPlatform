@@ -21,9 +21,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\services\DistributionService\DistributionService.Application\{ServiceName}.Application.csproj" />
-        <ProjectReference Include="..\..\services\DistributionService\DistributionService.Domain\{ServiceName}.Domain.csproj" />
-        <ProjectReference Include="..\..\services\DistributionService\DistributionService.Infrastructure\{ServiceName}.Infrastructure.csproj" />
+        <ProjectReference Include="..\..\services\DistributionService\DistributionService.Application\DistributionService.Application.csproj" />
+        <ProjectReference Include="..\..\services\DistributionService\DistributionService.Domain\DistributionService.Domain.csproj" />
+        <ProjectReference Include="..\..\services\DistributionService\DistributionService.Infrastructure\DistributionService.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>
