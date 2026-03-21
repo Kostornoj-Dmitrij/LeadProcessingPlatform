@@ -5,7 +5,7 @@ using LeadService.Domain.Entities;
 namespace LeadService.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// Конфигурация EF Core для таблицы LeadCustomFields
+/// Конфигурация EF Core для таблицы lead_custom_fields
 /// </summary>
 public class LeadCustomFieldConfiguration : IEntityTypeConfiguration<LeadCustomField>
 {

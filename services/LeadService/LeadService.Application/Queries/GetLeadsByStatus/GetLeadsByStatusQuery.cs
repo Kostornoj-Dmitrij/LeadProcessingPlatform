@@ -1,5 +1,5 @@
-﻿using MediatR;
-using LeadService.Application.DTOs;
+﻿using LeadService.Application.Common.DTOs;
+using MediatR;
 using LeadService.Domain.Enums;
 
 namespace LeadService.Application.Queries.GetLeadsByStatus;

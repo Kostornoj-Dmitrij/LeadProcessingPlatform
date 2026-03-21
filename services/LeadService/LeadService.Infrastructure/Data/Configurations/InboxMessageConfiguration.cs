@@ -5,7 +5,7 @@ using LeadService.Infrastructure.Inbox;
 namespace LeadService.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// Конфигурация EF Core для таблицы InboxMessages
+/// Конфигурация EF Core для таблицы inbox_messages
 /// </summary>
 public class InboxMessageConfiguration : IEntityTypeConfiguration<InboxMessage>
 {

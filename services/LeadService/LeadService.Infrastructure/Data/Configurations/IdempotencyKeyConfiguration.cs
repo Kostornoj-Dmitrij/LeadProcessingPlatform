@@ -6,7 +6,7 @@ using SharedKernel.Entities;
 namespace LeadService.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// Конфигурация EF Core для таблицы IdempotencyKeys
+/// Конфигурация EF Core для таблицы idempotency_keys
 /// </summary>
 public class IdempotencyKeyConfiguration : IEntityTypeConfiguration<IdempotencyKey>
 {

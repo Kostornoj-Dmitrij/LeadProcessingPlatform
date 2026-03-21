@@ -1,9 +1,9 @@
 ﻿using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
+using LeadService.Application.Common.DTOs;
 using MediatR;
 using LeadService.Application.Common.Interfaces;
-using LeadService.Application.DTOs;
 using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;

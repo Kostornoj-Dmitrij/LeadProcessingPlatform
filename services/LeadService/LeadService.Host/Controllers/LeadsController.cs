@@ -1,9 +1,9 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using LeadService.Application.Commands.CreateLead;
+using LeadService.Application.Common.DTOs;
 using LeadService.Application.Queries.GetLeadById;
 using LeadService.Application.Queries.GetLeadsByStatus;
-using LeadService.Application.DTOs;
 using LeadService.Domain.Enums;
 
 namespace LeadService.Host.Controllers;

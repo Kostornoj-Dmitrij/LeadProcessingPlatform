@@ -5,7 +5,7 @@ using LeadService.Infrastructure.Data.Entities;
 namespace LeadService.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// Конфигурация EF Core для таблицы LeadStatusHistory
+/// Конфигурация EF Core для таблицы lead_status_history
 /// </summary>
 public class LeadStatusHistoryConfiguration : IEntityTypeConfiguration<LeadStatusHistory>
 {

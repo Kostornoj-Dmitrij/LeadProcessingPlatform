@@ -1,4 +1,4 @@
-﻿namespace LeadService.Application.DTOs;
+﻿namespace LeadService.Application.Common.DTOs;
 
 /// <summary>
 /// DTO для возврата данных лида клиенту

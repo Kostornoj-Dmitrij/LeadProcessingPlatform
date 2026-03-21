@@ -5,7 +5,7 @@ using SharedKernel.Entities;
 namespace LeadService.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// Конфигурация EF Core для таблицы OutboxMessages
+/// Конфигурация EF Core для таблицы outbox_messages
 /// </summary>
 public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
 {

@@ -1,5 +1,5 @@
-﻿using MediatR;
-using LeadService.Application.DTOs;
+﻿using LeadService.Application.Common.DTOs;
+using MediatR;
 using LeadService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Base;

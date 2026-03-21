@@ -43,7 +43,8 @@ public static class DependencyInjection
 
         services.AddHostedService<KafkaConsumer>();
         services.AddScoped<IKafkaConsumer>(sp => 
-            sp.GetServices<IHostedService>().OfType<KafkaConsumer>().First());
+            sp.GetServices<IHostedService>().OfType<KafkaConsumer>().FirstOrDefault() 
+            ?? throw new InvalidOperationException("KafkaConsumer service not found in the container"));
 
         services.AddHostedService<OutboxPublisher>();
 

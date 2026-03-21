@@ -6,7 +6,7 @@ using LeadService.Domain.ValueObjects;
 namespace LeadService.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// Конфигурация EF Core для таблицы Leads
+/// Конфигурация EF Core для таблицы leads
 /// </summary>
 public class LeadConfiguration : IEntityTypeConfiguration<Lead>
 {

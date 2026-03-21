@@ -1,8 +1,8 @@
 ﻿using System.Text.Json;
 using AutoFixture.NUnit3;
 using LeadService.Application.Commands.CreateLead;
+using LeadService.Application.Common.DTOs;
 using LeadService.Application.Common.Interfaces;
-using LeadService.Application.DTOs;
 using LeadService.Domain.Entities;
 using LeadService.Tests.Common.Attributes;
 using Microsoft.EntityFrameworkCore;
