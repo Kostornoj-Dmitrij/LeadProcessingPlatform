@@ -136,10 +136,9 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
                     var databaseValues = await entry.GetDatabaseValuesAsync(cancellationToken);
                     if (databaseValues != null)
                     {
-                        var dbVersion = databaseValues.GetValue<uint>("xmin");
                         _logger.LogWarning(
-                            "Concurrency conflict for Lead {LeadId}. Entity version: {EntityVersion}, Database version: {DbVersion}",
-                            lead.Id, lead.Version, dbVersion);
+                            "Concurrency conflict for Lead {LeadId}. Please retry the operation.",
+                            lead.Id);
                     }
                 }
             }

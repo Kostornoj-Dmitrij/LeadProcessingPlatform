@@ -92,11 +92,6 @@ public class LeadConfiguration : IEntityTypeConfiguration<Lead>
             .HasColumnName("updated_at")
             .IsRequired();
 
-        builder.Property(x => x.Version)
-            .HasColumnName("xmin")
-            .ValueGeneratedOnAddOrUpdate()
-            .IsConcurrencyToken();
-
         builder.HasIndex(x => x.ExternalLeadId)
             .IsUnique()
             .HasDatabaseName("ix_leads_external_lead_id")

@@ -56,8 +56,6 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
 
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
-    public uint Version { get; private set; }
-
     public static Lead Create(
         Guid id,
         string source,
@@ -231,6 +229,7 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
             return;
 
         IsEnrichmentCompensated = true;
+        EnrichedData = null;
         UpdatedAt = DateTime.UtcNow;
 
         AddDomainEvent(new EnrichmentCompensatedDomainEvent(Id));
