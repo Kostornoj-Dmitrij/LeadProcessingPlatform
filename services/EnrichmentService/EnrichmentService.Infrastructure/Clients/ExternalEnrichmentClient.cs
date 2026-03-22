@@ -8,8 +8,11 @@ namespace EnrichmentService.Infrastructure.Clients;
 /// <summary>
 /// Эмулятор клиента внешнего API обогащения данных
 /// </summary>
-public class ExternalEnrichmentClient(ILogger<ExternalEnrichmentClient> logger) : IExternalEnrichmentClient
+public class ExternalEnrichmentClient(HttpClient httpClient, ILogger<ExternalEnrichmentClient> logger)
+    : IExternalEnrichmentClient
 {
+    private readonly HttpClient _httpClient = httpClient;
+
     public async Task<EnrichmentResponse> EnrichAsync(string companyName, Dictionary<string, string>? customFields, CancellationToken cancellationToken)
     {
         logger.LogInformation("Enriching company: {CompanyName}", companyName);
@@ -32,9 +35,11 @@ public class ExternalEnrichmentClient(ILogger<ExternalEnrichmentClient> logger) 
             RevenueRange = "$10M-$50M",
             RawResponse = JsonSerializer.Serialize(new
             {
-                success = true, data = new
+                success = true,
+                data = new
                 {
-                    industry = "Technology", employees = "101-500"
+                    industry = "Technology",
+                    employees = "101-500"
                 }
             })
         };

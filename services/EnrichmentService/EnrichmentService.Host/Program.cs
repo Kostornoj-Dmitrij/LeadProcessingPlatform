@@ -1,12 +1,21 @@
 using System.Text.Json;
 using EnrichmentService.Application;
-using EnrichmentService.Infrastructure;
 using EnrichmentService.Host.Extensions;
 using EnrichmentService.Host.Middleware;
 using EnrichmentService.Host.Options;
 using Microsoft.AspNetCore.Http.Json;
 using System.Text.Json.Serialization;
 using Confluent.Kafka;
+using EnrichmentService.Application.Common.Interfaces;
+using EnrichmentService.Infrastructure.Background;
+using EnrichmentService.Infrastructure.Clients;
+using EnrichmentService.Infrastructure.Data;
+using EnrichmentService.Infrastructure.EventBus;
+using EnrichmentService.Infrastructure.Inbox;
+using EnrichmentService.Infrastructure.Outbox;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using SharedKernel.Base;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +38,31 @@ builder.Services.Configure<KafkaOptions>(
     builder.Configuration.GetSection("Kafka"));
 
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+dataSourceBuilder.EnableDynamicJson();
+var dataSource = dataSourceBuilder.Build();
+
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
+    options.UseNpgsql(dataSource, b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
+        .UseLoggerFactory(sp.GetRequiredService<ILoggerFactory>()));
+
+builder.Services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<ApplicationDbContext>());
+builder.Services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
+builder.Services.AddSingleton<KafkaEventBus>();
+builder.Services.AddSingleton<IEventBus>(sp => sp.GetRequiredService<KafkaEventBus>());
+builder.Services.AddScoped<IInboxStore, InboxStore>();
+builder.Services.AddSingleton<IDeadLetterQueue, KafkaDeadLetterQueue>();
+builder.Services.AddHostedService<InboxProcessor>();
+builder.Services.AddHostedService<KafkaConsumer>();
+builder.Services.AddScoped<IKafkaConsumer>(sp =>
+    sp.GetServices<IHostedService>().OfType<KafkaConsumer>().FirstOrDefault() 
+    ?? throw new InvalidOperationException("KafkaConsumer not found"));
+builder.Services.AddHostedService<OutboxPublisher>();
+builder.Services.AddHostedService<EnrichmentProcessor>();
+builder.Services.AddHttpClient<IExternalEnrichmentClient, ExternalEnrichmentClient>();
 
 builder.Services.AddOpenTelemetryConfiguration(builder.Configuration, "EnrichmentService");
 
