@@ -43,18 +43,39 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
 
     public void StartProcessing()
     {
+        if (Status != EnrichmentRequestStatus.Pending)
+        {
+            throw new InvalidOperationException(
+                $"Cannot start processing an enrichment request that is not in Pending state. " +
+                $"Current state: {Status}");
+        }
+        
         Status = EnrichmentRequestStatus.Processing;
         LastAttemptAt = DateTime.UtcNow;
     }
 
     public void MarkCompleted()
     {
+        if (Status != EnrichmentRequestStatus.Processing)
+        {
+            throw new InvalidOperationException(
+                $"Cannot complete an enrichment request that is not in Processing state. " +
+                $"Current state: {Status}");
+        }
+        
         Status = EnrichmentRequestStatus.Completed;
         LastAttemptAt = DateTime.UtcNow;
     }
 
     public void MarkFailed(string errorMessage)
     {
+        if (Status != EnrichmentRequestStatus.Processing)
+        {
+            throw new InvalidOperationException(
+                $"Cannot mark as failed an enrichment request that is not in Processing state. " +
+                $"Current state: {Status}");
+        }
+        
         Status = EnrichmentRequestStatus.Failed;
         LastAttemptAt = DateTime.UtcNow;
         ErrorMessage = errorMessage;
