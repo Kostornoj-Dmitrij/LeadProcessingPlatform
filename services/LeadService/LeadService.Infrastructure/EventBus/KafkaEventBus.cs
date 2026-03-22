@@ -5,6 +5,7 @@ using LeadService.Application.Common.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using IntegrationEvents;
+using IntegrationEvents.LeadEvents;
 using SharedKernel.Json;
 
 namespace LeadService.Infrastructure.EventBus;
@@ -65,7 +66,16 @@ public class KafkaEventBus : IEventBus
         try
         {
             var topic = GetTopicForEvent(integrationEvent);
-            var messageValue = JsonSerializer.Serialize(@event, JsonDefaults.Options);
+            _logger.LogDebug("Event before serialization: {@Event}", @event);
+            if (@event is LeadCreatedIntegrationEvent leadEvent)
+            {
+                _logger.LogDebug("LeadCreatedIntegrationEvent before serialization: LeadId = {LeadId}, EventId = {EventId}, Source = {Source}, CompanyName = {CompanyName}, Email = {Email}",
+                    leadEvent.LeadId, leadEvent.EventId, leadEvent.Source, leadEvent.CompanyName, leadEvent.Email);
+            }
+            var messageValue = JsonSerializer.Serialize(@event, @event.GetType(), JsonDefaults.Options);
+            _logger.LogDebug("Serialized message for {EventType}: {MessageValue}", 
+                integrationEvent.GetType().Name, 
+                messageValue);
 
             var message = new Message<string, string>
             {
@@ -73,7 +83,7 @@ public class KafkaEventBus : IEventBus
                 Value = messageValue,
                 Headers = new Headers
                 {
-                    { "event-type", Encoding.UTF8.GetBytes(integrationEvent.GetType().Name) },
+                    { "event-type", Encoding.UTF8.GetBytes(integrationEvent.GetType().AssemblyQualifiedName!) },
                     { "event-id", Encoding.UTF8.GetBytes(integrationEvent.EventId.ToString()) },
                     { "content-type", "application/json"u8.ToArray() },
                     { "timestamp", Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) }

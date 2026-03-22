@@ -50,7 +50,7 @@ public class KafkaEventBus : IEventBus
         try
         {
             var topic = GetTopicForEvent(integrationEvent);
-            var messageValue = JsonSerializer.Serialize(@event, JsonDefaults.Options);
+            var messageValue = JsonSerializer.Serialize(@event, @event.GetType(), JsonDefaults.Options);
 
             var message = new Message<string, string>
             {

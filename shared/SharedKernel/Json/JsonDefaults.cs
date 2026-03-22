@@ -9,8 +9,9 @@ public static class JsonDefaults
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter() },
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        WriteIndented = false
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        WriteIndented = false,
+        IncludeFields = true
     };
 
     public static readonly JsonSerializerOptions IndentedOptions = new()
