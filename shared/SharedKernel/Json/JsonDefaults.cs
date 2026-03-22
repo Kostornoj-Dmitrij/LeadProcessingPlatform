@@ -3,6 +3,9 @@ using System.Text.Json.Serialization;
 
 namespace SharedKernel.Json;
 
+/// <summary>
+/// Стандартные настройки JSON-сериализации
+/// </summary>
 public static class JsonDefaults
 {
     public static readonly JsonSerializerOptions Options = new()
