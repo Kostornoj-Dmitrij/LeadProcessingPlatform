@@ -53,11 +53,6 @@ public class EnrichmentResultConfiguration : IEntityTypeConfiguration<Enrichment
             .HasColumnName("enriched_at")
             .IsRequired();
 
-        builder.Property(x => x.Version)
-            .HasColumnName("xmin")
-            .ValueGeneratedOnAddOrUpdate()
-            .IsConcurrencyToken();
-
         builder.HasIndex(x => x.LeadId)
             .HasDatabaseName("ix_enrichment_results_lead_id")
             .IsUnique();

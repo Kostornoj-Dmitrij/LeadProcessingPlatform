@@ -36,7 +36,6 @@ public class EnrichmentResultTests
         Assert.That(result.RevenueRange, Is.EqualTo(revenueRange));
         Assert.That(result.RawResponse, Is.EqualTo(rawResponse));
         Assert.That(result.EnrichedAt, Is.EqualTo(DateTime.UtcNow).Within(TimeSpan.FromSeconds(1)));
-        Assert.That(result.Version, Is.EqualTo(1));
         Assert.That(result.DomainEvents, Has.Exactly(1).InstanceOf<LeadEnrichedDomainEvent>());
 
         var domainEvent = result.DomainEvents.First() as LeadEnrichedDomainEvent;

@@ -170,12 +170,6 @@ namespace EnrichmentService.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("revenue_range");
 
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("integer")
-                        .HasColumnName("xmin");
-
                     b.Property<string>("Website")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")

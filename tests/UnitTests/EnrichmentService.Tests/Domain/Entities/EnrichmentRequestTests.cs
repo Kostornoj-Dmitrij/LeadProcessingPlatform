@@ -84,48 +84,6 @@ public class EnrichmentRequestTests
 
     #endregion
 
-    #region MarkCompleted
-
-    [Test, AutoData]
-    public void MarkCompleted_ShouldChangeStatusAndAddEvent(
-        [WithValidEnrichmentRequest] EnrichmentRequest request,
-        string industry,
-        string companySize,
-        string website,
-        string revenueRange,
-        string rawResponse)
-    {
-        request.StartProcessing();
-        request.ClearDomainEvents();
-
-        request.MarkCompleted(industry, companySize, website, revenueRange, rawResponse);
-
-        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Completed));
-        Assert.That(request.LastAttemptAt, Is.EqualTo(DateTime.UtcNow).Within(TimeSpan.FromSeconds(1)));
-        Assert.That(request.DomainEvents, Has.Exactly(1).InstanceOf<LeadEnrichedDomainEvent>());
-
-        var domainEvent = request.DomainEvents.First() as LeadEnrichedDomainEvent;
-        Assert.That(domainEvent!.LeadId, Is.EqualTo(request.LeadId));
-        Assert.That(domainEvent.Industry, Is.EqualTo(industry));
-        Assert.That(domainEvent.CompanySize, Is.EqualTo(companySize));
-        Assert.That(domainEvent.Website, Is.EqualTo(website));
-        Assert.That(domainEvent.RevenueRange, Is.EqualTo(revenueRange));
-        Assert.That(domainEvent.Version, Is.EqualTo(1));
-    }
-
-    [Test, AutoData]
-    public void MarkCompleted_WithoutStartingProcessing_ShouldStillWork(
-        [WithValidEnrichmentRequest] EnrichmentRequest request,
-        string industry, string companySize)
-    {
-        request.MarkCompleted(industry, companySize, null, null, null);
-
-        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Completed));
-        Assert.That(request.DomainEvents, Has.Exactly(1).InstanceOf<LeadEnrichedDomainEvent>());
-    }
-
-    #endregion
-
     #region MarkFailed
 
     [Test, AutoData]
@@ -238,11 +196,9 @@ public class EnrichmentRequestTests
 
     [Test, AutoData]
     public void IsReadyForProcessing_WhenCompleted_ShouldReturnFalse(
-        [WithValidEnrichmentRequest] EnrichmentRequest request,
-        string industry,
-        string companySize)
+        [WithValidEnrichmentRequest] EnrichmentRequest request)
     {
-        request.MarkCompleted(industry, companySize, null, null, null);
+        request.MarkCompleted();
 
         Assert.That(request.IsReadyForProcessing(3), Is.False);
     }
@@ -270,25 +226,6 @@ public class EnrichmentRequestTests
         }
 
         Assert.That(request.IsReadyForProcessing(maxRetries), Is.False);
-    }
-
-    #endregion
-
-    #region ClearDomainEvents
-
-    [Test, AutoData]
-    public void ClearDomainEvents_ShouldClearEvents(
-        [WithValidEnrichmentRequest] EnrichmentRequest request,
-        string  industry,
-        string companySize)
-    {
-        request.MarkCompleted(industry, companySize, null, null, null);
-
-        Assert.That(request.DomainEvents, Is.Not.Empty);
-
-        request.ClearDomainEvents();
-
-        Assert.That(request.DomainEvents, Is.Empty);
     }
 
     #endregion

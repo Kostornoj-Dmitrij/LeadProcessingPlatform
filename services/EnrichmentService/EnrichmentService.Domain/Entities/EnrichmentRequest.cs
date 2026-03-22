@@ -47,11 +47,10 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
         LastAttemptAt = DateTime.UtcNow;
     }
 
-    public void MarkCompleted(string industry, string companySize, string? website, string? revenueRange, string? rawResponse)
+    public void MarkCompleted()
     {
         Status = EnrichmentRequestStatus.Completed;
         LastAttemptAt = DateTime.UtcNow;
-        AddDomainEvent(new LeadEnrichedDomainEvent(LeadId, industry, companySize, website, revenueRange, 1));
     }
 
     public void MarkFailed(string errorMessage)

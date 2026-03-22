@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using EnrichmentService.Application.Common.Interfaces;
+using EnrichmentService.Domain.Entities;
 using EnrichmentService.Domain.Enums;
 using EnrichmentService.Infrastructure.Data;
 using SharedKernel.Base;
@@ -78,12 +79,18 @@ public class EnrichmentProcessor(
 
                 if (result.IsSuccess)
                 {
-                    request.MarkCompleted(
+                    var enrichmentResult = EnrichmentResult.Create(
+                        request.LeadId,
+                        request.CompanyName,
                         result.Industry!,
                         result.CompanySize!,
                         result.Website,
                         result.RevenueRange,
                         result.RawResponse);
+
+                    await unitOfWork.Set<EnrichmentResult>().AddAsync(enrichmentResult, cancellationToken);
+
+                    request.MarkCompleted();
                 }
                 else
                 {

@@ -19,7 +19,6 @@ public class EnrichmentResult : Entity<Guid>, IAggregateRoot
     public string? RevenueRange { get; private set; }
     public string? RawResponse { get; private set; }
     public DateTime EnrichedAt { get; private set; }
-    public int Version { get; private set; }
 
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
@@ -47,11 +46,10 @@ public class EnrichmentResult : Entity<Guid>, IAggregateRoot
             Website = website,
             RevenueRange = revenueRange,
             RawResponse = rawResponse,
-            EnrichedAt = DateTime.UtcNow,
-            Version = 1
+            EnrichedAt = DateTime.UtcNow
         };
 
-        result.AddDomainEvent(new LeadEnrichedDomainEvent(leadId, industry, companySize, website, revenueRange, result.Version));
+        result.AddDomainEvent(new LeadEnrichedDomainEvent(leadId, industry, companySize, website, revenueRange, 1));
 
         return result;
     }
