@@ -103,13 +103,18 @@ public class InboxStore(ApplicationDbContext context, ILogger<InboxStore> logger
         }
     }
 
-    public async Task<InboxMessage?> GetByMessageIdAsync(string messageId, CancellationToken cancellationToken = default)
+    public async Task<InboxMessage?> GetByMessageIdAsync(
+        string messageId,
+        CancellationToken cancellationToken = default)
     {
         return await context.InboxMessages
             .FirstOrDefaultAsync(x => x.MessageId == messageId, cancellationToken);
     }
 
-    public async Task MoveToDeadLetterQueueAsync(Guid messageId, string errorMessage, CancellationToken cancellationToken = default)
+    public async Task MoveToDeadLetterQueueAsync(
+        Guid messageId,
+        string errorMessage,
+        CancellationToken cancellationToken = default)
     {
         var message = await context.InboxMessages.FindAsync([messageId], cancellationToken);
         if (message != null)

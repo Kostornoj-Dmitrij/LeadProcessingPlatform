@@ -122,7 +122,10 @@ public class InboxStore(
             .FirstOrDefaultAsync(x => x.MessageId == messageId, cancellationToken);
     }
 
-    public async Task MoveToDeadLetterQueueAsync(Guid messageId, string errorMessage, CancellationToken cancellationToken = default)
+    public async Task MoveToDeadLetterQueueAsync(
+        Guid messageId,
+        string errorMessage,
+        CancellationToken cancellationToken = default)
     {
         var message = await context.Set<InboxMessage>()
             .FindAsync([messageId], cancellationToken);

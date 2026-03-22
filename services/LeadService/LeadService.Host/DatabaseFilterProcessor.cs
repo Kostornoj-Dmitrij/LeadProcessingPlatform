@@ -3,6 +3,9 @@ using OpenTelemetry;
 
 namespace LeadService.Host;
 
+/// <summary>
+/// Процессор OpenTelemetry для фильтрации телеметрии от фоновых процессов
+/// </summary>
 public class DatabaseFilterProcessor : BaseProcessor<Activity>
 {
     public override void OnEnd(Activity activity)

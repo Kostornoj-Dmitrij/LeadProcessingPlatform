@@ -29,7 +29,10 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
         _dlqTopic = configuration["Kafka:DlqTopic"] ?? "lead-service-dlq";
     }
 
-    public async Task SendAsync(string originalTopic, Message<string, string> message, Exception exception, CancellationToken cancellationToken = default)
+    public async Task SendAsync(string originalTopic,
+        Message<string, string> message,
+        Exception exception,
+        CancellationToken cancellationToken = default)
     {
         var deadLetterMessage = new Message<string, string>
         {

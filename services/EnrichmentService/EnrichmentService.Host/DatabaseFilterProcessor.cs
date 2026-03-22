@@ -2,6 +2,9 @@
 
 namespace EnrichmentService.Host;
 
+/// <summary>
+/// Процессор OpenTelemetry для фильтрации телеметрии от фоновых процессов
+/// </summary>
 public class DatabaseFilterProcessor : OpenTelemetry.BaseProcessor<Activity>
 {
     public override void OnEnd(Activity activity)

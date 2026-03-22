@@ -116,7 +116,10 @@ public class InboxProcessor(IServiceScopeFactory scopeFactory, ILogger<InboxProc
         }
     }
 
-    private async Task ProcessMessageAsync(InboxMessage message, IMediator mediator, CancellationToken cancellationToken)
+    private async Task ProcessMessageAsync(
+        InboxMessage message,
+        IMediator mediator,
+        CancellationToken cancellationToken)
     {
         var eventType = Type.GetType(message.EventType);
         if (eventType == null)
