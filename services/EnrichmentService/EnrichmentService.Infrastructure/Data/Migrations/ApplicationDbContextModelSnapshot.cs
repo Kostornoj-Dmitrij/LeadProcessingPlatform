@@ -106,6 +106,10 @@ namespace EnrichmentService.Infrastructure.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("lead_id");
 
+                    b.Property<DateTime?>("NextRetryAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_retry_at");
+
                     b.Property<int>("RetryCount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -124,6 +128,9 @@ namespace EnrichmentService.Infrastructure.Data.Migrations
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_enrichment_requests_status");
+
+                    b.HasIndex("Status", "NextRetryAt")
+                        .HasDatabaseName("ix_enrichment_requests_status_next_retry_at");
 
                     b.ToTable("enrichment_requests", (string)null);
                 });

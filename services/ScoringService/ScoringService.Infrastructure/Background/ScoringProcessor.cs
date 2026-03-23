@@ -120,7 +120,7 @@ public class ScoringProcessor(
                     totalScore = parsedScore;
                 }
 
-                int qualifiedThreshold = 50;
+                int qualifiedThreshold = 25;
 
                 request.MarkCompleted(totalScore, qualifiedThreshold, appliedRules);
 

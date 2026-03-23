@@ -18,9 +18,15 @@ public class EnrichmentProcessor(
     ILogger<EnrichmentProcessor> logger)
     : BackgroundService
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(3);
+    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
     private readonly int _batchSize = 10;
     private const int MaxRetryAttempts = 3;
+    private static readonly TimeSpan[] RetryDelays = 
+    [
+        TimeSpan.FromSeconds(10),
+        TimeSpan.FromSeconds(30),
+        TimeSpan.FromMinutes(2)
+    ];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -45,65 +51,159 @@ public class EnrichmentProcessor(
 
     private async Task ProcessPendingRequests(CancellationToken cancellationToken)
     {
-        using var scope = scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var enrichmentClient = scope.ServiceProvider.GetRequiredService<IExternalEnrichmentClient>();
+        using var readScope = scopeFactory.CreateScope();
+        var readContext = readScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        var requests = await context.EnrichmentRequests
-            .Where(x => x.Status == EnrichmentRequestStatus.Pending || 
-                        x.Status == EnrichmentRequestStatus.Failed)
+        var now = DateTime.UtcNow;
+
+        var requests = await readContext.EnrichmentRequests
+            .Where(x => x.Status == EnrichmentRequestStatus.Pending ||
+                        (x.Status == EnrichmentRequestStatus.Failed && 
+                         x.NextRetryAt != null && 
+                         x.NextRetryAt <= now))
             .OrderBy(x => x.LastAttemptAt)
             .Take(_batchSize)
             .ToListAsync(cancellationToken);
 
-        var pendingRequests = requests
-            .Where(x => x.IsReadyForProcessing(MaxRetryAttempts))
-            .ToList();
-
-        if (!pendingRequests.Any())
+        if (!requests.Any())
             return;
 
-        logger.LogInformation("Processing {Count} enrichment requests", pendingRequests.Count);
+        logger.LogInformation("Found {Count} enrichment requests ready for processing", requests.Count);
 
-        foreach (var request in pendingRequests)
+        foreach (var request in requests)
         {
-            request.StartProcessing();
-            
-            try
-            {
-                var result = await enrichmentClient.EnrichAsync(
-                    request.CompanyName,
-                    request.CustomFields,
-                    cancellationToken);
-
-                if (result.IsSuccess)
-                {
-                    var enrichmentResult = EnrichmentResult.Create(
-                        request.LeadId,
-                        request.CompanyName,
-                        result.Industry!,
-                        result.CompanySize!,
-                        result.Website,
-                        result.RevenueRange,
-                        result.RawResponse);
-
-                    await unitOfWork.Set<EnrichmentResult>().AddAsync(enrichmentResult, cancellationToken);
-
-                    request.MarkCompleted();
-                }
-                else
-                {
-                    request.MarkFailed(result.ErrorMessage!);
-                }
-            }
-            catch (Exception ex)
-            {
-                request.MarkFailed($"Exception during enrichment: {ex.Message}");
-                logger.LogError(ex, "Unexpected error during enrichment for lead {LeadId}", request.LeadId);
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await ProcessSingleRequestAsync(request, cancellationToken);
         }
+    }
+
+    private async Task ProcessSingleRequestAsync(EnrichmentRequest request, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var enrichmentClient = scope.ServiceProvider.GetRequiredService<IExternalEnrichmentClient>();
+
+        var freshRequest = await unitOfWork.Set<EnrichmentRequest>()
+            .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+
+        if (freshRequest == null)
+        {
+            logger.LogWarning("Enrichment request {RequestId} not found", request.Id);
+            return;
+        }
+
+        if (!IsReadyForProcessing(freshRequest))
+        {
+            logger.LogDebug(
+                "Request {RequestId} for lead {LeadId} is not ready for processing (Status: {Status}, RetryCount: {RetryCount})",
+                freshRequest.Id, freshRequest.LeadId, freshRequest.Status, freshRequest.RetryCount);
+            return;
+        }
+
+        logger.LogInformation(
+            "Processing enrichment request {RequestId} for lead {LeadId} (Attempt {Attempt}/{MaxRetries})",
+            freshRequest.Id, freshRequest.LeadId, freshRequest.RetryCount + 1, MaxRetryAttempts);
+
+        try
+        {
+            freshRequest.StartProcessing();
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var result = await enrichmentClient.EnrichAsync(
+                freshRequest.CompanyName,
+                freshRequest.CustomFields,
+                cancellationToken);
+
+            if (result.IsSuccess)
+            {
+                var enrichmentResult = EnrichmentResult.Create(
+                    freshRequest.LeadId,
+                    freshRequest.CompanyName,
+                    result.Industry!,
+                    result.CompanySize!,
+                    result.Website,
+                    result.RevenueRange,
+                    result.RawResponse);
+
+                await unitOfWork.Set<EnrichmentResult>().AddAsync(enrichmentResult, cancellationToken);
+                freshRequest.MarkCompleted();
+
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+
+                logger.LogInformation(
+                    "Successfully enriched lead {LeadId}. Industry: {Industry}, CompanySize: {CompanySize}",
+                    freshRequest.LeadId, result.Industry, result.CompanySize);
+            }
+            else
+            {
+                await HandleFailedRequest(freshRequest, result.ErrorMessage!, unitOfWork, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error during enrichment for lead {LeadId}", freshRequest.LeadId);
+            await HandleFailedRequest(freshRequest, $"Exception: {ex.Message}", unitOfWork, cancellationToken);
+        }
+    }
+
+    private async Task HandleFailedRequest(
+        EnrichmentRequest request,
+        string errorMessage,
+        IUnitOfWork unitOfWork,
+        CancellationToken cancellationToken)
+    {
+        var nextRetryAt = CalculateNextRetryTime(request.RetryCount);
+    
+        if (request.RetryCount < MaxRetryAttempts)
+        {
+            request.MarkFailed(errorMessage, nextRetryAt);
+        }
+        else
+        {
+            request.MarkFailed(errorMessage);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (request.RetryCount >= MaxRetryAttempts)
+        {
+            logger.LogWarning(
+                "Enrichment failed permanently for lead {LeadId} after {RetryCount} attempts. Error: {Error}",
+                request.LeadId, request.RetryCount, errorMessage);
+        }
+        else
+        {
+            logger.LogWarning(
+                "Enrichment failed for lead {LeadId} (attempt {Attempt}/{MaxRetries}). Next retry at {NextRetryAt}. Error: {Error}",
+                request.LeadId, request.RetryCount, MaxRetryAttempts, nextRetryAt, errorMessage);
+        }
+    }
+
+    private DateTime CalculateNextRetryTime(int retryCount)
+    {
+        if (retryCount >= MaxRetryAttempts)
+            return DateTime.MaxValue;
+            
+        var delay = RetryDelays[Math.Min(retryCount, RetryDelays.Length - 1)];
+        return DateTime.UtcNow.Add(delay);
+    }
+
+    private bool IsReadyForProcessing(EnrichmentRequest request)
+    {
+        if (request.Status == EnrichmentRequestStatus.Pending)
+            return true;
+
+        if (request.Status == EnrichmentRequestStatus.Failed)
+        {
+            if (request.RetryCount >= MaxRetryAttempts)
+                return false;
+
+            if (request.NextRetryAt.HasValue && request.NextRetryAt.Value <= DateTime.UtcNow)
+                return true;
+            
+            if (!request.NextRetryAt.HasValue)
+                return true;
+        }
+
+        return false;
     }
 }

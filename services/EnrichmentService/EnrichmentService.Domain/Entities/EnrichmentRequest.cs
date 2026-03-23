@@ -21,6 +21,7 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
     public int RetryCount { get; private set; }
     public DateTime? LastAttemptAt { get; private set; }
     public string? ErrorMessage { get; private set; }
+    public DateTime? NextRetryAt { get; private set; }
 
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
@@ -37,19 +38,20 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
             ContactPerson = contactPerson,
             CustomFields = customFields,
             Status = EnrichmentRequestStatus.Pending,
-            RetryCount = 0
+            RetryCount = 0,
+            NextRetryAt = null
         };
     }
 
     public void StartProcessing()
     {
-        if (Status != EnrichmentRequestStatus.Pending)
+        if (Status != EnrichmentRequestStatus.Pending && Status != EnrichmentRequestStatus.Failed)
         {
             throw new InvalidOperationException(
-                $"Cannot start processing an enrichment request that is not in Pending state. " +
+                $"Cannot start processing an enrichment request that is not in Pending or Failed state. " +
                 $"Current state: {Status}");
         }
-        
+    
         Status = EnrichmentRequestStatus.Processing;
         LastAttemptAt = DateTime.UtcNow;
     }
@@ -62,12 +64,13 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
                 $"Cannot complete an enrichment request that is not in Processing state. " +
                 $"Current state: {Status}");
         }
-        
+
         Status = EnrichmentRequestStatus.Completed;
         LastAttemptAt = DateTime.UtcNow;
+        NextRetryAt = null;
     }
 
-    public void MarkFailed(string errorMessage)
+    public void MarkFailed(string errorMessage, DateTime? nextRetryAt = null)
     {
         if (Status != EnrichmentRequestStatus.Processing)
         {
@@ -75,11 +78,12 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
                 $"Cannot mark as failed an enrichment request that is not in Processing state. " +
                 $"Current state: {Status}");
         }
-        
+
         Status = EnrichmentRequestStatus.Failed;
         LastAttemptAt = DateTime.UtcNow;
         ErrorMessage = errorMessage;
         RetryCount++;
+        NextRetryAt = nextRetryAt;
         AddDomainEvent(new LeadEnrichmentFailedDomainEvent(LeadId, errorMessage, RetryCount));
     }
 

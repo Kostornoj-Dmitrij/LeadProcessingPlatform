@@ -55,11 +55,17 @@ public class EnrichmentRequestConfiguration : IEntityTypeConfiguration<Enrichmen
         builder.Property(x => x.ErrorMessage)
             .HasColumnName("error_message");
 
+        builder.Property(x => x.NextRetryAt)
+            .HasColumnName("next_retry_at");
+
         builder.HasIndex(x => x.LeadId)
             .IsUnique()
             .HasDatabaseName("ix_enrichment_requests_lead_id");
 
         builder.HasIndex(x => x.Status)
             .HasDatabaseName("ix_enrichment_requests_status");
+
+        builder.HasIndex(x => new { x.Status, x.NextRetryAt })
+            .HasDatabaseName("ix_enrichment_requests_status_next_retry_at");
     }
 }
