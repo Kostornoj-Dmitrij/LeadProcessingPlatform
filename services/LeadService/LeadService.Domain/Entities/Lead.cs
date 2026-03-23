@@ -145,7 +145,7 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
         TryQualify();
     }
 
-    private void TryQualify()
+    public void TryQualify()
     {
         if (Status != LeadStatus.Initial || !IsEnrichmentReceived || !IsScoringReceived)
             return;
