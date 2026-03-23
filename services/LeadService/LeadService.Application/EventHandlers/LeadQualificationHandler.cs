@@ -48,9 +48,7 @@ public class LeadQualificationHandler(
         
         try
         {
-            var lead = await unitOfWork.Set<Lead>()
-                .FromSqlRaw("SELECT * FROM leads WHERE id = {0} FOR UPDATE", leadId)
-                .FirstOrDefaultAsync(cancellationToken);
+            var lead = await GetLeadForUpdateAsync(leadId, cancellationToken);
 
             if (lead == null)
             {
@@ -134,5 +132,12 @@ public class LeadQualificationHandler(
             await unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
+    }
+
+    protected virtual Task<Lead?> GetLeadForUpdateAsync(Guid leadId, CancellationToken cancellationToken)
+    {
+        return unitOfWork.Set<Lead>()
+            .FromSqlRaw("SELECT * FROM leads WHERE id = {0} FOR UPDATE", leadId)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 }

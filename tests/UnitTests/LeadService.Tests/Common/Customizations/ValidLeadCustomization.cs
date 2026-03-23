@@ -81,6 +81,11 @@ public class ValidLeadCustomization(LeadStatus status = LeadStatus.Initial) : IC
                         leadType.GetProperty(nameof(Lead.Score))?.SetValue(lead, 75);
                         leadType.GetProperty(nameof(Lead.Status))?.SetValue(lead, LeadStatus.FailedDistribution);
                         break;
+                    case LeadStatus.Closed:
+                        leadType.GetProperty(nameof(Lead.IsEnrichmentCompensated))?.SetValue(lead, true);
+                        leadType.GetProperty(nameof(Lead.IsScoringCompensated))?.SetValue(lead, true);
+                        leadType.GetProperty(nameof(Lead.Status))?.SetValue(lead, LeadStatus.Closed);
+                        break;
                 }
 
                 return lead;

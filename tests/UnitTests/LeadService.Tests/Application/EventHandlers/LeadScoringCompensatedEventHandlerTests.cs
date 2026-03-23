@@ -19,6 +19,8 @@ namespace LeadService.Tests.Application.EventHandlers;
 [Category("Application")]
 public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
 {
+    private static readonly Type LeadType = typeof(Lead);
+
     private Mock<ILogger<LeadScoringCompensatedEventHandler>> _loggerMock = null!;
     private LeadScoringCompensatedEventHandler _sut = null!;
 
@@ -42,8 +44,7 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
         [WithValidLead(LeadStatus.Rejected)] Lead lead,
         [WithLeadScoringCompensatedEvent] LeadScoringCompensatedIntegrationEvent integrationEvent)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -92,8 +93,7 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
         [WithValidLead(LeadStatus.Rejected)] Lead lead,
         [WithLeadScoringCompensatedEvent] LeadScoringCompensatedIntegrationEvent integrationEvent)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -128,8 +128,7 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
         [WithLeadScoringCompensatedEvent] LeadScoringCompensatedIntegrationEvent integrationEvent,
         InvalidOperationException exception)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);

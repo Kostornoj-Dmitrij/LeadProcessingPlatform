@@ -19,6 +19,8 @@ namespace LeadService.Tests.Application.EventHandlers;
 [Category("Application")]
 public class DistributionFailedEventHandlerTests : DatabaseTestBase
 {
+    private static readonly Type LeadType = typeof(Lead);
+
     private Mock<ILogger<DistributionFailedEventHandler>> _loggerMock = null!;
     private DistributionFailedEventHandler _sut = null!;
 
@@ -42,8 +44,7 @@ public class DistributionFailedEventHandlerTests : DatabaseTestBase
         [WithValidLead(LeadStatus.Qualified)] Lead lead,
         [WithDistributionFailedEvent] DistributionFailedIntegrationEvent integrationEvent)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -94,8 +95,7 @@ public class DistributionFailedEventHandlerTests : DatabaseTestBase
         [WithValidLead(LeadStatus.Qualified)] Lead lead,
         [WithDistributionFailedEvent] DistributionFailedIntegrationEvent integrationEvent)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -130,8 +130,7 @@ public class DistributionFailedEventHandlerTests : DatabaseTestBase
         [WithDistributionFailedEvent] DistributionFailedIntegrationEvent integrationEvent,
         InvalidOperationException exception)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -160,5 +159,68 @@ public class DistributionFailedEventHandlerTests : DatabaseTestBase
                 exception,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
+    }
+
+    [Test, AutoData]
+    public async Task Handle_WhenLeadIsClosed_ShouldLogAndReturn(
+        [WithValidLead(LeadStatus.Closed)] Lead lead,
+        [WithDistributionFailedEvent] DistributionFailedIntegrationEvent integrationEvent)
+    {
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+
+        var leads = new List<Lead> { lead };
+        var leadSetMock = CreateMockDbSet(leads);
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<Lead>())
+            .Returns(leadSetMock.Object);
+
+        var wrapper = new IntegrationEventWrapper<DistributionFailedIntegrationEvent>(integrationEvent);
+
+        await _sut.Handle(wrapper, CancellationToken.None);
+
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(
+                    $"Lead {lead.Id} is already closed")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+
+        UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test, AutoData]
+    public async Task Handle_WhenLeadNotInQualifiedStatus_ShouldLogWarningAndReturn(
+        [WithValidLead] Lead lead,
+        [WithDistributionFailedEvent] DistributionFailedIntegrationEvent integrationEvent)
+    {
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+
+        var leads = new List<Lead> { lead };
+        var leadSetMock = CreateMockDbSet(leads);
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<Lead>())
+            .Returns(leadSetMock.Object);
+
+        var wrapper = new IntegrationEventWrapper<DistributionFailedIntegrationEvent>(integrationEvent);
+
+        await _sut.Handle(wrapper, CancellationToken.None);
+
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(
+                    $"Cannot mark distribution failed for lead {lead.Id} from status {lead.Status}")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+
+        UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        Assert.That(lead.Status, Is.EqualTo(LeadStatus.Initial));
     }
 }

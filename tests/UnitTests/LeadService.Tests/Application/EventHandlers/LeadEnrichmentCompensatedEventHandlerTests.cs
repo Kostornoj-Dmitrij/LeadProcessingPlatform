@@ -19,6 +19,8 @@ namespace LeadService.Tests.Application.EventHandlers;
 [Category("Application")]
 public class LeadEnrichmentCompensatedEventHandlerTests : DatabaseTestBase
 {
+    private static readonly Type LeadType = typeof(Lead);
+
     private Mock<ILogger<LeadEnrichmentCompensatedEventHandler>> _loggerMock = null!;
     private LeadEnrichmentCompensatedEventHandler _sut = null!;
 
@@ -42,8 +44,7 @@ public class LeadEnrichmentCompensatedEventHandlerTests : DatabaseTestBase
         [WithValidLead(LeadStatus.Rejected)] Lead lead,
         [WithLeadEnrichmentCompensatedEvent] LeadEnrichmentCompensatedIntegrationEvent integrationEvent)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -95,8 +96,7 @@ public class LeadEnrichmentCompensatedEventHandlerTests : DatabaseTestBase
         [WithValidLead(LeadStatus.Rejected)] Lead lead,
         [WithLeadEnrichmentCompensatedEvent] LeadEnrichmentCompensatedIntegrationEvent integrationEvent)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -121,8 +121,7 @@ public class LeadEnrichmentCompensatedEventHandlerTests : DatabaseTestBase
         [WithLeadEnrichmentCompensatedEvent] LeadEnrichmentCompensatedIntegrationEvent integrationEvent,
         InvalidOperationException exception)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);

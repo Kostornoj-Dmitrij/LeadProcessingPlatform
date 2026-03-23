@@ -15,6 +15,8 @@ namespace LeadService.Tests.Application.Queries;
 [Category("Application")]
 public class GetLeadByIdQueryHandlerTests : DatabaseTestBase
 {
+    private static readonly Type LeadType = typeof(Lead);
+
     private Mock<IUnitOfWork> _unitOfWorkMock = null!;
     private GetLeadByIdQueryHandler _sut = null!;
 
@@ -36,8 +38,7 @@ public class GetLeadByIdQueryHandlerTests : DatabaseTestBase
         [WithValidLead] Lead lead,
         GetLeadByIdQuery query)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, query.Id);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, query.Id);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -82,8 +83,7 @@ public class GetLeadByIdQueryHandlerTests : DatabaseTestBase
         [WithValidLead] Lead lead,
         GetLeadByIdQuery query)
     {
-        var leadType = typeof(Lead);
-        leadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, query.Id);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, query.Id);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
