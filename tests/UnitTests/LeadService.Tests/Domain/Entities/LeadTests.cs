@@ -462,7 +462,6 @@ public class LeadTests
     {
         var originalUpdatedAt = lead.UpdatedAt;
 
-        Thread.Sleep(10);
         lead.UpdateTimestamp();
 
         Assert.That(lead.UpdatedAt, Is.GreaterThan(originalUpdatedAt));
