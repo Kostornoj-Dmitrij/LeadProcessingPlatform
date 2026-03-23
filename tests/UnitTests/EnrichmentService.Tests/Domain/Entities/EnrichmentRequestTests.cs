@@ -125,8 +125,86 @@ public class EnrichmentRequestTests
         Assert.That(request.RetryCount, Is.EqualTo(3));
     }
 
+    [Test, AutoData]
+    public void MarkFailed_WhenNotProcessing_ShouldThrow(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage,
+        string companyName,
+        string email)
+    {
+        var ex1 = Assert.Throws<InvalidOperationException>(() => 
+            request.MarkFailed(errorMessage));
+        Assert.That(ex1.Message, Does.Contain("Cannot mark as failed"));
+        Assert.That(ex1.Message, Does.Contain($"Current state: {EnrichmentRequestStatus.Pending}"));
+
+        var completedRequest = EnrichmentRequest.Create(
+            Guid.NewGuid(), companyName, email, null, null);
+        completedRequest.StartProcessing();
+        completedRequest.MarkCompleted();
+
+        var ex2 = Assert.Throws<InvalidOperationException>(() => 
+            completedRequest.MarkFailed(errorMessage));
+        Assert.That(ex2.Message, Does.Contain("Cannot mark as failed"));
+        Assert.That(ex2.Message, Does.Contain($"Current state: {EnrichmentRequestStatus.Completed}"));
+
+        request.StartProcessing();
+        request.MarkFailed(errorMessage);
+
+        var ex3 = Assert.Throws<InvalidOperationException>(() => 
+            request.MarkFailed(errorMessage));
+        Assert.That(ex3.Message, Does.Contain("Cannot mark as failed"));
+        Assert.That(ex3.Message, Does.Contain($"Current state: {EnrichmentRequestStatus.Failed}"));
+    }
+
     #endregion
 
+    #region MarkCompleted
+
+    [Test, AutoData]
+    public void MarkCompleted_WhenProcessing_ShouldChangeStatusToCompleted(
+        [WithValidEnrichmentRequest] EnrichmentRequest request)
+    {
+        request.StartProcessing();
+        request.ClearDomainEvents();
+
+        request.MarkCompleted();
+
+        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Completed));
+        Assert.That(request.LastAttemptAt, Is.EqualTo(DateTime.UtcNow).Within(TimeSpan.FromSeconds(1)));
+        Assert.That(request.NextRetryAt, Is.Null);
+        Assert.That(request.DomainEvents, Is.Empty);
+    }
+
+    [Test, AutoData]
+    public void MarkCompleted_WhenNotProcessing_ShouldThrow(
+        [WithValidEnrichmentRequest] EnrichmentRequest request,
+        string errorMessage,
+        string companyName,
+        string email)
+    {
+        var ex1 = Assert.Throws<InvalidOperationException>(request.MarkCompleted);
+        Assert.That(ex1.Message, Does.Contain("Cannot complete"));
+        Assert.That(ex1.Message, Does.Contain($"Current state: {EnrichmentRequestStatus.Pending}"));
+
+        request.StartProcessing();
+        request.MarkFailed(errorMessage);
+
+        var ex2 = Assert.Throws<InvalidOperationException>(request.MarkCompleted);
+        Assert.That(ex2.Message, Does.Contain("Cannot complete"));
+        Assert.That(ex2.Message, Does.Contain($"Current state: {EnrichmentRequestStatus.Failed}"));
+
+        var completedRequest = EnrichmentRequest.Create(
+            Guid.NewGuid(), companyName, email, null, null);
+        completedRequest.StartProcessing();
+        completedRequest.MarkCompleted();
+
+        var ex3 = Assert.Throws<InvalidOperationException>(() => completedRequest.MarkCompleted());
+        Assert.That(ex3.Message, Does.Contain("Cannot complete"));
+        Assert.That(ex3.Message, Does.Contain($"Current state: {EnrichmentRequestStatus.Completed}"));
+    }
+
+    #endregion
+    
     #region CanRetry
 
     [Test, AutoData]
