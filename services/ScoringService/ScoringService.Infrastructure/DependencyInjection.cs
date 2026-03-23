@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ScoringService.Application.Common.Interfaces;
 using ScoringService.Infrastructure.Background;
@@ -9,7 +8,6 @@ using ScoringService.Infrastructure.Inbox;
 using ScoringService.Infrastructure.Outbox;
 using SharedKernel.Base;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using ScoringService.Domain.Services;
 
 namespace ScoringService.Infrastructure;
@@ -21,12 +19,6 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<ApplicationDbContext>((sp, options) =>
-            options.UseNpgsql(
-                    configuration.GetConnectionString("DefaultConnection"),
-                    b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
-                .UseLoggerFactory(sp.GetRequiredService<ILoggerFactory>()));
-
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
         services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
