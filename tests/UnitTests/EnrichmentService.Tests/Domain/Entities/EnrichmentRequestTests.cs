@@ -68,18 +68,15 @@ public class EnrichmentRequestTests
     }
 
     [Test, AutoData]
-    public void StartProcessing_WhenAlreadyProcessing_ShouldUpdateLastAttemptAt(
+    public void StartProcessing_WhenAlreadyProcessing_ShouldThrow(
         [WithValidEnrichmentRequest] EnrichmentRequest request)
     {
         request.StartProcessing();
-        var firstAttempt = request.LastAttemptAt;
 
-        Thread.Sleep(10);
-        request.StartProcessing();
-        var secondAttempt = request.LastAttemptAt;
+        var ex = Assert.Throws<InvalidOperationException>(request.StartProcessing);
 
-        Assert.That(secondAttempt, Is.GreaterThan(firstAttempt!));
-        Assert.That(request.Status, Is.EqualTo(EnrichmentRequestStatus.Processing));
+        Assert.That(ex.Message,
+            Does.Contain("Cannot start processing an enrichment request"));
     }
 
     #endregion
@@ -115,12 +112,15 @@ public class EnrichmentRequestTests
         string errorMessage2,
         string errorMessage3)
     {
+        request.StartProcessing();
         request.MarkFailed(errorMessage1);
         Assert.That(request.RetryCount, Is.EqualTo(1));
 
+        request.StartProcessing();
         request.MarkFailed(errorMessage2);
         Assert.That(request.RetryCount, Is.EqualTo(2));
 
+        request.StartProcessing();
         request.MarkFailed(errorMessage3);
         Assert.That(request.RetryCount, Is.EqualTo(3));
     }
@@ -138,6 +138,7 @@ public class EnrichmentRequestTests
 
         for (int i = 0; i < maxRetries - 1; i++)
         {
+            request.StartProcessing();
             request.MarkFailed(errorMessage);
         }
 
@@ -153,6 +154,7 @@ public class EnrichmentRequestTests
 
         for (int i = 0; i < maxRetries; i++)
         {
+            request.StartProcessing();
             request.MarkFailed(errorMessage);
         }
 
@@ -168,6 +170,7 @@ public class EnrichmentRequestTests
 
         for (int i = 0; i < maxRetries + 1; i++)
         {
+            request.StartProcessing();
             request.MarkFailed(errorMessage);
         }
 
@@ -198,6 +201,7 @@ public class EnrichmentRequestTests
     public void IsReadyForProcessing_WhenCompleted_ShouldReturnFalse(
         [WithValidEnrichmentRequest] EnrichmentRequest request)
     {
+        request.StartProcessing();
         request.MarkCompleted();
 
         Assert.That(request.IsReadyForProcessing(3), Is.False);
@@ -208,6 +212,7 @@ public class EnrichmentRequestTests
         [WithValidEnrichmentRequest] EnrichmentRequest request,
         string errorMessage)
     {
+        request.StartProcessing();
         request.MarkFailed(errorMessage);
 
         Assert.That(request.IsReadyForProcessing(3), Is.True);
@@ -222,6 +227,7 @@ public class EnrichmentRequestTests
 
         for (int i = 0; i < maxRetries; i++)
         {
+            request.StartProcessing();
             request.MarkFailed(errorMessage);
         }
 
