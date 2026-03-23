@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using SharedKernel.Events;
 using LeadService.Domain.Constants;
+using LeadService.Domain.Enums;
 
 namespace LeadService.Application.EventHandlers;
 
@@ -31,6 +32,23 @@ public class LeadEnrichmentFailedEventHandler(
             if (lead == null)
             {
                 logger.LogWarning("Lead not found: {LeadId}", @event.LeadId);
+                return;
+            }
+
+            if (lead.Status == LeadStatus.Closed)
+            {
+                logger.LogInformation(
+                    "Lead {LeadId} is already closed. Ignoring late LeadEnrichmentFailed event.",
+                    lead.Id);
+                return;
+            }
+
+            if (lead.Status != LeadStatus.Initial)
+            {
+                logger.LogWarning(
+                    "Cannot reject lead {LeadId} from status {Status} due to enrichment failure. Ignoring.",
+                    lead.Id,
+                    lead.Status);
                 return;
             }
 

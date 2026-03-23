@@ -246,6 +246,7 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
             return;
 
         IsScoringCompensated = true;
+        Score = null;
         UpdatedAt = DateTime.UtcNow;
 
         AddDomainEvent(new ScoringCompensatedDomainEvent(Id));

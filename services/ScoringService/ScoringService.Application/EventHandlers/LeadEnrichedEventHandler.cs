@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using IntegrationEvents.EnrichmentEvents;
 using ScoringService.Domain.Entities;
+using ScoringService.Domain.Enums;
 using SharedKernel.Base;
 using SharedKernel.Events;
 
@@ -41,12 +42,24 @@ public class LeadEnrichedEventHandler(
 
         if (scoringRequest != null)
         {
-            scoringRequest.UpdateEnrichedData(enrichedDataJson);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            if (scoringRequest.Status != ScoringRequestStatus.Completed)
+            {
+                scoringRequest.UpdateEnrichedData(enrichedDataJson);
+                await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            logger.LogInformation(
-                "Updated enriched data for scoring request of lead {LeadId}. Industry: {Industry}, CompanySize: {CompanySize}",
-                @event.LeadId, @event.Industry, @event.CompanySize);
+                logger.LogInformation(
+                    "Updated enriched data for scoring request of lead {LeadId} (Status: {Status}). Industry: {Industry}, CompanySize: {CompanySize}",
+                    @event.LeadId,
+                    scoringRequest.Status,
+                    @event.Industry,
+                    @event.CompanySize);
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Lead {LeadId} scoring request already completed. Ignoring late enriched data.",
+                    @event.LeadId);
+            }
         }
         else
         {

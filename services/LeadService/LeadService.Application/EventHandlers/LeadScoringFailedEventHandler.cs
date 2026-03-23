@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using IntegrationEvents.ScoringEvents;
 using LeadService.Domain.Constants;
 using LeadService.Domain.Entities;
+using LeadService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using SharedKernel.Events;
@@ -31,6 +32,23 @@ public class LeadScoringFailedEventHandler(
             if (lead == null)
             {
                 logger.LogWarning("Lead not found: {LeadId}", @event.LeadId);
+                return;
+            }
+
+            if (lead.Status == LeadStatus.Closed)
+            {
+                logger.LogInformation(
+                    "Lead {LeadId} is already closed. Ignoring late LeadScoringFailed event.",
+                    lead.Id);
+                return;
+            }
+
+            if (lead.Status != LeadStatus.Initial)
+            {
+                logger.LogWarning(
+                    "Cannot reject lead {LeadId} from status {Status} due to scoring failure. Ignoring.",
+                    lead.Id,
+                    lead.Status);
                 return;
             }
 

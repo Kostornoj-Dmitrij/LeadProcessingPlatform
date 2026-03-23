@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using IntegrationEvents.DistributionEvents;
 using LeadService.Domain.Entities;
+using LeadService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
 using SharedKernel.Events;
@@ -30,6 +31,23 @@ public class DistributionFailedEventHandler(
             if (lead == null)
             {
                 logger.LogWarning("Lead not found: {LeadId}", @event.LeadId);
+                return;
+            }
+
+            if (lead.Status == LeadStatus.Closed)
+            {
+                logger.LogInformation(
+                    "Lead {LeadId} is already closed. Ignoring late DistributionFailed event.",
+                    lead.Id);
+                return;
+            }
+
+            if (lead.Status != LeadStatus.Qualified)
+            {
+                logger.LogWarning(
+                    "Cannot mark distribution failed for lead {LeadId} from status {Status}. Ignoring.",
+                    lead.Id,
+                    lead.Status);
                 return;
             }
 
