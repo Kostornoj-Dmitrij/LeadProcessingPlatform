@@ -52,7 +52,6 @@ public class IdempotencyRepository(
         var lockedKey = lockedKeys.FirstOrDefault();
         if (lockedKey == null)
         {
-            logger.LogDebug("Failed to acquire lock for key {Key}: it is already locked.", key);
             return null;
         }
         if (!lockedKey.RequestHash.SequenceEqual(requestHash))

@@ -128,20 +128,6 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
         catch (DbUpdateConcurrencyException ex)
         {
             _logger.LogWarning(ex, "Concurrency conflict detected while saving changes for lead");
-
-            foreach (var entry in ex.Entries)
-            {
-                if (entry.Entity is Lead lead)
-                {
-                    var databaseValues = await entry.GetDatabaseValuesAsync(cancellationToken);
-                    if (databaseValues != null)
-                    {
-                        _logger.LogWarning(
-                            "Concurrency conflict for Lead {LeadId}. Please retry the operation.",
-                            lead.Id);
-                    }
-                }
-            }
             throw;
         }
     }

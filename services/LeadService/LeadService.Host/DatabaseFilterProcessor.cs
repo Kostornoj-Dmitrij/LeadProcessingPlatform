@@ -23,8 +23,7 @@ public class DatabaseFilterProcessor : BaseProcessor<Activity>
             if (tag.Key == "db.statement")
             {
                 var sql = tag.Value ?? "";
-                if (sql.Contains("inbox_messages") || sql.Contains("outbox_messages") ||
-                    sql.Contains("outbox_messages") || sql.Contains("inbox_messages"))
+                if (sql.Contains("inbox_messages") || sql.Contains("outbox_messages"))
                 {
                     return true;
                 }

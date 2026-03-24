@@ -20,7 +20,6 @@ public class TransactionBehavior<TRequest, TResponse>(
     {
         if (request is ICommand)
         {
-            logger.LogDebug("Beginning transaction for {RequestType}", typeof(TRequest).Name);
             await unitOfWork.BeginTransactionAsync(cancellationToken);
 
             try
@@ -29,7 +28,6 @@ public class TransactionBehavior<TRequest, TResponse>(
 
                 await unitOfWork.CommitTransactionAsync(cancellationToken);
 
-                logger.LogDebug("Transaction committed for {RequestType}", typeof(TRequest).Name);
                 return response;
             }
             catch (Exception ex)
