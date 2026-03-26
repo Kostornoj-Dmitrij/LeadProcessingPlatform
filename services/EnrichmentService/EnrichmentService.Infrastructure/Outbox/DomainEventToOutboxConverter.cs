@@ -3,6 +3,7 @@ using IntegrationEvents;
 using IntegrationEvents.EnrichmentEvents;
 using EnrichmentService.Domain.Events;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Outbox;
 using SharedKernel.Entities;
 using SharedKernel.Events;
 using SharedKernel.Json;

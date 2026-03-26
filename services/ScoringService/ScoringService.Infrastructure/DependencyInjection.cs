@@ -1,14 +1,13 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using ScoringService.Application.Common.Interfaces;
+using Microsoft.Extensions.Logging;
+using ScoringService.Domain.Services;
 using ScoringService.Infrastructure.Background;
 using ScoringService.Infrastructure.Data;
-using ScoringService.Infrastructure.EventBus;
-using ScoringService.Infrastructure.Inbox;
 using ScoringService.Infrastructure.Outbox;
-using SharedKernel.Base;
-using Microsoft.Extensions.Hosting;
-using ScoringService.Domain.Services;
+using SharedInfrastructure;
+using SharedInfrastructure.Outbox;
 
 namespace ScoringService.Infrastructure;
 
@@ -19,25 +18,23 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<ApplicationDbContext>());
-
         services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
-
-        services.AddSingleton<KafkaEventBus>();
-        services.AddSingleton<IEventBus>(sp => sp.GetRequiredService<KafkaEventBus>());
-
-        services.AddScoped<IInboxStore, InboxStore>();
-        services.AddSingleton<IDeadLetterQueue, KafkaDeadLetterQueue>();
-        services.AddHostedService<InboxProcessor>();
-
-        services.AddHostedService<KafkaConsumer>();
-        services.AddScoped<IKafkaConsumer>(sp =>
-            sp.GetServices<IHostedService>().OfType<KafkaConsumer>().FirstOrDefault()
-            ?? throw new InvalidOperationException("KafkaConsumer not found"));
-
+        
         services.AddScoped<IRuleEvaluator, RuleEvaluator>();
-        services.AddHostedService<OutboxPublisher>();
         services.AddHostedService<ScoringProcessor>();
+
+        var topics = new[]
+        {
+            "lead-events",
+            "saga-events",
+            "distribution-events",
+            "enrichment-events"
+        };
+
+        services.AddSharedInfrastructure<ApplicationDbContext>(
+            configuration, 
+            "scoring-service", 
+            topics);
 
         return services;
     }

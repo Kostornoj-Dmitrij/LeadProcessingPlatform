@@ -7,10 +7,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\ScoringService.Application\ScoringService.Application.csproj" />
-        <ProjectReference Include="..\ScoringService.Domain\ScoringService.Domain.csproj" />
         <ProjectReference Include="..\..\..\shared\IntegrationEvents\IntegrationEvents.csproj" />
         <ProjectReference Include="..\..\..\shared\SharedKernel\SharedKernel.csproj" />
+        <ProjectReference Include="..\ScoringService.Application\ScoringService.Application.csproj" />
+        <ProjectReference Include="..\ScoringService.Domain\ScoringService.Domain.csproj" />
+        <ProjectReference Include="..\..\..\shared\SharedInfrastructure\SharedInfrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>

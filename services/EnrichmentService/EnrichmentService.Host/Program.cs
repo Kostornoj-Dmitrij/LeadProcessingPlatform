@@ -1,15 +1,9 @@
 using EnrichmentService.Application;
-using EnrichmentService.Application.Common.Interfaces;
-using EnrichmentService.Infrastructure.Background;
-using EnrichmentService.Infrastructure.Clients;
+using EnrichmentService.Infrastructure;
 using EnrichmentService.Infrastructure.Data;
-using EnrichmentService.Infrastructure.EventBus;
-using EnrichmentService.Infrastructure.Inbox;
-using EnrichmentService.Infrastructure.Outbox;
 using SharedHosting;
 using SharedHosting.Extensions;
 using SharedHosting.Options;
-using SharedKernel.Base;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,20 +27,7 @@ builder.Services.AddApplication();
 
 builder.Services.AddSharedDbContext<ApplicationDbContext>(builder.Configuration);
 
-builder.Services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<ApplicationDbContext>());
-builder.Services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
-builder.Services.AddSingleton<KafkaEventBus>();
-builder.Services.AddSingleton<IEventBus>(sp => sp.GetRequiredService<KafkaEventBus>());
-builder.Services.AddScoped<IInboxStore, InboxStore>();
-builder.Services.AddSingleton<IDeadLetterQueue, KafkaDeadLetterQueue>();
-builder.Services.AddHostedService<InboxProcessor>();
-builder.Services.AddHostedService<KafkaConsumer>();
-builder.Services.AddScoped<IKafkaConsumer>(sp =>
-    sp.GetServices<IHostedService>().OfType<KafkaConsumer>().FirstOrDefault() 
-    ?? throw new InvalidOperationException("KafkaConsumer not found"));
-builder.Services.AddHostedService<OutboxPublisher>();
-builder.Services.AddHostedService<EnrichmentProcessor>();
-builder.Services.AddHttpClient<IExternalEnrichmentClient, ExternalEnrichmentClient>();
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 

@@ -1,13 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using EnrichmentService.Domain.Entities;
-using EnrichmentService.Infrastructure.Data.Configurations;
 using SharedKernel.Entities;
 using SharedKernel.Events;
-using EnrichmentService.Infrastructure.Outbox;
-using EnrichmentService.Infrastructure.Inbox;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Inbox;
+using SharedInfrastructure.Outbox;
 using SharedKernel.Base;
 
 namespace EnrichmentService.Infrastructure.Data;
@@ -33,11 +33,7 @@ public class ApplicationDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfiguration(new EnrichmentResultConfiguration());
-        modelBuilder.ApplyConfiguration(new EnrichmentRequestConfiguration());
-        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
-        modelBuilder.ApplyConfiguration(new InboxMessageConfiguration());
-        modelBuilder.ApplyConfiguration(new CompensationLogConfiguration());
+        modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
     }
 
     DbSet<T> IUnitOfWork.Set<T>() where T : class => Set<T>();

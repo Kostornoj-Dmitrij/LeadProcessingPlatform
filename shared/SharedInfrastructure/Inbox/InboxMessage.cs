@@ -1,4 +1,4 @@
-﻿namespace LeadService.Infrastructure.Inbox;
+﻿namespace SharedInfrastructure.Inbox;
 
 /// <summary>
 /// Сообщение для паттерна Transactional Inbox

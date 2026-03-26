@@ -1,4 +1,4 @@
-﻿namespace EnrichmentService.Application.Common.Interfaces;
+﻿namespace SharedInfrastructure.EventBus;
 
 /// <summary>
 /// Абстракция для потребителя Kafka

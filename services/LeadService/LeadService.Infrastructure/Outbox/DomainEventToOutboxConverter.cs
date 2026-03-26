@@ -6,6 +6,7 @@ using SharedKernel.Entities;
 using SharedKernel.Events;
 using LeadService.Domain.Events;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Outbox;
 using SharedKernel.Json;
 using EnrichedDataDto = IntegrationEvents.LeadEvents.EnrichedDataDto;
 

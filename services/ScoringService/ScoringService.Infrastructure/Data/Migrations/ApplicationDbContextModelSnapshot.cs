@@ -271,7 +271,7 @@ namespace ScoringService.Infrastructure.Data.Migrations
                     b.ToTable("scoring_rules", (string)null);
                 });
 
-            modelBuilder.Entity("ScoringService.Infrastructure.Inbox.InboxMessage", b =>
+            modelBuilder.Entity("SharedInfrastructure.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

@@ -3,7 +3,7 @@ using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace EnrichmentService.Infrastructure.Inbox;
+namespace SharedInfrastructure.Inbox;
 
 /// <summary>
 /// Реализация Dead Letter Queue через Kafka
@@ -26,10 +26,11 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
         };
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
-        _dlqTopic = configuration["Kafka:DlqTopic"] ?? "lead-service-dlq";
+        _dlqTopic = configuration["Kafka:DlqTopic"] ?? "default-dlq";
     }
 
-    public async Task SendAsync(string originalTopic,
+    public async Task SendAsync(
+        string originalTopic,
         Message<string, string> message,
         Exception exception,
         CancellationToken cancellationToken = default)

@@ -2,27 +2,30 @@
 using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
+using IntegrationEvents;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using IntegrationEvents;
 using SharedKernel.Events;
 using SharedKernel.Json;
 
-namespace EnrichmentService.Infrastructure.Inbox;
+namespace SharedInfrastructure.Inbox;
 
 /// <summary>
 /// Фоновый процессор для обработки сообщений из Inbox
 /// </summary>
-public class InboxProcessor(IServiceScopeFactory scopeFactory, ILogger<InboxProcessor> logger)
+public class InboxProcessor<TInboxStore>(
+    IServiceScopeFactory scopeFactory,
+    ILogger<InboxProcessor<TInboxStore>> logger)
     : BackgroundService
+    where TInboxStore : IInboxStore
 {
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(2);
     private readonly int _batchSize = 50;
     private const int MaxRetryAttempts = 5;
-    private static readonly ActivitySource ActivitySource = new("EnrichmentService.InboxProcessor");
+    private readonly ActivitySource _activitySource = new("InboxProcessor");
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -48,7 +51,7 @@ public class InboxProcessor(IServiceScopeFactory scopeFactory, ILogger<InboxProc
     private async Task ProcessPendingMessages(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
-        var inboxStore = scope.ServiceProvider.GetRequiredService<IInboxStore>();
+        var inboxStore = scope.ServiceProvider.GetRequiredService<TInboxStore>();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         var deadLetterQueue = scope.ServiceProvider.GetRequiredService<IDeadLetterQueue>();
 
@@ -68,7 +71,7 @@ public class InboxProcessor(IServiceScopeFactory scopeFactory, ILogger<InboxProc
                     parentContext = parsedContext;
             }
 
-            using var activity = ActivitySource.StartActivity(
+            using var activity = _activitySource.StartActivity(
                 $"Process {message.EventType}",
                 ActivityKind.Consumer,
                 parentContext: parentContext);

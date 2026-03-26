@@ -1,7 +1,7 @@
 ﻿using SharedKernel.Entities;
 using SharedKernel.Events;
 
-namespace LeadService.Infrastructure.Outbox;
+namespace SharedInfrastructure.Outbox;
 
 /// <summary>
 /// Конвертирует доменные события в outbox-сообщения

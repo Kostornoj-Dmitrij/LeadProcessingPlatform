@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using LeadService.Infrastructure.Inbox;
+using SharedInfrastructure.Inbox;
 
 namespace LeadService.Infrastructure.Data.Configurations;
 

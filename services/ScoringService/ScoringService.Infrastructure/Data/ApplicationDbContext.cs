@@ -1,13 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using ScoringService.Domain.Entities;
-using ScoringService.Infrastructure.Data.Configurations;
-using ScoringService.Infrastructure.Inbox;
-using ScoringService.Infrastructure.Outbox;
 using SharedKernel.Entities;
 using SharedKernel.Events;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Inbox;
+using SharedInfrastructure.Outbox;
 using SharedKernel.Base;
 
 namespace ScoringService.Infrastructure.Data;
@@ -35,13 +35,7 @@ public class ApplicationDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfiguration(new ScoringRuleConfiguration());
-        modelBuilder.ApplyConfiguration(new ScoringRequestConfiguration());
-        modelBuilder.ApplyConfiguration(new ScoringResultConfiguration());
-        modelBuilder.ApplyConfiguration(new InboxMessageConfiguration());
-        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
-        modelBuilder.ApplyConfiguration(new CompensationLogConfiguration());
-        modelBuilder.ApplyConfiguration(new PendingEnrichedDataConfiguration());
+        modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
     }
 
     DbSet<T> IUnitOfWork.Set<T>() where T : class => Set<T>();

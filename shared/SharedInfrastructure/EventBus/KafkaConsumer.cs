@@ -1,18 +1,17 @@
 ﻿using System.Diagnostics;
 using System.Text;
 using Confluent.Kafka;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ScoringService.Application.Common.Interfaces;
-using ScoringService.Infrastructure.Inbox;
-using Microsoft.EntityFrameworkCore;
+using SharedInfrastructure.Inbox;
 
-namespace ScoringService.Infrastructure.EventBus;
+namespace SharedInfrastructure.EventBus;
 
 /// <summary>
-/// Отвечает за потребление сообщений из Kafka и сохранение их в Inbox
+/// Реализация потребителя Kafka
 /// </summary>
 public class KafkaConsumer : BackgroundService, IKafkaConsumer
 {
@@ -23,20 +22,27 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     private readonly string _dlqTopic;
     private readonly int _maxRetryAttempts = 3;
     private bool _isRunning;
-    private static readonly ActivitySource ActivitySource = new("ScoringService.KafkaConsumer");
+    private readonly string _serviceName;
+    private readonly ActivitySource _activitySource;
+    private readonly IEnumerable<string> _topics;
 
     public KafkaConsumer(
         IConfiguration configuration,
         IServiceScopeFactory scopeFactory,
-        ILogger<KafkaConsumer> logger)
+        ILogger<KafkaConsumer> logger,
+        string serviceName,
+        IEnumerable<string> topics)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _serviceName = serviceName;
+        _topics = topics;
+        _activitySource = new ActivitySource($"{serviceName}.KafkaConsumer");
 
         var consumerConfig = new ConsumerConfig
         {
             BootstrapServers = configuration["Kafka:BootstrapServers"],
-            GroupId = configuration["Kafka:GroupId"] ?? "scoring-service",
+            GroupId = configuration["Kafka:GroupId"] ?? $"{serviceName}",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = true,
             EnableAutoOffsetStore = false,
@@ -47,7 +53,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         };
 
         _consumer = new ConsumerBuilder<string, string>(consumerConfig)
-            .SetErrorHandler((_, error) => _logger.LogError("Kafka consumer error: {Error}", error.Reason))
+            .SetErrorHandler((_, error) => _logger.LogError("Kafka consumer error for {ServiceName}: {Error}", _serviceName, error.Reason))
             .Build();
 
         var producerConfig = new ProducerConfig
@@ -57,9 +63,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             Acks = Acks.All
         };
         _dlqProducer = new ProducerBuilder<string, string>(producerConfig).Build();
-        _dlqTopic = configuration["Kafka:DlqTopic"] ?? "scoring-service-dlq";
-
-        _isRunning = false;
+        _dlqTopic = configuration["Kafka:DlqTopic"] ?? $"{serviceName}-dlq";
     }
 
     public bool IsRunning => _isRunning;
@@ -68,28 +72,21 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     {
         var list = topics.ToList();
         _consumer.Subscribe(list);
-        _logger.LogInformation("Subscribed to topics: {Topics}", string.Join(", ", list));
+        _logger.LogInformation("[{ServiceName}] Subscribed to topics: {Topics}", _serviceName, string.Join(", ", list));
     }
 
     public void Unsubscribe()
     {
         _consumer.Unsubscribe();
-        _logger.LogInformation("Unsubscribed from all topics");
+        _logger.LogInformation("[{ServiceName}] Unsubscribed from all topics", _serviceName);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Kafka Consumer started");
+        _logger.LogInformation("[{ServiceName}] Kafka Consumer started", _serviceName);
         _isRunning = true;
 
-        var topics = new[]
-        {
-            "lead-events",
-            "saga-events",
-            "distribution-events",
-            "enrichment-events"
-        };
-        Subscribe(topics);
+        Subscribe(_topics);
 
         try
         {
@@ -108,7 +105,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                 }
                 catch (ConsumeException ex)
                 {
-                    _logger.LogError(ex, "Consume error: {Error}", ex.Error.Reason);
+                    _logger.LogError(ex, "[{ServiceName}] Consume error: {Error}", _serviceName, ex.Error.Reason);
                     if (ex.Error.IsFatal)
                         throw;
                     await Task.Delay(1000, stoppingToken);
@@ -117,7 +114,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Kafka Consumer stopped");
+            _logger.LogInformation("[{ServiceName}] Kafka Consumer stopped", _serviceName);
         }
         finally
         {
@@ -141,15 +138,15 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             catch (Exception ex) when (IsTransientError(ex))
             {
                 attempt++;
-                _logger.LogWarning(ex,
-                    "Transient error processing message (attempt {Attempt}/{MaxAttempts})",
-                    attempt, _maxRetryAttempts);
+                _logger.LogWarning(ex, 
+                    "[{ServiceName}] Transient error processing message (attempt {Attempt}/{MaxAttempts}), Topic: {Topic}, Offset: {Offset}", 
+                    _serviceName, attempt, _maxRetryAttempts, consumeResult.Topic, consumeResult.Offset);
 
                 if (attempt >= _maxRetryAttempts)
                 {
-                    _logger.LogError(ex,
-                        "Max retry attempts reached. Moving to DLQ. Topic: {Topic}, Offset: {Offset}",
-                        consumeResult.Topic, consumeResult.Offset);
+                    _logger.LogError(ex, 
+                        "[{ServiceName}] Max retry attempts reached. Moving to DLQ. Topic: {Topic}, Offset: {Offset}", 
+                        _serviceName, consumeResult.Topic, consumeResult.Offset);
                     await MoveToDeadLetterQueueAsync(consumeResult, ex);
                     return;
                 }
@@ -159,9 +156,9 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Non-transient error. Moving to DLQ. Topic: {Topic}, Offset: {Offset}",
-                    consumeResult.Topic, consumeResult.Offset);
+                _logger.LogError(ex, 
+                    "[{ServiceName}] Non-transient error. Moving to DLQ. Topic: {Topic}, Offset: {Offset}", 
+                    _serviceName, consumeResult.Topic, consumeResult.Offset);
                 await MoveToDeadLetterQueueAsync(consumeResult, ex);
                 return;
             }
@@ -190,7 +187,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                 parentContext = parsedContext;
         }
 
-        using var activity = ActivitySource.StartActivity(
+        using var activity = _activitySource.StartActivity(
             $"Kafka Consumer {eventTypeName}",
             ActivityKind.Consumer,
             parentContext: parentContext);
@@ -203,6 +200,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             activity.SetTag("messaging.kafka.partition", consumeResult.Partition.Value);
             activity.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
             activity.SetTag("event.type", eventTypeName);
+            activity.SetTag("service.name", _serviceName);
         }
 
         var eventType = Type.GetType(eventTypeName);
@@ -233,7 +231,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             cancellationToken: cancellationToken);
 
         if (!added)
-            _logger.LogDebug("Message {EventId} already in inbox, skipping", eventId);
+            _logger.LogDebug("[{ServiceName}] Message {EventId} already in inbox, skipping", _serviceName, eventId);
     }
 
     private bool IsTransientError(Exception ex)
@@ -263,7 +261,8 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                 { "error-message", Encoding.UTF8.GetBytes(exception.Message) },
                 { "error-type", Encoding.UTF8.GetBytes(exception.GetType().Name) },
                 { "timestamp", Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) },
-                { "source", "kafka-consumer"u8.ToArray() }
+                { "source", "kafka-consumer"u8.ToArray() },
+                { "service-name", Encoding.UTF8.GetBytes(_serviceName) }
             }
         };
 
@@ -278,7 +277,8 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         await _dlqProducer.ProduceAsync(_dlqTopic, deadLetterMessage);
 
         _logger.LogWarning(
-            "Message moved to DLQ. Original topic: {Topic}, Offset: {Offset}, Error: {Error}",
+            "[{ServiceName}] Message moved to DLQ. Original topic: {Topic}, Offset: {Offset}, Error: {Error}",
+            _serviceName,
             consumeResult.Topic,
             consumeResult.Offset,
             exception.Message);

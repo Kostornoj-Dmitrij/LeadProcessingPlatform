@@ -8,15 +8,15 @@ using SharedHosting.Options;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSharedHosting(builder.Configuration, new HostingOptions
-{
-    ServiceName = "LeadService",
-    Environment = builder.Environment.EnvironmentName,
-    EnableSwagger = builder.Environment.IsDevelopment(),
-    EnableHealthChecks = true
-}, additionalTelemetrySources:
-[
-    "LeadService.CustomProcessor"
-]);
+    {
+        ServiceName = "LeadService",
+        Environment = builder.Environment.EnvironmentName,
+        EnableSwagger = builder.Environment.IsDevelopment(),
+        EnableHealthChecks = true
+    }, additionalTelemetrySources:
+    [
+        "LeadService.CustomProcessor"
+    ]);
 
 builder.Services.Configure<DatabaseOptions>(
     builder.Configuration.GetSection(DatabaseOptions.SectionName));
@@ -24,9 +24,9 @@ builder.Services.Configure<KafkaOptions>(
     builder.Configuration.GetSection(KafkaOptions.SectionName));
 
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
-
 builder.Services.AddSharedDbContext<ApplicationDbContext>(builder.Configuration);
+
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 

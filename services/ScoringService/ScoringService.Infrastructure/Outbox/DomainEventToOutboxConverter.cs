@@ -3,6 +3,7 @@ using IntegrationEvents;
 using IntegrationEvents.ScoringEvents;
 using ScoringService.Domain.Events;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Outbox;
 using SharedKernel.Entities;
 using SharedKernel.Events;
 using SharedKernel.Json;

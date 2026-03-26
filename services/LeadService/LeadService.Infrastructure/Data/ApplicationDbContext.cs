@@ -7,10 +7,11 @@ using LeadService.Domain.Enums;
 using Microsoft.EntityFrameworkCore.Storage;
 using SharedKernel.Events;
 using IUnitOfWork = SharedKernel.Base.IUnitOfWork;
-using LeadService.Infrastructure.Outbox;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using LeadService.Domain.Constants;
+using SharedInfrastructure.Inbox;
+using SharedInfrastructure.Outbox;
 
 namespace LeadService.Infrastructure.Data;
 
@@ -45,6 +46,7 @@ public class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<IdempotencyKey> IdempotencyKeys => Set<IdempotencyKey>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<LeadStatusHistory> LeadStatusHistories => Set<LeadStatusHistory>();
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

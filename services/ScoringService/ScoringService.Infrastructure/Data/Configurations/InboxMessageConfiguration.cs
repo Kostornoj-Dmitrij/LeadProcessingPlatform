@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using ScoringService.Infrastructure.Inbox;
+using SharedInfrastructure.Inbox;
 
 namespace ScoringService.Infrastructure.Data.Configurations;
 

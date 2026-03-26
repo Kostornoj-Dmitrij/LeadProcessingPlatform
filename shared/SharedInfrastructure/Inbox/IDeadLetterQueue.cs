@@ -1,6 +1,6 @@
 ﻿using Confluent.Kafka;
 
-namespace EnrichmentService.Infrastructure.Inbox;
+namespace SharedInfrastructure.Inbox;
 
 /// <summary>
 /// Интерфейс для отправки сообщений в Dead Letter Queue

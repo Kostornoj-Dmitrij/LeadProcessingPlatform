@@ -202,7 +202,7 @@ namespace LeadService.Infrastructure.Data.Migrations
                     b.ToTable("lead_status_history", (string)null);
                 });
 
-            modelBuilder.Entity("LeadService.Infrastructure.Inbox.InboxMessage", b =>
+            modelBuilder.Entity("SharedInfrastructure.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

@@ -194,7 +194,7 @@ namespace EnrichmentService.Infrastructure.Data.Migrations
                     b.ToTable("enrichment_results", (string)null);
                 });
 
-            modelBuilder.Entity("EnrichmentService.Infrastructure.Inbox.InboxMessage", b =>
+            modelBuilder.Entity("SharedInfrastructure.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

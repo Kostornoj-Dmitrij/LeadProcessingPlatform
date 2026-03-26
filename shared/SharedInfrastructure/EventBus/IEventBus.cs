@@ -1,7 +1,7 @@
-﻿namespace EnrichmentService.Application.Common.Interfaces;
+﻿namespace SharedInfrastructure.EventBus;
 
 /// <summary>
-/// Абстракция для публикации событий
+/// Абстракция для публикации событий в шину сообщений (Kafka)
 /// </summary>
 public interface IEventBus
 {

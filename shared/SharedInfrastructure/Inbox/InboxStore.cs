@@ -1,17 +1,15 @@
-﻿using LeadService.Domain.Constants;
-using Microsoft.EntityFrameworkCore;
-using LeadService.Infrastructure.Data;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace LeadService.Infrastructure.Inbox;
+namespace SharedInfrastructure.Inbox;
 
 /// <summary>
 /// Реализация Inbox хранилища через EF Core
 /// </summary>
-public class InboxStore(
-    ApplicationDbContext context,
-    ILogger<InboxStore> logger)
-    : IInboxStore
+public class InboxStore<TContext>(
+    TContext context,
+    ILogger<InboxStore<TContext>> logger)
+    : IInboxStore where TContext : DbContext
 {
     private const int MaxRetryAttempts = 5;
 
@@ -76,9 +74,7 @@ public class InboxStore(
 
     public async Task MarkAsProcessedAsync(Guid messageId, CancellationToken cancellationToken = default)
     {
-        var message = await context.Set<InboxMessage>()
-            .FindAsync([messageId], cancellationToken);
-
+        var message = await context.Set<InboxMessage>().FindAsync([messageId], cancellationToken);
         if (message != null)
         {
             message.ProcessedAt = DateTime.UtcNow;
@@ -93,9 +89,7 @@ public class InboxStore(
         DateTime? nextRetryAt,
         CancellationToken cancellationToken = default)
     {
-        var message = await context.Set<InboxMessage>()
-            .FindAsync([messageId], cancellationToken);
-
+        var message = await context.Set<InboxMessage>().FindAsync([messageId], cancellationToken);
         if (message != null)
         {
             message.ProcessingAttempts++;
@@ -105,8 +99,7 @@ public class InboxStore(
             if (message.ProcessingAttempts >= MaxRetryAttempts)
             {
                 message.ProcessedAt = DateTime.UtcNow;
-                logger.LogWarning(
-                    "Message {MessageId} reached max attempts ({Attempts}). Marking as failed.",
+                logger.LogWarning("Message {MessageId} reached max attempts ({Attempts}). Marking as failed.",
                     message.MessageId, message.ProcessingAttempts);
             }
 
@@ -127,13 +120,11 @@ public class InboxStore(
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
-        var message = await context.Set<InboxMessage>()
-            .FindAsync([messageId], cancellationToken);
-
+        var message = await context.Set<InboxMessage>().FindAsync([messageId], cancellationToken);
         if (message != null)
         {
             message.ProcessedAt = DateTime.UtcNow;
-            message.ErrorMessage = $"{DlqConstants.ErrorMessagePrefix}{errorMessage}";
+            message.ErrorMessage = $"MOVED TO DLQ: {errorMessage}";
             message.ProcessingAttempts++;
 
             await context.SaveChangesAsync(cancellationToken);

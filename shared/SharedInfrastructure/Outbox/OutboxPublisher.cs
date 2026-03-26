@@ -6,19 +6,21 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using IntegrationEvents;
-using ScoringService.Application.Common.Interfaces;
-using ScoringService.Infrastructure.Data;
-using ScoringService.Infrastructure.Inbox;
+using SharedInfrastructure.EventBus;
+using SharedInfrastructure.Inbox;
 using SharedKernel.Entities;
 using SharedKernel.Json;
 
-namespace ScoringService.Infrastructure.Outbox;
+namespace SharedInfrastructure.Outbox;
 
 /// <summary>
 /// Фоновый сервис для публикации сообщений из Outbox в Kafka
 /// </summary>
-public class OutboxPublisher(IServiceScopeFactory scopeFactory, ILogger<OutboxPublisher> logger)
+public class OutboxPublisher<TContext>(
+    IServiceScopeFactory scopeFactory,
+    ILogger<OutboxPublisher<TContext>> logger)
     : BackgroundService
+    where TContext : DbContext
 {
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
     private readonly int _batchSize = 100;
@@ -48,11 +50,11 @@ public class OutboxPublisher(IServiceScopeFactory scopeFactory, ILogger<OutboxPu
     private async Task PublishPendingMessages(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var context = scope.ServiceProvider.GetRequiredService<TContext>();
         var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
         var deadLetterQueue = scope.ServiceProvider.GetRequiredService<IDeadLetterQueue>();
 
-        var messages = await context.OutboxMessages
+        var messages = await context.Set<OutboxMessage>()
             .Where(x => x.ProcessedAt == null && x.ProcessingAttempts < MaxRetryAttempts)
             .OrderBy(x => x.CreatedAt)
             .Take(_batchSize)

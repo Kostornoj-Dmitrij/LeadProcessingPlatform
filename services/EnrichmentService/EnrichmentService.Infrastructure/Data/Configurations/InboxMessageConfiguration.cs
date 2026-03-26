@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using EnrichmentService.Infrastructure.Inbox;
+using SharedInfrastructure.Inbox;
 
 namespace EnrichmentService.Infrastructure.Data.Configurations;
 

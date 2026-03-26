@@ -1,16 +1,15 @@
 ﻿using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
+using IntegrationEvents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using IntegrationEvents;
-using ScoringService.Application.Common.Interfaces;
 using SharedKernel.Json;
 
-namespace ScoringService.Infrastructure.EventBus;
+namespace SharedInfrastructure.EventBus;
 
 /// <summary>
-/// Отвечает за публикацию событий в Kafka
+/// Реализация публикации событий в Kafka
 /// </summary>
 public class KafkaEventBus : IEventBus
 {
@@ -78,7 +77,7 @@ public class KafkaEventBus : IEventBus
 
             _logger.LogDebug(
                 "Published event {EventType} with ID {EventId} to topic {Topic} at partition {Partition}:{Offset}",
-                integrationEvent.GetType().AssemblyQualifiedName!,
+                integrationEvent.GetType().Name,
                 integrationEvent.EventId,
                 topic,
                 result.Partition,
@@ -87,14 +86,14 @@ public class KafkaEventBus : IEventBus
         catch (ProduceException<string, string> ex)
         {
             _logger.LogError(ex, "Failed to publish event {EventType} with ID {EventId}. Error: {Error}",
-                integrationEvent.GetType().AssemblyQualifiedName!,
+                integrationEvent.GetType().Name,
                 integrationEvent.EventId,
                 ex.Error.Reason);
             throw new InvalidOperationException($"Kafka publish failed: {ex.Error.Reason}", ex);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error publishing event {EventType}", integrationEvent.GetType().AssemblyQualifiedName!);
+            _logger.LogError(ex, "Unexpected error publishing event {EventType}", integrationEvent.GetType().Name);
             throw;
         }
     }
