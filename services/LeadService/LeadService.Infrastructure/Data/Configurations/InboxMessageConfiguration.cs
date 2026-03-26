@@ -42,6 +42,10 @@ public class InboxMessageConfiguration : IEntityTypeConfiguration<InboxMessage>
             .HasColumnType("jsonb")
             .IsRequired();
 
+        builder.Property(x => x.TraceId)
+            .HasColumnName("trace_id")
+            .HasMaxLength(255);
+
         builder.Property(x => x.ReceivedAt)
             .HasColumnName("received_at")
             .IsRequired();

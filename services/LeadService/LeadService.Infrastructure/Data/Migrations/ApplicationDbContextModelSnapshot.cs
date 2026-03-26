@@ -261,7 +261,9 @@ namespace LeadService.Infrastructure.Data.Migrations
                         .HasColumnName("topic");
 
                     b.Property<string>("TraceId")
-                        .HasColumnType("text");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("trace_id");
 
                     b.HasKey("Id");
 
