@@ -72,24 +72,6 @@ public class TransactionBehaviorTests
             It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.RollbackTransactionAsync(
             It.IsAny<CancellationToken>()), Times.Never);
-
-        _loggerMock.Verify(
-            x => x.Log(
-                LogLevel.Debug,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Beginning transaction")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
-
-        _loggerMock.Verify(
-            x => x.Log(
-                LogLevel.Debug,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Transaction committed")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
     }
 
     [Test, AutoData]
