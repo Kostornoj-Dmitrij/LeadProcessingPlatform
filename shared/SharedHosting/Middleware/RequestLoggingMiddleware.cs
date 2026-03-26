@@ -1,7 +1,9 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
-namespace EnrichmentService.Host.Middleware;
+namespace SharedHosting.Middleware;
 
 /// <summary>
 /// Middleware для логирования HTTP запросов и ответов
@@ -42,13 +44,16 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
 
         var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
 
-        logger.LogInformation(
-            "HTTP Request {TraceId} - {Method} {Path} - Query: {Query} - Body: {Body}",
-            traceId,
-            context.Request.Method,
-            context.Request.Path,
-            context.Request.QueryString,
-            requestBody);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "HTTP Request {TraceId} - {Method} {Path} - Query: {Query} - Body: {Body}",
+                traceId,
+                context.Request.Method,
+                context.Request.Path,
+                context.Request.QueryString,
+                requestBody.Length > 500 ? requestBody[..500] + "..." : requestBody);
+        }
     }
 
     private async Task LogResponse(HttpContext context, MemoryStream responseBody, long elapsedMs)
@@ -59,12 +64,15 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
 
         var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
 
-        logger.LogInformation(
-            "HTTP Response {TraceId} - Status: {StatusCode} - Body: {Body} - Duration: {ElapsedMs}ms",
-            traceId,
-            context.Response.StatusCode,
-            responseContent,
-            elapsedMs);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "HTTP Response {TraceId} - Status: {StatusCode} - Body: {Body} - Duration: {ElapsedMs}ms",
+                traceId,
+                context.Response.StatusCode,
+                responseContent.Length > 500 ? responseContent[..500] + "..." : responseContent,
+                elapsedMs);
+        }
     }
 
     private static async Task<string> ReadStreamAsync(Stream stream)

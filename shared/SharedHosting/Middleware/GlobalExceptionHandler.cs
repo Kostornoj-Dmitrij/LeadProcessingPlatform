@@ -1,10 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
 using FluentValidation;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SharedKernel.Json;
 
-namespace EnrichmentService.Host.Middleware;
+namespace SharedHosting.Middleware;
 
 /// <summary>
 /// Глобальный обработчик исключений
@@ -56,9 +58,9 @@ public class GlobalExceptionHandler(RequestDelegate next, ILogger<GlobalExceptio
                 null
             ),
 
-            KeyNotFoundException keyNotFoundEx => (
+            KeyNotFoundException => (
                 404,
-                keyNotFoundEx.Message,
+                "Resource not found",
                 null
             ),
 
@@ -88,7 +90,8 @@ public class GlobalExceptionHandler(RequestDelegate next, ILogger<GlobalExceptio
             Status = statusCode,
             Message = message,
             Details = details,
-            TraceId = Activity.Current?.Id ?? context.TraceIdentifier
+            TraceId = Activity.Current?.Id ?? context.TraceIdentifier,
+            Path = context.Request.Path.ToString()
         };
 
         await response.WriteAsync(JsonSerializer.Serialize(errorResponse, JsonDefaults.Options));

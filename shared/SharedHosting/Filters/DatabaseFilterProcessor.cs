@@ -1,12 +1,16 @@
 ﻿using System.Diagnostics;
+using OpenTelemetry;
 
-namespace ScoringService.Host;
+namespace SharedHosting.Filters;
 
 /// <summary>
 /// Процессор OpenTelemetry для фильтрации телеметрии от фоновых процессов
 /// </summary>
-public class DatabaseFilterProcessor : OpenTelemetry.BaseProcessor<Activity>
+public class DatabaseFilterProcessor : BaseProcessor<Activity>
 {
+    private static readonly string[] BackgroundQueryPatterns = 
+        ["inbox_messages", "outbox_messages", "pending_enriched_data"];
+
     public override void OnEnd(Activity activity)
     {
         if (IsBackgroundDatabaseQuery(activity))
@@ -22,17 +26,18 @@ public class DatabaseFilterProcessor : OpenTelemetry.BaseProcessor<Activity>
             if (tag.Key == "db.statement")
             {
                 var sql = tag.Value ?? "";
-                if (sql.Contains("inbox_messages") || sql.Contains("outbox_messages"))
+                foreach (var pattern in BackgroundQueryPatterns)
                 {
-                    return true;
+                    if (sql.Contains(pattern))
+                        return true;
                 }
             }
         }
 
-        if (activity.DisplayName.Contains("inbox") ||
-            activity.DisplayName.Contains("outbox"))
+        foreach (var pattern in BackgroundQueryPatterns)
         {
-            return true;
+            if (activity.DisplayName.Contains(pattern))
+                return true;
         }
 
         return false;

@@ -1,4 +1,4 @@
-﻿namespace ScoringService.Host.Options;
+﻿namespace SharedHosting.Options;
 
 /// <summary>
 /// Настройки подключения к базе данных

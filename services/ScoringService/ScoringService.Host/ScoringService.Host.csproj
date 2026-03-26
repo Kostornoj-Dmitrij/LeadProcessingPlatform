@@ -7,24 +7,16 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\..\shared\SharedHosting\SharedHosting.csproj" />
         <ProjectReference Include="..\ScoringService.Application\ScoringService.Application.csproj" />
         <ProjectReference Include="..\ScoringService.Infrastructure\ScoringService.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="NSwag.AspNetCore" Version="14.2.0" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0-preview.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.2" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.1" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.1" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.1" />
-        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.2" />
-        <PackageReference Include="AspNetCore.HealthChecks.Kafka" Version="9.0.0" />
-        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
-        <PackageReference Include="Npgsql.OpenTelemetry" Version="8.0.6" />
     </ItemGroup>
 
 </Project>

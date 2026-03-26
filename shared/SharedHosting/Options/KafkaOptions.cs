@@ -1,4 +1,4 @@
-﻿namespace EnrichmentService.Host.Options;
+﻿namespace SharedHosting.Options;
 
 /// <summary>
 /// Настройки подключения к Kafka
@@ -9,9 +9,9 @@ public class KafkaOptions
 
     public string BootstrapServers { get; set; } = string.Empty;
 
-    public string GroupId { get; set; } = "enrichment-service";
+    public string GroupId { get; set; } = string.Empty;
 
-    public string DlqTopic { get; set; } = "enrichment-service-dlq";
+    public string DlqTopic { get; set; } = string.Empty;
 
     public int ConsumerMaxPollIntervalMs { get; set; } = 300000;
 
