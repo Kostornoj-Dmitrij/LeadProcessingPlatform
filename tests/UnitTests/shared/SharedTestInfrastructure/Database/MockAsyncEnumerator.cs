@@ -1,4 +1,4 @@
-﻿namespace EnrichmentService.Tests.Common.Database;
+﻿namespace SharedTestInfrastructure.Database;
 
 /// <summary>
 /// Асинхронный итератор для мок-коллекций

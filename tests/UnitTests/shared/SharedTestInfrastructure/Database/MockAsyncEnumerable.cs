@@ -1,6 +1,6 @@
 ﻿using System.Linq.Expressions;
 
-namespace ScoringService.Tests.Common.Database;
+namespace SharedTestInfrastructure.Database;
 
 /// <summary>
 /// Асинхронный перечислитель для мок-коллекций

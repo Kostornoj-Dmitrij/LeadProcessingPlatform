@@ -2,10 +2,10 @@
 using LeadService.Application.Queries.GetLeadById;
 using LeadService.Domain.Entities;
 using LeadService.Tests.Common.Attributes;
-using LeadService.Tests.Common.Database;
 using Moq;
 using NUnit.Framework;
 using SharedKernel.Base;
+using SharedTestInfrastructure.Database;
 
 namespace LeadService.Tests.Application.Queries;
 

@@ -4,12 +4,12 @@ using LeadService.Application.EventHandlers;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
 using LeadService.Tests.Common.Attributes;
-using LeadService.Tests.Common.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
 using SharedKernel.Events;
+using SharedTestInfrastructure.Database;
 
 namespace LeadService.Tests.Application.EventHandlers;
 

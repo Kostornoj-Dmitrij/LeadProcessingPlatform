@@ -7,8 +7,8 @@ using NUnit.Framework;
 using ScoringService.Application.EventHandlers;
 using ScoringService.Domain.Entities;
 using ScoringService.Tests.Common.Attributes;
-using ScoringService.Tests.Common.Database;
 using SharedKernel.Events;
+using SharedTestInfrastructure.Database;
 
 namespace ScoringService.Tests.Application.EventHandlers;
 

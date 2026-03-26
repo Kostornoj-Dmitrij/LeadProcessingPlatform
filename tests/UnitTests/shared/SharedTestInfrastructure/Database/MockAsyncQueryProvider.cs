@@ -1,7 +1,7 @@
 ﻿using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 
-namespace LeadService.Tests.Common.Database;
+namespace SharedTestInfrastructure.Database;
 
 /// <summary>
 /// Провайдер для асинхронных запросов к мок-коллекциям

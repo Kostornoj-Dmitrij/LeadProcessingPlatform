@@ -3,10 +3,10 @@ using LeadService.Application.Queries.GetLeadsByStatus;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
 using LeadService.Tests.Common.Attributes;
-using LeadService.Tests.Common.Database;
 using Moq;
 using NUnit.Framework;
 using SharedKernel.Base;
+using SharedTestInfrastructure.Database;
 
 namespace LeadService.Tests.Application.Queries;
 

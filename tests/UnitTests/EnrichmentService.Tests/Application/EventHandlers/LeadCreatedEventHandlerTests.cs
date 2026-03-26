@@ -3,12 +3,12 @@ using EnrichmentService.Application.EventHandlers;
 using EnrichmentService.Domain.Entities;
 using EnrichmentService.Domain.Enums;
 using EnrichmentService.Tests.Common.Attributes;
-using EnrichmentService.Tests.Common.Database;
 using IntegrationEvents.LeadEvents;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
 using SharedKernel.Events;
+using SharedTestInfrastructure.Database;
 
 namespace EnrichmentService.Tests.Application.EventHandlers;
 
