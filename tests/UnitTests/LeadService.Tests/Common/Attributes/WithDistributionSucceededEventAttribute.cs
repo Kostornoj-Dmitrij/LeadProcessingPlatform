@@ -7,7 +7,7 @@ using LeadService.Tests.Common.Customizations;
 namespace LeadService.Tests.Common.Attributes;
 
 /// <summary>
-/// Атрибут для генерации события DistributionSucceededIntegrationEvent
+/// Атрибут для генерации события DistributionSucceededEvent
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
 public class WithDistributionSucceededEventAttribute : CustomizeAttribute

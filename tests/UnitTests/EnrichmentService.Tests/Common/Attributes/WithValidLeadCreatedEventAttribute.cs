@@ -7,7 +7,7 @@ using EnrichmentService.Tests.Common.Customizations;
 namespace EnrichmentService.Tests.Common.Attributes;
 
 /// <summary>
-/// Атрибут для генерации валидного события LeadCreatedIntegrationEvent
+/// Атрибут для генерации валидного события LeadCreatedEvent
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
 public class WithValidLeadCreatedEventAttribute : CustomizeAttribute

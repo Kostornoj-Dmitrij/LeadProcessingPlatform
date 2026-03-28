@@ -4,6 +4,7 @@ using ScoringService.Infrastructure.Data;
 using SharedHosting;
 using SharedHosting.Extensions;
 using SharedHosting.Options;
+using AvroSchemas;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,12 +38,12 @@ app.UseSharedHosting();
 if (app.Environment.IsDevelopment())
 {
     await app.ApplyMigrationsAsync<ApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
-    
+
     using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await DbInitializer.SeedAsync(context, logger);
-    
+
     await KafkaExtensions.WaitForKafkaTopicsAsync(app.Services, [
         "lead-events",
         "saga-events",
@@ -50,6 +51,9 @@ if (app.Environment.IsDevelopment())
         "enrichment-events",
         "notification-events"
     ]);
+
+    var schemaRegistry = app.Services.GetRequiredService<Confluent.SchemaRegistry.ISchemaRegistryClient>();
+    await SchemaRegistryHelper.RegisterAllSchemasAsync(schemaRegistry, logger);
 }
 
 await app.RunAsync();

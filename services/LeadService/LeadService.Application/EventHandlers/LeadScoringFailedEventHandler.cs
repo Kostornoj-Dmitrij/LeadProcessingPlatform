@@ -1,12 +1,11 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using IntegrationEvents.ScoringEvents;
+using AvroSchemas.Messages.ScoringEvents;
 using LeadService.Domain.Constants;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace LeadService.Application.EventHandlers;
 
@@ -16,12 +15,10 @@ namespace LeadService.Application.EventHandlers;
 public class LeadScoringFailedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadScoringFailedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<LeadScoringFailedIntegrationEvent>>
+    : INotificationHandler<LeadScoringFailed>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadScoringFailedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadScoringFailed @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
-
         logger.LogInformation("Processing LeadScoringFailed for lead {LeadId}", @event.LeadId);
 
         try

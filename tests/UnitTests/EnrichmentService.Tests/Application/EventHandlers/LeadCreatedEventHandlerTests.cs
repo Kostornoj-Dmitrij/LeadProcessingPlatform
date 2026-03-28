@@ -1,13 +1,12 @@
 ﻿using AutoFixture.NUnit3;
+using AvroSchemas.Messages.LeadEvents;
 using EnrichmentService.Application.EventHandlers;
 using EnrichmentService.Domain.Entities;
 using EnrichmentService.Domain.Enums;
 using EnrichmentService.Tests.Common.Attributes;
-using IntegrationEvents.LeadEvents;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
-using SharedKernel.Events;
 using SharedTestInfrastructure.Database;
 
 namespace EnrichmentService.Tests.Application.EventHandlers;
@@ -40,7 +39,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenNoExistingRequest_ShouldCreateEnrichmentRequest(
-        [WithValidLeadCreatedEvent] LeadCreatedIntegrationEvent integrationEvent,
+        [WithValidLeadCreatedEvent] LeadCreated @event,
         List<EnrichmentRequest> requests)
     {
         var requestSetMock = CreateMockDbSet(requests);
@@ -49,9 +48,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<EnrichmentRequest>())
             .Returns(requestSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadCreatedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         UnitOfWorkMock.Verify(x => x.Set<EnrichmentRequest>().AddAsync(
             It.IsAny<EnrichmentRequest>(),
@@ -65,7 +62,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
                 LogLevel.Information,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(
-                    $"Enrichment request created for lead {integrationEvent.LeadId}")),
+                    $"Enrichment request created for lead {@event.LeadId}")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -73,10 +70,10 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenExistingRequestExists_ShouldSkip(
-        [WithValidLeadCreatedEvent] LeadCreatedIntegrationEvent integrationEvent,
+        [WithValidLeadCreatedEvent] LeadCreated @event,
         [WithValidEnrichmentRequest] EnrichmentRequest existingRequest)
     {
-        RequestType.GetProperty(nameof(EnrichmentRequest.LeadId))?.SetValue(existingRequest, integrationEvent.LeadId);
+        RequestType.GetProperty(nameof(EnrichmentRequest.LeadId))?.SetValue(existingRequest, @event.LeadId);
 
         var requests = new List<EnrichmentRequest> { existingRequest };
         var requestSetMock = CreateMockDbSet(requests);
@@ -85,9 +82,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<EnrichmentRequest>())
             .Returns(requestSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadCreatedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         UnitOfWorkMock.Verify(x => x.Set<EnrichmentRequest>().AddAsync(
             It.IsAny<EnrichmentRequest>(),
@@ -100,7 +95,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
                 LogLevel.Information,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(
-                    $"Lead {integrationEvent.LeadId} already has an enrichment request")),
+                    $"Lead {@event.LeadId} already has an enrichment request")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -108,7 +103,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_ShouldCreateRequestWithCorrectData(
-        [WithValidLeadCreatedEvent] LeadCreatedIntegrationEvent integrationEvent,
+        [WithValidLeadCreatedEvent] LeadCreated @event,
         List<EnrichmentRequest> requests)
     {
         EnrichmentRequest? createdRequest = null; 
@@ -125,23 +120,21 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
             .Callback<EnrichmentRequest, CancellationToken>((req, _) => createdRequest = req)
             .ReturnsAsync((EnrichmentRequest _, CancellationToken _) => null!);
 
-        var wrapper = new IntegrationEventWrapper<LeadCreatedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         Assert.That(createdRequest, Is.Not.Null);
-        Assert.That(createdRequest!.LeadId, Is.EqualTo(integrationEvent.LeadId));
-        Assert.That(createdRequest.CompanyName, Is.EqualTo(integrationEvent.CompanyName));
-        Assert.That(createdRequest.Email, Is.EqualTo(integrationEvent.Email));
-        Assert.That(createdRequest.ContactPerson, Is.EqualTo(integrationEvent.ContactPerson));
-        Assert.That(createdRequest.CustomFields, Is.EqualTo(integrationEvent.CustomFields));
+        Assert.That(createdRequest!.LeadId, Is.EqualTo(@event.LeadId));
+        Assert.That(createdRequest.CompanyName, Is.EqualTo(@event.CompanyName));
+        Assert.That(createdRequest.Email, Is.EqualTo(@event.Email));
+        Assert.That(createdRequest.ContactPerson, Is.EqualTo(@event.ContactPerson));
+        Assert.That(createdRequest.CustomFields, Is.EqualTo(@event.CustomFields));
         Assert.That(createdRequest.Status, Is.EqualTo(EnrichmentRequestStatus.Pending));
         Assert.That(createdRequest.RetryCount, Is.EqualTo(0));
     }
 
     [Test, AutoData]
     public void Handle_WhenInvalidOperationException_ShouldThrow(
-        [WithValidLeadCreatedEvent] LeadCreatedIntegrationEvent integrationEvent,
+        [WithValidLeadCreatedEvent] LeadCreated @event,
         List<EnrichmentRequest> requests,
         InvalidOperationException exception)
     {
@@ -155,9 +148,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(exception);
 
-        var wrapper = new IntegrationEventWrapper<LeadCreatedIntegrationEvent>(integrationEvent);
-
         Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _sut.Handle(wrapper, CancellationToken.None));
+            _sut.Handle(@event, CancellationToken.None));
     }
 }

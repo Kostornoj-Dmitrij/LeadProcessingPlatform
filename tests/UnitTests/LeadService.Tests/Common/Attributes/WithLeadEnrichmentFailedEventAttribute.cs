@@ -7,7 +7,7 @@ using LeadService.Tests.Common.Customizations;
 namespace LeadService.Tests.Common.Attributes;
 
 /// <summary>
-/// Атрибут для генерации события LeadEnrichmentFailedIntegrationEvent
+/// Атрибут для генерации события LeadEnrichmentFailedEvent
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
 public class WithLeadEnrichmentFailedEventAttribute : CustomizeAttribute

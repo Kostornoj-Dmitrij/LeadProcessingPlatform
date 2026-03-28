@@ -7,7 +7,7 @@ using ScoringService.Tests.Common.Customizations;
 namespace ScoringService.Tests.Common.Attributes;
 
 /// <summary>
-/// Атрибут для генерации валидного события LeadEnrichedIntegrationEvent
+/// Атрибут для генерации валидного события LeadEnrichedEvent
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
 public class WithValidLeadEnrichedEventAttribute : CustomizeAttribute

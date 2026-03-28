@@ -4,6 +4,7 @@ using LeadService.Infrastructure.Data;
 using SharedHosting;
 using SharedHosting.Extensions;
 using SharedHosting.Options;
+using AvroSchemas;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,10 @@ if (app.Environment.IsDevelopment())
         "notification-events",
         "lead-events"
     ]);
+
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    var schemaRegistry = app.Services.GetRequiredService<Confluent.SchemaRegistry.ISchemaRegistryClient>();
+    await SchemaRegistryHelper.RegisterAllSchemasAsync(schemaRegistry, logger);
 }
 
 await app.RunAsync();

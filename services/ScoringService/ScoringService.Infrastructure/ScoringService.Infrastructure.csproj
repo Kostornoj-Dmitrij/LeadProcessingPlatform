@@ -7,7 +7,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\shared\IntegrationEvents\IntegrationEvents.csproj" />
         <ProjectReference Include="..\..\..\shared\SharedKernel\SharedKernel.csproj" />
         <ProjectReference Include="..\ScoringService.Application\ScoringService.Application.csproj" />
         <ProjectReference Include="..\ScoringService.Domain\ScoringService.Domain.csproj" />

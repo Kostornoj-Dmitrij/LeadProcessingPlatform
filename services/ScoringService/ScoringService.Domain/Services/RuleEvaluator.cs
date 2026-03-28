@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
+using AvroSchemas.Messages.LeadEvents;
 using Microsoft.Extensions.Logging;
 using ScoringService.Domain.Entities;
-using IntegrationEvents.LeadEvents;
 
 namespace ScoringService.Domain.Services;
 

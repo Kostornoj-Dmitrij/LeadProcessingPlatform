@@ -7,7 +7,7 @@ using ScoringService.Tests.Common.Customizations;
 namespace ScoringService.Tests.Common.Attributes;
 
 /// <summary>
-/// Атрибут для генерации валидного события LeadRejectedIntegrationEvent
+/// Атрибут для генерации валидного события LeadRejectedEvent
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
 public class WithValidLeadRejectedEventAttribute : CustomizeAttribute

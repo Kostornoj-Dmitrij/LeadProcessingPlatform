@@ -1,10 +1,9 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using IntegrationEvents.EnrichmentEvents;
+using AvroSchemas.Messages.EnrichmentEvents;
 using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
-using SharedKernel.Events;
 using LeadService.Domain.Constants;
 using LeadService.Domain.Enums;
 
@@ -16,12 +15,10 @@ namespace LeadService.Application.EventHandlers;
 public class LeadEnrichmentFailedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadEnrichmentFailedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent>>
+    : INotificationHandler<LeadEnrichmentFailed>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadEnrichmentFailed @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
-
         logger.LogInformation("Processing LeadEnrichmentFailed for lead {LeadId}", @event.LeadId);
 
         try

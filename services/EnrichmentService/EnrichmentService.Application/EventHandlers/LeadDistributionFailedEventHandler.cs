@@ -1,10 +1,9 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using AvroSchemas.Messages.LeadEvents;
 using EnrichmentService.Domain.Entities;
-using IntegrationEvents.LeadEvents;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace EnrichmentService.Application.EventHandlers;
 
@@ -14,11 +13,10 @@ namespace EnrichmentService.Application.EventHandlers;
 public class LeadDistributionFailedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadDistributionFailedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<LeadDistributionFailedIntegrationEvent>>
+    : INotificationHandler<LeadDistributionFailed>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadDistributionFailedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadDistributionFailed @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
         logger.LogInformation("Processing LeadDistributionFailed for lead {LeadId}", @event.LeadId);
 
         var enrichment = await unitOfWork.Set<EnrichmentResult>()

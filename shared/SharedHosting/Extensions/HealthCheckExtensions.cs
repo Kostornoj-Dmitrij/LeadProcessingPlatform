@@ -35,6 +35,16 @@ public static class HealthCheckExtensions
                 tags: ["messaging", "kafka"]);
         }
 
+        var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
+        if (!string.IsNullOrEmpty(schemaRegistryUrl))
+        {
+            healthChecks.AddUrlGroup(
+                new Uri(schemaRegistryUrl),
+                name: "schema-registry",
+                timeout: TimeSpan.FromSeconds(5),
+                tags: ["messaging", "schema-registry"]);
+        }
+
         healthChecks.AddCheck<ServiceHealthCheck>(serviceName, tags: ["service"]);
 
         return services;

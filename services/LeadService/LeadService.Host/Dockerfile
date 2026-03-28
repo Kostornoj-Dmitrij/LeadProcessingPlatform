@@ -2,12 +2,13 @@
 WORKDIR /src
 
 COPY LeadProcessingPlatform.sln ./
+COPY shared/SharedKernel/*.csproj shared/SharedKernel/
+COPY shared/AvroSchemas/*.csproj shared/AvroSchemas/
+
 COPY services/LeadService/LeadService.Host/*.csproj services/LeadService/LeadService.Host/
 COPY services/LeadService/LeadService.Application/*.csproj services/LeadService/LeadService.Application/
 COPY services/LeadService/LeadService.Domain/*.csproj services/LeadService/LeadService.Domain/
 COPY services/LeadService/LeadService.Infrastructure/*.csproj services/LeadService/LeadService.Infrastructure/
-COPY shared/SharedKernel/*.csproj shared/SharedKernel/
-COPY shared/IntegrationEvents/*.csproj shared/IntegrationEvents/
 
 RUN dotnet restore services/LeadService/LeadService.Host/LeadService.Host.csproj
 

@@ -1,10 +1,9 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Logging;
+using AvroSchemas.Messages.LeadEvents;
 using EnrichmentService.Domain.Entities;
-using IntegrationEvents.LeadEvents;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace EnrichmentService.Application.EventHandlers;
 
@@ -14,12 +13,10 @@ namespace EnrichmentService.Application.EventHandlers;
 public class LeadCreatedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadCreatedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<LeadCreatedIntegrationEvent>>
+    : INotificationHandler<LeadCreated>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadCreatedIntegrationEvent> wrapper,
-        CancellationToken cancellationToken)
+    public async Task Handle(LeadCreated @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
         logger.LogInformation("Processing LeadCreated for lead {LeadId}", @event.LeadId);
 
         var existingRequest = await unitOfWork.Set<EnrichmentRequest>()

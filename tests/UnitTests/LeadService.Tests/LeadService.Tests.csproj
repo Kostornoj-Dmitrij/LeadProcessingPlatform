@@ -24,7 +24,6 @@
     <ItemGroup>
         <ProjectReference Include="..\..\..\services\LeadService\LeadService.Application\LeadService.Application.csproj" />
         <ProjectReference Include="..\..\..\services\LeadService\LeadService.Domain\LeadService.Domain.csproj" />
-        <ProjectReference Include="..\..\..\shared\IntegrationEvents\IntegrationEvents.csproj" />
         <ProjectReference Include="..\shared\SharedTestInfrastructure\SharedTestInfrastructure.csproj" />
     </ItemGroup>
 

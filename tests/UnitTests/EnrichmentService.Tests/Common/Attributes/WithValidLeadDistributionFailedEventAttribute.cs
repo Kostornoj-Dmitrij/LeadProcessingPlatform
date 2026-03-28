@@ -7,7 +7,7 @@ using EnrichmentService.Tests.Common.Customizations;
 namespace EnrichmentService.Tests.Common.Attributes;
 
 /// <summary>
-/// Атрибут для генерации валидного события LeadDistributionFailedIntegrationEvent
+/// Атрибут для генерации валидного события LeadDistributionFailedEvent
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
 public class WithValidLeadDistributionFailedEventAttribute : CustomizeAttribute

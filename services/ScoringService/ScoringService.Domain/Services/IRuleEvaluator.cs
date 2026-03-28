@@ -1,5 +1,5 @@
-﻿using ScoringService.Domain.Entities;
-using IntegrationEvents.LeadEvents;
+﻿using AvroSchemas.Messages.LeadEvents;
+using ScoringService.Domain.Entities;
 
 namespace ScoringService.Domain.Services;
 

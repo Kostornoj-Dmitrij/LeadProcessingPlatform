@@ -1,6 +1,6 @@
 ﻿using AutoFixture.NUnit3;
-using IntegrationEvents.EnrichmentEvents;
-using IntegrationEvents.ScoringEvents;
+using AvroSchemas.Messages.EnrichmentEvents;
+using AvroSchemas.Messages.ScoringEvents;
 using LeadService.Application.EventHandlers;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
-using SharedKernel.Events;
 using SharedTestInfrastructure.Database;
 
 namespace LeadService.Tests.Application.EventHandlers;
@@ -47,18 +46,16 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadEnriched_WhenLeadExists_ShouldMarkEnrichmentReceived(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent integrationEvent)
+        [WithLeadEnrichedEvent] LeadEnriched @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         SetupSut((_, _) => Task.FromResult<Lead?>(lead));
 
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.FromResult(1));
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         Assert.That(lead.IsEnrichmentReceived, Is.True);
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -67,8 +64,8 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadEnriched_WhenBothEventsReceived_ShouldQualify(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent enrichedEvent,
-        [WithLeadScoredEvent] LeadScoredIntegrationEvent scoredEvent)
+        [WithLeadEnrichedEvent] LeadEnriched enrichedEvent,
+        [WithLeadScoredEvent] LeadScored scoredEvent)
     {
         LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, enrichedEvent.LeadId);
         scoredEvent.LeadId = enrichedEvent.LeadId;
@@ -78,11 +75,9 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.FromResult(1));
 
-        var enrichedWrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(enrichedEvent);
-        var scoredWrapper = new IntegrationEventWrapper<LeadScoredIntegrationEvent>(scoredEvent);
 
-        await _sut.Handle(enrichedWrapper, CancellationToken.None);
-        await _sut.Handle(scoredWrapper, CancellationToken.None);
+        await _sut.Handle(enrichedEvent, CancellationToken.None);
+        await _sut.Handle(scoredEvent, CancellationToken.None);
 
         Assert.That(lead.Status, Is.EqualTo(LeadStatus.Qualified));
         Assert.That(lead.Score, Is.EqualTo(scoredEvent.TotalScore));
@@ -91,20 +86,18 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task HandleLeadEnriched_WhenLeadNotFound_ShouldLogWarning(
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent integrationEvent)
+        [WithLeadEnrichedEvent] LeadEnriched @event)
     {
         SetupSut((_, _) => Task.FromResult<Lead?>(null));
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(
-                    $"Lead {integrationEvent.LeadId} not found")),
+                    $"Lead {@event.LeadId} not found")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -115,15 +108,13 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadEnriched_WhenLeadClosed_ShouldLogAndReturn(
         [WithValidLead(LeadStatus.Closed)] Lead lead,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent integrationEvent)
+        [WithLeadEnrichedEvent] LeadEnriched @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         SetupSut((_, _) => Task.FromResult<Lead?>(lead));
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(
@@ -142,8 +133,8 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadEnriched_WhenAlreadyReceived_ShouldNotApplyAgain(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent firstEvent,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent secondEvent)
+        [WithLeadEnrichedEvent] LeadEnriched firstEvent,
+        [WithLeadEnrichedEvent] LeadEnriched secondEvent)
     {
         LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, firstEvent.LeadId);
         secondEvent.LeadId = firstEvent.LeadId;
@@ -153,13 +144,10 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.FromResult(1));
 
-        var firstWrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(firstEvent);
-        var secondWrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(secondEvent);
-
-        await _sut.Handle(firstWrapper, CancellationToken.None);
+        await _sut.Handle(firstEvent, CancellationToken.None);
         var firstEnrichedData = lead.EnrichedData;
 
-        await _sut.Handle(secondWrapper, CancellationToken.None);
+        await _sut.Handle(secondEvent, CancellationToken.None);
 
         Assert.That(lead.EnrichedData, Is.EqualTo(firstEnrichedData));
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(1));
@@ -168,29 +156,27 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadScored_WhenLeadExists_ShouldMarkScoringReceived(
         [WithValidLead] Lead lead,
-        [WithLeadScoredEvent] LeadScoredIntegrationEvent integrationEvent)
+        [WithLeadScoredEvent] LeadScored @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         SetupSut((_, _) => Task.FromResult<Lead?>(lead));
 
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.FromResult(1));
 
-        var wrapper = new IntegrationEventWrapper<LeadScoredIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         Assert.That(lead.IsScoringReceived, Is.True);
-        Assert.That(lead.Score, Is.EqualTo(integrationEvent.TotalScore));
+        Assert.That(lead.Score, Is.EqualTo(@event.TotalScore));
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
     public async Task HandleLeadScored_WhenBothEventsReceived_ShouldQualify(
         [WithValidLead] Lead lead,
-        [WithLeadScoredEvent] LeadScoredIntegrationEvent scoredEvent,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent enrichedEvent)
+        [WithLeadScoredEvent] LeadScored scoredEvent,
+        [WithLeadEnrichedEvent] LeadEnriched enrichedEvent)
     {
         LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, scoredEvent.LeadId);
         enrichedEvent.LeadId = scoredEvent.LeadId;
@@ -200,11 +186,8 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.FromResult(1));
 
-        var scoredWrapper = new IntegrationEventWrapper<LeadScoredIntegrationEvent>(scoredEvent);
-        var enrichedWrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(enrichedEvent);
-
-        await _sut.Handle(scoredWrapper, CancellationToken.None);
-        await _sut.Handle(enrichedWrapper, CancellationToken.None);
+        await _sut.Handle(scoredEvent, CancellationToken.None);
+        await _sut.Handle(enrichedEvent, CancellationToken.None);
 
         Assert.That(lead.Status, Is.EqualTo(LeadStatus.Qualified));
         Assert.That(lead.Score, Is.EqualTo(scoredEvent.TotalScore));
@@ -213,15 +196,13 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadScored_WhenLeadClosed_ShouldLogAndReturn(
         [WithValidLead(LeadStatus.Closed)] Lead lead,
-        [WithLeadScoredEvent] LeadScoredIntegrationEvent integrationEvent)
+        [WithLeadScoredEvent] LeadScored @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         SetupSut((_, _) => Task.FromResult<Lead?>(lead));
 
-        var wrapper = new IntegrationEventWrapper<LeadScoredIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(
@@ -240,8 +221,8 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadScored_WhenAlreadyReceived_ShouldNotApplyAgain(
         [WithValidLead] Lead lead,
-        [WithLeadScoredEvent] LeadScoredIntegrationEvent firstEvent,
-        [WithLeadScoredEvent] LeadScoredIntegrationEvent secondEvent)
+        [WithLeadScoredEvent] LeadScored firstEvent,
+        [WithLeadScoredEvent] LeadScored secondEvent)
     {
         LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, firstEvent.LeadId);
         secondEvent.LeadId = firstEvent.LeadId;
@@ -251,13 +232,10 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.FromResult(1));
 
-        var firstWrapper = new IntegrationEventWrapper<LeadScoredIntegrationEvent>(firstEvent);
-        var secondWrapper = new IntegrationEventWrapper<LeadScoredIntegrationEvent>(secondEvent);
-
-        await _sut.Handle(firstWrapper, CancellationToken.None);
+        await _sut.Handle(firstEvent, CancellationToken.None);
         var firstScore = lead.Score;
         
-        await _sut.Handle(secondWrapper, CancellationToken.None);
+        await _sut.Handle(secondEvent, CancellationToken.None);
 
         Assert.That(lead.Score, Is.EqualTo(firstScore));
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(1));
@@ -266,26 +244,24 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public void Handle_WhenConcurrencyException_ShouldThrow(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent integrationEvent)
+        [WithLeadEnrichedEvent] LeadEnriched @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         SetupSut((_, _) => Task.FromResult<Lead?>(lead));
 
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(integrationEvent);
-
         Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => 
-            _sut.Handle(wrapper, CancellationToken.None));
+            _sut.Handle(@event, CancellationToken.None));
 
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) =>
-                    v.ToString()!.Contains($"Concurrency conflict processing event for lead {integrationEvent.LeadId}")),
+                    v.ToString()!.Contains($"Concurrency conflict processing event for lead {@event.LeadId}")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -294,20 +270,18 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public void Handle_WhenGenericException_ShouldThrow(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent integrationEvent,
+        [WithLeadEnrichedEvent] LeadEnriched @event,
         InvalidOperationException exception)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         SetupSut((_, _) => Task.FromResult<Lead?>(lead));
 
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(exception);
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(integrationEvent);
-
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => 
-            _sut.Handle(wrapper, CancellationToken.None));
+            _sut.Handle(@event, CancellationToken.None));
 
         Assert.That(ex.Message, Is.EqualTo(exception.Message));
 
@@ -316,7 +290,7 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
                 LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) =>
-                    v.ToString()!.Contains($"Error processing event for lead {integrationEvent.LeadId}")),
+                    v.ToString()!.Contains($"Error processing event for lead {@event.LeadId}")),
                 exception,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -325,17 +299,15 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadEnriched_WhenLeadNotInInitialStatus_ShouldLogWarningAndReturn(
         [WithValidLead(LeadStatus.Qualified)] Lead lead,
-        [WithLeadEnrichedEvent] LeadEnrichedIntegrationEvent integrationEvent)
+        [WithLeadEnrichedEvent] LeadEnriched @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
         LeadType.GetProperty(nameof(Lead.IsEnrichmentReceived))?.SetValue(lead, false);
         LeadType.GetProperty(nameof(Lead.IsScoringReceived))?.SetValue(lead, true);
 
         SetupSut((_, _) => Task.FromResult<Lead?>(lead));
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(
@@ -355,17 +327,15 @@ public class LeadQualificationHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task HandleLeadScored_WhenLeadNotInInitialStatus_ShouldLogWarningAndReturn(
         [WithValidLead(LeadStatus.Qualified)] Lead lead,
-        [WithLeadScoredEvent] LeadScoredIntegrationEvent integrationEvent)
+        [WithLeadScoredEvent] LeadScored @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
         LeadType.GetProperty(nameof(Lead.IsEnrichmentReceived))?.SetValue(lead, true);
         LeadType.GetProperty(nameof(Lead.IsScoringReceived))?.SetValue(lead, false);
 
         SetupSut((_, _) => Task.FromResult<Lead?>(lead));
 
-        var wrapper = new IntegrationEventWrapper<LeadScoredIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(

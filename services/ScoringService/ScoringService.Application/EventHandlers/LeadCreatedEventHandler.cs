@@ -1,10 +1,9 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using AvroSchemas.Messages.LeadEvents;
 using ScoringService.Domain.Entities;
-using IntegrationEvents.LeadEvents;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace ScoringService.Application.EventHandlers;
 
@@ -14,11 +13,10 @@ namespace ScoringService.Application.EventHandlers;
 public class LeadCreatedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadCreatedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<LeadCreatedIntegrationEvent>>
+    : INotificationHandler<LeadCreated>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadCreatedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadCreated @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
         logger.LogInformation("Processing LeadCreated for lead {LeadId}", @event.LeadId);
 
         var existingRequest = await unitOfWork.Set<ScoringRequest>()

@@ -8,12 +8,15 @@
 
     <ItemGroup>
         <ProjectReference Include="..\SharedKernel\SharedKernel.csproj" />
-        <ProjectReference Include="..\IntegrationEvents\IntegrationEvents.csproj" />
+        <ProjectReference Include="..\AvroSchemas\AvroSchemas.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="MediatR" Version="12.5.0" />
         <PackageReference Include="Confluent.Kafka" Version="2.10.0" />
+        <PackageReference Include="Confluent.SchemaRegistry" Version="2.10.0" />
+        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" Version="2.10.0" />
+        <PackageReference Include="Apache.Avro" Version="1.12.0" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0-preview.1.25081.1" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0-preview.1.25081.1" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0-preview.1" />

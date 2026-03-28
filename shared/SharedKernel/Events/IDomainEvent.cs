@@ -1,4 +1,6 @@
-﻿namespace SharedKernel.Events;
+﻿using AvroSchemas;
+
+namespace SharedKernel.Events;
 
 /// <summary>
 /// Интерфейс для доменных событий.
@@ -6,5 +8,8 @@
 public interface IDomainEvent
 {
     Guid EventId { get; }
+
     DateTime OccurredOn { get; }
+
+    IIntegrationEvent? ToIntegrationEvent();
 }

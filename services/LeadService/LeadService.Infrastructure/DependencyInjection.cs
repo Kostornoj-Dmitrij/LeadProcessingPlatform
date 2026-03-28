@@ -19,7 +19,7 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         services.AddScoped<IIdempotencyRepository, IdempotencyRepository>();
-        
+
         services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
 
         var topics = new[]

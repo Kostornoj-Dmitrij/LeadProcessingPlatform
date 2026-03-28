@@ -4,6 +4,7 @@ using EnrichmentService.Infrastructure.Data;
 using SharedHosting;
 using SharedHosting.Extensions;
 using SharedHosting.Options;
+using AvroSchemas;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,13 +37,17 @@ app.UseSharedHosting();
 if (app.Environment.IsDevelopment())
 {
     await app.ApplyMigrationsAsync<ApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
-    
+
     await KafkaExtensions.WaitForKafkaTopicsAsync(app.Services, [
         "lead-events",
         "saga-events",
         "enrichment-events",
         "notification-events"
     ]);
+
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    var schemaRegistry = app.Services.GetRequiredService<Confluent.SchemaRegistry.ISchemaRegistryClient>();
+    await SchemaRegistryHelper.RegisterAllSchemasAsync(schemaRegistry, logger);
 }
 
 await app.RunAsync();

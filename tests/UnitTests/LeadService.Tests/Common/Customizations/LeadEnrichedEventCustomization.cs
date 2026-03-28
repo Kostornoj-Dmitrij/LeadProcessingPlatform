@@ -1,16 +1,17 @@
 ﻿using AutoFixture;
-using IntegrationEvents.EnrichmentEvents;
+using AvroSchemas.Messages.EnrichmentEvents;
 
 namespace LeadService.Tests.Common.Customizations;
 
 /// <summary>
-/// Кастомизация для LeadEnrichedIntegrationEvent
+/// Кастомизация для LeadEnrichedEvent
 /// </summary>
 public class LeadEnrichedEventCustomization : ICustomization
 {
     public void Customize(IFixture fixture)
     {
-        fixture.Customize<LeadEnrichedIntegrationEvent>(composer => composer
+        fixture.Customize<LeadEnriched>(composer => composer
+            .With(e => e.EventId, fixture.Create<Guid>())
             .With(e => e.LeadId, fixture.Create<Guid>())
             .With(e => e.Industry, "Technology")
             .With(e => e.CompanySize, "50-100")

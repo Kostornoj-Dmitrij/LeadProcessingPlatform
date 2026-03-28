@@ -2,11 +2,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
-using IntegrationEvents.EnrichmentEvents;
+using AvroSchemas.Messages.EnrichmentEvents;
 using ScoringService.Domain.Entities;
 using ScoringService.Domain.Enums;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace ScoringService.Application.EventHandlers;
 
@@ -16,11 +15,10 @@ namespace ScoringService.Application.EventHandlers;
 public class LeadEnrichedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadEnrichedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<LeadEnrichedIntegrationEvent>>
+    : INotificationHandler<LeadEnriched>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadEnrichedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadEnriched @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
         logger.LogInformation("Processing LeadEnriched for lead {LeadId}", @event.LeadId);
 
         var enrichedData = new

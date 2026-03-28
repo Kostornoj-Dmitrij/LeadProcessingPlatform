@@ -1,7 +1,4 @@
 ﻿using System.Text.Json;
-using IntegrationEvents;
-using IntegrationEvents.ScoringEvents;
-using ScoringService.Domain.Events;
 using Microsoft.Extensions.Logging;
 using SharedInfrastructure.Outbox;
 using SharedKernel.Entities;
@@ -21,7 +18,7 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
 
         foreach (var domainEvent in domainEvents)
         {
-            var integrationEvent = MapToIntegrationEvent(domainEvent);
+            var integrationEvent = domainEvent.ToIntegrationEvent();
             if (integrationEvent == null) continue;
 
             var outboxMessage = new OutboxMessage
@@ -45,31 +42,5 @@ public class DomainEventToOutboxConverter(ILogger<DomainEventToOutboxConverter> 
         }
 
         return outboxMessages;
-    }
-
-    private IIntegrationEvent? MapToIntegrationEvent(IDomainEvent domainEvent)
-    {
-        return domainEvent switch
-        {
-            LeadScoredDomainEvent e => new LeadScoredIntegrationEvent
-            {
-                LeadId = e.LeadId,
-                TotalScore = e.TotalScore,
-                QualifiedThreshold = e.QualifiedThreshold,
-                AppliedRules = e.AppliedRules
-            },
-            LeadScoringFailedDomainEvent e => new LeadScoringFailedIntegrationEvent
-            {
-                LeadId = e.LeadId,
-                Reason = e.Reason,
-                RetryCount = e.RetryCount
-            },
-            LeadScoringCompensatedDomainEvent e => new LeadScoringCompensatedIntegrationEvent
-            {
-                LeadId = e.LeadId,
-                Compensated = e.Compensated
-            },
-            _ => null
-        };
     }
 }

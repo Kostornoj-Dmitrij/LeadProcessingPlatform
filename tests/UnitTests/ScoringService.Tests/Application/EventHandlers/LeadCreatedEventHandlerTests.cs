@@ -1,12 +1,11 @@
 ﻿using AutoFixture.NUnit3;
-using IntegrationEvents.LeadEvents;
+using AvroSchemas.Messages.LeadEvents;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
 using ScoringService.Application.EventHandlers;
 using ScoringService.Domain.Entities;
 using ScoringService.Tests.Common.Attributes;
-using SharedKernel.Events;
 using SharedTestInfrastructure.Database;
 
 namespace ScoringService.Tests.Application.EventHandlers;
@@ -39,7 +38,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenNoExistingRequestAndNoPendingData_ShouldCreateRequest(
-        [WithValidLeadCreatedEvent] LeadCreatedIntegrationEvent integrationEvent,
+        [WithValidLeadCreatedEvent] LeadCreated @event,
         List<ScoringRequest> requests,
         List<PendingEnrichedData> pendingData)
     {
@@ -49,9 +48,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.Set<ScoringRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<PendingEnrichedData>()).Returns(pendingSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadCreatedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         UnitOfWorkMock.Verify(x => x.Set<ScoringRequest>().AddAsync(
             It.IsAny<ScoringRequest>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -60,11 +57,11 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenPendingDataExists_ShouldUseItAndMarkProcessed(
-        [WithValidLeadCreatedEvent] LeadCreatedIntegrationEvent integrationEvent,
+        [WithValidLeadCreatedEvent] LeadCreated @event,
         [WithValidPendingEnrichedData] PendingEnrichedData pendingData,
         List<ScoringRequest> requests)
     {
-        pendingData = PendingEnrichedData.Create(integrationEvent.LeadId, "{\"industry\":\"Tech\"}");
+        pendingData = PendingEnrichedData.Create(@event.LeadId, "{\"industry\":\"Tech\"}");
 
         var requestSetMock = CreateMockDbSet(requests);
         var pendingSetMock = CreateMockDbSet([pendingData]);
@@ -78,9 +75,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
             .Callback<ScoringRequest, CancellationToken>((req, _) => createdRequest = req)
             .ReturnsAsync((ScoringRequest _, CancellationToken _) => null!);
 
-        var wrapper = new IntegrationEventWrapper<LeadCreatedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         Assert.That(createdRequest, Is.Not.Null);
         Assert.That(createdRequest!.EnrichedData, Is.Not.Null);
@@ -90,10 +85,10 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenExistingRequestExists_ShouldSkip(
-        [WithValidLeadCreatedEvent] LeadCreatedIntegrationEvent integrationEvent,
+        [WithValidLeadCreatedEvent] LeadCreated @event,
         [WithValidScoringRequest] ScoringRequest existingRequest)
     {
-        RequestType.GetProperty(nameof(ScoringRequest.LeadId))?.SetValue(existingRequest, integrationEvent.LeadId);
+        RequestType.GetProperty(nameof(ScoringRequest.LeadId))?.SetValue(existingRequest, @event.LeadId);
 
         var requests = new List<ScoringRequest> { existingRequest };
         var requestSetMock = CreateMockDbSet(requests);
@@ -102,9 +97,7 @@ public class LeadCreatedEventHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.Set<ScoringRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<PendingEnrichedData>()).Returns(pendingSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadCreatedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         UnitOfWorkMock.Verify(x => x.Set<ScoringRequest>().AddAsync(
             It.IsAny<ScoringRequest>(), It.IsAny<CancellationToken>()), Times.Never);

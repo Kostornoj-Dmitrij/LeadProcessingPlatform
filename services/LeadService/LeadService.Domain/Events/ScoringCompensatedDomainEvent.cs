@@ -1,4 +1,5 @@
-﻿using SharedKernel.Events;
+﻿using AvroSchemas;
+using SharedKernel.Events;
 
 namespace LeadService.Domain.Events;
 
@@ -8,4 +9,9 @@ namespace LeadService.Domain.Events;
 public class ScoringCompensatedDomainEvent(Guid leadId) : DomainEvent
 {
     public Guid LeadId { get; } = leadId;
+
+    public override IIntegrationEvent ToIntegrationEvent()
+    {
+        return null!;
+    }
 }

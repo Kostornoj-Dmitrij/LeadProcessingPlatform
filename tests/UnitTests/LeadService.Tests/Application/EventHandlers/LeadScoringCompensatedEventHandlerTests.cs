@@ -1,5 +1,5 @@
 ﻿using AutoFixture.NUnit3;
-using IntegrationEvents.ScoringEvents;
+using AvroSchemas.Messages.ScoringEvents;
 using LeadService.Application.EventHandlers;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
-using SharedKernel.Events;
 using SharedTestInfrastructure.Database;
 
 namespace LeadService.Tests.Application.EventHandlers;
@@ -42,9 +41,9 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task Handle_WhenLeadExists_ShouldMarkScoringCompensated(
         [WithValidLead(LeadStatus.Rejected)] Lead lead,
-        [WithLeadScoringCompensatedEvent] LeadScoringCompensatedIntegrationEvent integrationEvent)
+        [WithLeadScoringCompensatedEvent] LeadScoringCompensated @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -53,9 +52,7 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<Lead>())
             .Returns(leadSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadScoringCompensatedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         Assert.That(lead.IsScoringCompensated, Is.True);
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(
@@ -64,7 +61,7 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenLeadNotFound_ShouldLogWarning(
-        [WithLeadScoringCompensatedEvent] LeadScoringCompensatedIntegrationEvent integrationEvent)
+        [WithLeadScoringCompensatedEvent] LeadScoringCompensated @event)
     {
         var leads = new List<Lead>();
         var leadSetMock = CreateMockDbSet(leads);
@@ -73,16 +70,14 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<Lead>())
             .Returns(leadSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadScoringCompensatedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) =>
-                    v.ToString()!.Contains($"Lead not found: {integrationEvent.LeadId}")),
+                    v.ToString()!.Contains($"Lead not found: {@event.LeadId}")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -91,9 +86,9 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public void Handle_WhenConcurrencyException_ShouldLogWarningAndThrow(
         [WithValidLead(LeadStatus.Rejected)] Lead lead,
-        [WithLeadScoringCompensatedEvent] LeadScoringCompensatedIntegrationEvent integrationEvent)
+        [WithLeadScoringCompensatedEvent] LeadScoringCompensated @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -106,17 +101,15 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var wrapper = new IntegrationEventWrapper<LeadScoringCompensatedIntegrationEvent>(integrationEvent);
-
         Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => 
-            _sut.Handle(wrapper, CancellationToken.None));
+            _sut.Handle(@event, CancellationToken.None));
 
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) =>
-                    v.ToString()!.Contains($"Concurrency conflict for lead {integrationEvent.LeadId}")),
+                    v.ToString()!.Contains($"Concurrency conflict for lead {@event.LeadId}")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -125,10 +118,10 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public void Handle_WhenGenericException_ShouldLogErrorAndThrow(
         [WithValidLead(LeadStatus.Rejected)] Lead lead,
-        [WithLeadScoringCompensatedEvent] LeadScoringCompensatedIntegrationEvent integrationEvent,
+        [WithLeadScoringCompensatedEvent] LeadScoringCompensated @event,
         InvalidOperationException exception)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -142,10 +135,8 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(exception);
 
-        var wrapper = new IntegrationEventWrapper<LeadScoringCompensatedIntegrationEvent>(integrationEvent);
-
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => 
-            _sut.Handle(wrapper, CancellationToken.None));
+            _sut.Handle(@event, CancellationToken.None));
 
         Assert.That(ex.Message, Is.EqualTo(exception.Message));
 
@@ -154,7 +145,7 @@ public class LeadScoringCompensatedEventHandlerTests : DatabaseTestBase
                 LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) =>
-                    v.ToString()!.Contains($"Error processing scoring compensation for lead {integrationEvent.LeadId}")),
+                    v.ToString()!.Contains($"Error processing scoring compensation for lead {@event.LeadId}")),
                 exception,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

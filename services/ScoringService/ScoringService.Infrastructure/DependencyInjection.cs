@@ -1,7 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using ScoringService.Domain.Services;
 using ScoringService.Infrastructure.Background;
 using ScoringService.Infrastructure.Data;
@@ -19,7 +17,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
-        
+
         services.AddScoped<IRuleEvaluator, RuleEvaluator>();
         services.AddHostedService<ScoringProcessor>();
 

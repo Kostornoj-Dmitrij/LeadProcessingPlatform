@@ -2,13 +2,12 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using IntegrationEvents.EnrichmentEvents;
-using IntegrationEvents.ScoringEvents;
+using AvroSchemas.Messages.EnrichmentEvents;
+using AvroSchemas.Messages.LeadEvents;
+using AvroSchemas.Messages.ScoringEvents;
 using LeadService.Domain.Entities;
-using LeadService.Domain.Events;
 using LeadService.Domain.Enums;
 using SharedKernel.Base;
-using SharedKernel.Events;
 using SharedKernel.Json;
 
 namespace LeadService.Application.EventHandlers;
@@ -19,20 +18,17 @@ namespace LeadService.Application.EventHandlers;
 public class LeadQualificationHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadQualificationHandler> logger)
-    :
-        INotificationHandler<IntegrationEventWrapper<LeadEnrichedIntegrationEvent>>,
-        INotificationHandler<IntegrationEventWrapper<LeadScoredIntegrationEvent>>
+    : INotificationHandler<LeadEnriched>,
+      INotificationHandler<LeadScored>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadEnrichedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadEnriched @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
         logger.LogInformation("Processing LeadEnriched for lead {LeadId}", @event.LeadId);
         await ProcessEvent(@event.LeadId, isEnriched: true, enrichedEvent: @event, scoredEvent: null, cancellationToken);
     }
 
-    public async Task Handle(IntegrationEventWrapper<LeadScoredIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadScored @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
         logger.LogInformation("Processing LeadScored for lead {LeadId}", @event.LeadId);
         await ProcessEvent(@event.LeadId, isEnriched: false, enrichedEvent: null, scoredEvent: @event, cancellationToken);
     }
@@ -40,12 +36,12 @@ public class LeadQualificationHandler(
     private async Task ProcessEvent(
         Guid leadId,
         bool isEnriched,
-        LeadEnrichedIntegrationEvent? enrichedEvent,
-        LeadScoredIntegrationEvent? scoredEvent,
+        LeadEnriched? enrichedEvent,
+        LeadScored? scoredEvent,
         CancellationToken cancellationToken)
     {
         await unitOfWork.BeginTransactionAsync(cancellationToken);
-        
+
         try
         {
             var lead = await GetLeadForUpdateAsync(leadId, cancellationToken);
@@ -77,7 +73,7 @@ public class LeadQualificationHandler(
 
             if (isEnriched && enrichedEvent != null && !lead.IsEnrichmentReceived)
             {
-                var enrichedData = new EnrichedDataDto
+                var enrichedDataWrapper = new EnrichedData
                 {
                     Industry = enrichedEvent.Industry,
                     CompanySize = enrichedEvent.CompanySize,
@@ -85,13 +81,13 @@ public class LeadQualificationHandler(
                     RevenueRange = enrichedEvent.RevenueRange,
                     Version = enrichedEvent.Version
                 };
-                var enrichedDataJson = JsonSerializer.Serialize(enrichedData, JsonDefaults.Options);
-                
+                var enrichedDataJson = JsonSerializer.Serialize(enrichedDataWrapper.ToDto(), JsonDefaults.Options);
+
                 lead.MarkEnrichmentReceived(enrichedDataJson);
                 wasChanged = true;
                 logger.LogDebug("Applied enrichment to lead {LeadId}", leadId);
             }
-            
+
             if (!isEnriched && scoredEvent != null && !lead.IsScoringReceived)
             {
                 lead.MarkScoringReceived(scoredEvent.TotalScore);
@@ -102,10 +98,10 @@ public class LeadQualificationHandler(
             if (wasChanged)
             {
                 lead.TryQualify();
-                
+
                 await unitOfWork.SaveChangesAsync(cancellationToken);
                 await unitOfWork.CommitTransactionAsync(cancellationToken);
-                
+
                 logger.LogInformation(
                     "Successfully processed {EventType} for lead {LeadId}. Status: {Status}, EnrichmentReceived: {Enrichment}, ScoringReceived: {Scoring}",
                     isEnriched ? "enrichment" : "scoring",

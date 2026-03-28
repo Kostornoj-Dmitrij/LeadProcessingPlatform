@@ -12,7 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\IntegrationEvents\IntegrationEvents.csproj" />
+      <ProjectReference Include="..\AvroSchemas\AvroSchemas.csproj" />
     </ItemGroup>
 
 </Project>

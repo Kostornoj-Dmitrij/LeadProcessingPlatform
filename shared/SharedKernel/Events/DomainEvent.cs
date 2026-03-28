@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using AvroSchemas;
 
 namespace SharedKernel.Events;
 
@@ -7,10 +8,12 @@ namespace SharedKernel.Events;
 /// </summary>
 public abstract class DomainEvent(Guid eventId, DateTime occurredOn) : IDomainEvent, INotification
 {
-    public Guid EventId { get; } = eventId;
-    public DateTime OccurredOn { get; } = occurredOn;
-
     protected DomainEvent() : this(Guid.NewGuid(), DateTime.UtcNow)
     {
     }
+
+    public Guid EventId { get; } = eventId;
+    public DateTime OccurredOn { get; } = occurredOn;
+
+    public abstract IIntegrationEvent? ToIntegrationEvent();
 }

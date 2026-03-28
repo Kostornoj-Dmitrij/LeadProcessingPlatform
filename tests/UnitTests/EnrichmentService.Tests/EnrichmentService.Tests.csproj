@@ -24,7 +24,6 @@
     <ItemGroup>
         <ProjectReference Include="..\..\..\services\EnrichmentService\EnrichmentService.Application\EnrichmentService.Application.csproj" />
         <ProjectReference Include="..\..\..\services\EnrichmentService\EnrichmentService.Domain\EnrichmentService.Domain.csproj" />
-        <ProjectReference Include="..\..\..\shared\IntegrationEvents\IntegrationEvents.csproj" />
         <ProjectReference Include="..\shared\SharedTestInfrastructure\SharedTestInfrastructure.csproj" />
     </ItemGroup>
 

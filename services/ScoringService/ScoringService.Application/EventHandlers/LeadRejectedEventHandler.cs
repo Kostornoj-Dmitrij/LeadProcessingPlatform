@@ -1,10 +1,9 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using AvroSchemas.Messages.LeadEvents;
 using ScoringService.Domain.Entities;
-using IntegrationEvents.LeadEvents;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace ScoringService.Application.EventHandlers;
 
@@ -14,11 +13,10 @@ namespace ScoringService.Application.EventHandlers;
 public class LeadRejectedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadRejectedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<LeadRejectedIntegrationEvent>>
+    : INotificationHandler<LeadRejected>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadRejectedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadRejected @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
         logger.LogInformation("Processing LeadRejected for lead {LeadId}", @event.LeadId);
 
         var scoringResult = await unitOfWork.Set<ScoringResult>()

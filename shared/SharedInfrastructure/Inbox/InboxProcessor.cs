@@ -1,14 +1,13 @@
 ﻿using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using AvroSchemas;
 using Confluent.Kafka;
-using IntegrationEvents;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using SharedKernel.Events;
 using SharedKernel.Json;
 
 namespace SharedInfrastructure.Inbox;
@@ -132,12 +131,7 @@ public class InboxProcessor<TInboxStore>(
         if (@event == null)
             throw new InvalidOperationException($"Failed to deserialize event: {message.EventType}");
 
-        var wrapperType = typeof(IntegrationEventWrapper<>).MakeGenericType(eventType);
-        var wrapper = Activator.CreateInstance(wrapperType, @event);
-        if (wrapper == null)
-            throw new InvalidOperationException("Failed to create wrapper for event");
-
-        await mediator.Publish(wrapper, cancellationToken);
+        await mediator.Publish(@event, cancellationToken);
     }
 
     private Message<string, string> CreateKafkaMessageFromInbox(InboxMessage message)

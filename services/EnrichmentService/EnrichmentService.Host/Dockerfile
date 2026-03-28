@@ -11,7 +11,7 @@ WORKDIR /src
 
 COPY LeadProcessingPlatform.sln .
 COPY shared/SharedKernel/*.csproj shared/SharedKernel/
-COPY shared/IntegrationEvents/*.csproj shared/IntegrationEvents/
+COPY shared/AvroSchemas/*.csproj shared/AvroSchemas/
 
 COPY services/EnrichmentService/EnrichmentService.Domain/*.csproj services/EnrichmentService/EnrichmentService.Domain/
 COPY services/EnrichmentService/EnrichmentService.Application/*.csproj services/EnrichmentService/EnrichmentService.Application/

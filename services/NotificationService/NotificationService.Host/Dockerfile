@@ -11,7 +11,7 @@ WORKDIR /src
 
 COPY LeadProcessingPlatform.sln .
 COPY shared/SharedKernel/*.csproj shared/SharedKernel/
-COPY shared/IntegrationEvents/*.csproj shared/IntegrationEvents/
+COPY shared/AvroSchemas/*.csproj shared/AvroSchemas/
 
 COPY services/NotificationService/NotificationService.Domain/*.csproj services/NotificationService/NotificationService.Domain/
 COPY services/NotificationService/NotificationService.Application/*.csproj services/NotificationService/NotificationService.Application/

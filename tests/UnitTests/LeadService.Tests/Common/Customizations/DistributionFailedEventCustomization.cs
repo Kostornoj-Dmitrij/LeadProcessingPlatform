@@ -1,16 +1,17 @@
 ﻿using AutoFixture;
-using IntegrationEvents.DistributionEvents;
+using AvroSchemas.Messages.DistributionEvents;
 
 namespace LeadService.Tests.Common.Customizations;
 
 /// <summary>
-/// Кастомизация для DistributionFailedIntegrationEvent
+/// Кастомизация для DistributionFailedEvent
 /// </summary>
 public class DistributionFailedEventCustomization : ICustomization
 {
     public void Customize(IFixture fixture)
     {
-        fixture.Customize<DistributionFailedIntegrationEvent>(composer => composer
+        fixture.Customize<DistributionFailed>(composer => composer
+            .With(e => e.EventId, fixture.Create<Guid>())
             .With(e => e.LeadId, fixture.Create<Guid>())
             .With(e => e.Reason, "CRM unavailable"));
     }

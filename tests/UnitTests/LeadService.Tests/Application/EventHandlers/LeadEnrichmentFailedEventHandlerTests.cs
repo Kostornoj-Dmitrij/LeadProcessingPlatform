@@ -1,5 +1,5 @@
 ﻿using AutoFixture.NUnit3;
-using IntegrationEvents.EnrichmentEvents;
+using AvroSchemas.Messages.EnrichmentEvents;
 using LeadService.Application.EventHandlers;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
-using SharedKernel.Events;
 using SharedTestInfrastructure.Database;
 
 namespace LeadService.Tests.Application.EventHandlers;
@@ -42,9 +41,9 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task Handle_WhenLeadExists_ShouldRejectLead(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailedIntegrationEvent integrationEvent)
+        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailed @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -53,9 +52,7 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<Lead>())
             .Returns(leadSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         Assert.That(lead.Status, Is.EqualTo(LeadStatus.Rejected));
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(
@@ -64,7 +61,7 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenLeadNotFound_ShouldLogWarning(
-        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailedIntegrationEvent integrationEvent)
+        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailed @event)
     {
         var leads = new List<Lead>();
         var leadSetMock = CreateMockDbSet(leads);
@@ -73,16 +70,14 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<Lead>())
             .Returns(leadSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) =>
-                    v.ToString()!.Contains($"Lead not found: {integrationEvent.LeadId}")),
+                    v.ToString()!.Contains($"Lead not found: {@event.LeadId}")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -94,9 +89,9 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public void Handle_WhenConcurrencyException_ShouldThrow(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailedIntegrationEvent integrationEvent)
+        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailed @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -109,19 +104,17 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent>(integrationEvent);
-
         Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => 
-            _sut.Handle(wrapper, CancellationToken.None));
+            _sut.Handle(@event, CancellationToken.None));
     }
 
     [Test, AutoData]
     public void Handle_WhenGenericException_ShouldThrow(
         [WithValidLead] Lead lead,
-        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailedIntegrationEvent integrationEvent,
+        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailed @event,
         InvalidOperationException exception)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -134,10 +127,8 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(exception);
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent>(integrationEvent);
-
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => 
-            _sut.Handle(wrapper, CancellationToken.None));
+            _sut.Handle(@event, CancellationToken.None));
 
         Assert.That(ex.Message, Is.EqualTo(exception.Message));
     }
@@ -145,9 +136,9 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task Handle_WhenLeadIsClosed_ShouldLogAndReturn(
         [WithValidLead(LeadStatus.Closed)] Lead lead,
-        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailedIntegrationEvent integrationEvent)
+        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailed @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -156,9 +147,7 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<Lead>())
             .Returns(leadSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(
@@ -176,9 +165,9 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task Handle_WhenLeadNotInInitialStatus_ShouldLogWarningAndReturn(
         [WithValidLead(LeadStatus.Qualified)] Lead lead,
-        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailedIntegrationEvent integrationEvent)
+        [WithLeadEnrichmentFailedEvent] LeadEnrichmentFailed @event)
     {
-        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, integrationEvent.LeadId);
+        LeadType.GetProperty(nameof(Lead.Id))?.SetValue(lead, @event.LeadId);
 
         var leads = new List<Lead> { lead };
         var leadSetMock = CreateMockDbSet(leads);
@@ -187,9 +176,7 @@ public class LeadEnrichmentFailedEventHandlerTests : DatabaseTestBase
             .Setup(x => x.Set<Lead>())
             .Returns(leadSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadEnrichmentFailedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         _loggerMock.Verify(
             x => x.Log(

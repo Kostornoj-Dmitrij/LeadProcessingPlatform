@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using IntegrationEvents;
 using SharedInfrastructure.EventBus;
 using SharedInfrastructure.Inbox;
 using SharedKernel.Entities;
@@ -89,16 +88,13 @@ public class OutboxPublisher<TContext>(
                     continue;
                 }
 
-                if (@event is not IIntegrationEvent integrationEvent)
-                {
-                    logger.LogWarning("Event {EventType} does not implement IIntegrationEvent", message.EventType);
-                    await MoveToDeadLetterQueueAsync(message,
-                        new Exception($"Event does not implement IIntegrationEvent:{message.EventType}"),
-                        deadLetterQueue, cancellationToken);
-                    continue;
-                }
+                var method = typeof(IEventBus).GetMethod("PublishAsync");
+                if (method == null)
+                    throw new InvalidOperationException("PublishAsync method not found");
 
-                await eventBus.PublishAsync(integrationEvent, cancellationToken);
+                var genericMethod = method.MakeGenericMethod(eventType);
+                var task = (Task)genericMethod.Invoke(eventBus, [@event, cancellationToken])!;
+                await task;
 
                 message.ProcessedAt = DateTime.UtcNow;
                 message.ErrorMessage = null;

@@ -1,10 +1,9 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using IntegrationEvents.ScoringEvents;
+using AvroSchemas.Messages.ScoringEvents;
 using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace LeadService.Application.EventHandlers;
 
@@ -14,12 +13,10 @@ namespace LeadService.Application.EventHandlers;
 public class LeadScoringCompensatedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<LeadScoringCompensatedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<LeadScoringCompensatedIntegrationEvent>>
+    : INotificationHandler<LeadScoringCompensated>
 {
-    public async Task Handle(IntegrationEventWrapper<LeadScoringCompensatedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(LeadScoringCompensated @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
-
         logger.LogInformation("Processing LeadScoringCompensated for lead {LeadId}", @event.LeadId);
 
         try
@@ -34,7 +31,6 @@ public class LeadScoringCompensatedEventHandler(
             }
 
             lead.MarkScoringCompensated();
-
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation("Marked scoring compensation as received for lead {LeadId}", lead.Id);

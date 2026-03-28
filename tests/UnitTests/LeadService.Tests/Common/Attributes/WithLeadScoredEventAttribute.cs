@@ -7,7 +7,7 @@ using LeadService.Tests.Common.Customizations;
 namespace LeadService.Tests.Common.Attributes;
 
 /// <summary>
-/// Атрибут для генерации события LeadScoredIntegrationEvent
+/// Атрибут для генерации события LeadScoredEvent
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
 public class WithLeadScoredEventAttribute : CustomizeAttribute

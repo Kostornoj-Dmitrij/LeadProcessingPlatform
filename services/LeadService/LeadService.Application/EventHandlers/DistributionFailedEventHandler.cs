@@ -1,11 +1,10 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using IntegrationEvents.DistributionEvents;
+using AvroSchemas.Messages.DistributionEvents;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace LeadService.Application.EventHandlers;
 
@@ -15,12 +14,10 @@ namespace LeadService.Application.EventHandlers;
 public class DistributionFailedEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<DistributionFailedEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<DistributionFailedIntegrationEvent>>
+    : INotificationHandler<DistributionFailed>
 {
-    public async Task Handle(IntegrationEventWrapper<DistributionFailedIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(DistributionFailed @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
-
         logger.LogInformation("Processing DistributionFailed for lead {LeadId}", @event.LeadId);
 
         try
@@ -52,7 +49,7 @@ public class DistributionFailedEventHandler(
             }
 
             lead.MarkDistributionFailed(@event.Reason);
-            
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation("Lead {LeadId} marked as distribution failed", lead.Id);

@@ -1,4 +1,6 @@
-﻿using SharedKernel.Events;
+﻿using AvroSchemas;
+using AvroSchemas.Messages.LeadEvents;
+using SharedKernel.Events;
 
 namespace LeadService.Domain.Events;
 
@@ -13,22 +15,33 @@ public sealed class LeadCreatedDomainEvent(
     string email,
     string? phone,
     string? externalLeadId,
-    Dictionary<string, string>? customFields = null)
-    : DomainEvent
+    Dictionary<string, string>? customFields = null) : DomainEvent
 {
     public Guid LeadId { get; } = leadId;
-
     public string Source { get; } = source;
-
     public string CompanyName { get; } = companyName;
-
     public string? ContactPerson { get; } = contactPerson;
-
     public string Email { get; } = email;
-
     public string? Phone { get; } = phone;
-
     public string? ExternalLeadId { get; } = externalLeadId;
-
     public Dictionary<string, string>? CustomFields { get; } = customFields;
+
+    public override IIntegrationEvent ToIntegrationEvent()
+    {
+        return new LeadCreated
+        {
+            EventId = EventId,
+            OccurredOnUtc = new DateTimeOffset(OccurredOn).ToUnixTimeMilliseconds(),
+            EventType = GetType().Name,
+            SchemaVersion = 1,
+            LeadId = LeadId,
+            Source = Source,
+            CompanyName = CompanyName,
+            ContactPerson = ContactPerson,
+            Email = Email,
+            Phone = Phone,
+            ExternalLeadId = ExternalLeadId,
+            CustomFields = CustomFields
+        };
+    }
 }

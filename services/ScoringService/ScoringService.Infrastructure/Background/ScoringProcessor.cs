@@ -8,7 +8,7 @@ using ScoringService.Domain.Services;
 using ScoringService.Infrastructure.Data;
 using SharedKernel.Base;
 using System.Text.Json;
-using IntegrationEvents.LeadEvents;
+using AvroSchemas.Messages.LeadEvents;
 
 namespace ScoringService.Infrastructure.Background;
 

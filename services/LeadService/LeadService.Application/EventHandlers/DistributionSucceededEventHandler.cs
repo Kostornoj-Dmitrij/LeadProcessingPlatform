@@ -1,10 +1,9 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using IntegrationEvents.DistributionEvents;
+using AvroSchemas.Messages.DistributionEvents;
 using LeadService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Base;
-using SharedKernel.Events;
 
 namespace LeadService.Application.EventHandlers;
 
@@ -14,12 +13,10 @@ namespace LeadService.Application.EventHandlers;
 public class DistributionSucceededEventHandler(
     IUnitOfWork unitOfWork,
     ILogger<DistributionSucceededEventHandler> logger)
-    : INotificationHandler<IntegrationEventWrapper<DistributionSucceededIntegrationEvent>>
+    : INotificationHandler<DistributionSucceeded>
 {
-    public async Task Handle(IntegrationEventWrapper<DistributionSucceededIntegrationEvent> wrapper, CancellationToken cancellationToken)
+    public async Task Handle(DistributionSucceeded @event, CancellationToken cancellationToken)
     {
-        var @event = wrapper.Event;
-
         logger.LogInformation("Processing DistributionSucceeded for lead {LeadId}", @event.LeadId);
 
         try

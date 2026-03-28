@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using AvroSchemas;
 using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SharedInfrastructure.Inbox;
+using SharedInfrastructure.Serialization;
 
 namespace SharedInfrastructure.EventBus;
 
@@ -15,16 +17,17 @@ namespace SharedInfrastructure.EventBus;
 /// </summary>
 public class KafkaConsumer : BackgroundService, IKafkaConsumer
 {
-    private readonly IConsumer<string, string> _consumer;
+    private readonly IConsumer<string, byte[]> _consumer;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<KafkaConsumer> _logger;
-    private readonly IProducer<string, string> _dlqProducer;
+    private readonly IProducer<string, byte[]> _dlqProducer;
     private readonly string _dlqTopic;
     private readonly int _maxRetryAttempts = 3;
     private bool _isRunning;
     private readonly string _serviceName;
     private readonly ActivitySource _activitySource;
     private readonly IEnumerable<string> _topics;
+    private readonly Dictionary<string, Type> _eventTypeCache = new();
 
     public KafkaConsumer(
         IConfiguration configuration,
@@ -39,9 +42,15 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         _topics = topics;
         _activitySource = new ActivitySource($"{serviceName}.KafkaConsumer");
 
+        var bootstrapServers = configuration["Kafka:BootstrapServers"];
+        var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
+
+        if (string.IsNullOrEmpty(schemaRegistryUrl))
+            throw new InvalidOperationException("SchemaRegistryUrl is not configured");
+
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = configuration["Kafka:BootstrapServers"],
+            BootstrapServers = bootstrapServers,
             GroupId = configuration["Kafka:GroupId"] ?? $"{serviceName}",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = true,
@@ -52,17 +61,19 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
         };
 
-        _consumer = new ConsumerBuilder<string, string>(consumerConfig)
+        _consumer = new ConsumerBuilder<string, byte[]>(consumerConfig)
+            .SetKeyDeserializer(Deserializers.Utf8)
+            .SetValueDeserializer(Deserializers.ByteArray)
             .SetErrorHandler((_, error) => _logger.LogError("Kafka consumer error for {ServiceName}: {Error}", _serviceName, error.Reason))
             .Build();
 
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = configuration["Kafka:BootstrapServers"],
+            BootstrapServers = bootstrapServers,
             EnableIdempotence = true,
             Acks = Acks.All
         };
-        _dlqProducer = new ProducerBuilder<string, string>(producerConfig).Build();
+        _dlqProducer = new ProducerBuilder<string, byte[]>(producerConfig).Build();
         _dlqTopic = configuration["Kafka:DlqTopic"] ?? $"{serviceName}-dlq";
     }
 
@@ -95,12 +106,10 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                 try
                 {
                     var consumeResult = _consumer.Consume(stoppingToken);
-
                     if (consumeResult == null || consumeResult.IsPartitionEOF)
                         continue;
 
                     await ProcessMessageWithRetryAsync(consumeResult, stoppingToken);
-
                     _consumer.StoreOffset(consumeResult);
                 }
                 catch (ConsumeException ex)
@@ -124,7 +133,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     }
 
     private async Task ProcessMessageWithRetryAsync(
-        ConsumeResult<string, string> consumeResult,
+        ConsumeResult<string, byte[]> consumeResult,
         CancellationToken cancellationToken)
     {
         int attempt = 0;
@@ -166,23 +175,25 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     }
 
     private async Task ProcessMessageAsync(
-        ConsumeResult<string, string> consumeResult,
+        ConsumeResult<string, byte[]> consumeResult,
         CancellationToken cancellationToken)
     {
-        if (!consumeResult.Message.Headers.TryGetLastBytes("event-type", out var eventTypeBytes) ||
-            !consumeResult.Message.Headers.TryGetLastBytes("event-id", out var eventIdBytes))
-        {
-            throw new InvalidOperationException("Missing required headers");
-        }
+        if (!consumeResult.Message.Headers.TryGetLastBytes("event-type", out var eventTypeBytes))
+            throw new InvalidOperationException("Missing event-type header");
 
         var eventTypeName = Encoding.UTF8.GetString(eventTypeBytes);
+        var eventType = GetEventType(eventTypeName);
+        if (eventType == null)
+            throw new InvalidOperationException($"Unknown event type: {eventTypeName}");
+
+        if (!consumeResult.Message.Headers.TryGetLastBytes("event-id", out var eventIdBytes))
+            throw new InvalidOperationException("Missing event-id header");
         var eventId = Encoding.UTF8.GetString(eventIdBytes);
 
-        string? traceId = null;
         ActivityContext parentContext = default;
         if (consumeResult.Message.Headers.TryGetLastBytes("trace-id", out var traceIdBytes))
         {
-            traceId = Encoding.UTF8.GetString(traceIdBytes);
+            var traceId = Encoding.UTF8.GetString(traceIdBytes);
             if (ActivityContext.TryParse(traceId, null, out var parsedContext))
                 parentContext = parsedContext;
         }
@@ -203,22 +214,21 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             activity.SetTag("service.name", _serviceName);
         }
 
-        var eventType = Type.GetType(eventTypeName);
-        if (eventType == null && eventTypeName.Contains(','))
-        {
-            var className = eventTypeName.Split(',')[0].Trim();
-            var lastDot = className.LastIndexOf('.');
-            if (lastDot > 0)
-            {
-                var simpleName = className.Substring(lastDot + 1);
-                eventType = Type.GetType($"IntegrationEvents.{simpleName}, IntegrationEvents");
-            }
-        }
-
-        if (eventType == null)
-            throw new InvalidOperationException($"Unknown event type: {eventTypeName}");
+        var deserializerType = typeof(AvroDeserializer<>).MakeGenericType(eventType);
 
         using var scope = _scopeFactory.CreateScope();
+        var deserializer = scope.ServiceProvider.GetRequiredService(deserializerType);
+
+        dynamic dynamicDeserializer = deserializer;
+        var data = new ReadOnlyMemory<byte>(consumeResult.Message.Value);
+        var context = new SerializationContext(MessageComponentType.Value, consumeResult.Topic);
+
+        var avroEvent = await dynamicDeserializer.DeserializeAsync(data, false, context);
+
+        var integrationEvent = (IIntegrationEvent)avroEvent;
+
+        var payloadJson = System.Text.Json.JsonSerializer.Serialize(integrationEvent, eventType, SharedKernel.Json.JsonDefaults.Options);
+
         var inboxStore = scope.ServiceProvider.GetRequiredService<IInboxStore>();
 
         var added = await inboxStore.TryAddAsync(
@@ -226,12 +236,34 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             topic: consumeResult.Topic,
             key: consumeResult.Message.Key,
             eventType: eventType.AssemblyQualifiedName!,
-            payload: consumeResult.Message.Value,
-            traceId: traceId,
+            payload: payloadJson,
+            traceId: GetTraceId(consumeResult),
             cancellationToken: cancellationToken);
 
         if (!added)
             _logger.LogDebug("[{ServiceName}] Message {EventId} already in inbox, skipping", _serviceName, eventId);
+    }
+
+    private Type? GetEventType(string eventTypeName)
+    {
+        if (_eventTypeCache.TryGetValue(eventTypeName, out var cachedType))
+            return cachedType;
+
+        var type = Type.GetType(eventTypeName);
+        if (type != null)
+        {
+            _eventTypeCache[eventTypeName] = type;
+            return type;
+        }
+
+        return null;
+    }
+
+    private string? GetTraceId(ConsumeResult<string, byte[]> consumeResult)
+    {
+        if (consumeResult.Message.Headers.TryGetLastBytes("trace-id", out var traceIdBytes))
+            return Encoding.UTF8.GetString(traceIdBytes);
+        return null;
     }
 
     private bool IsTransientError(Exception ex)
@@ -246,10 +278,10 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     }
 
     private async Task MoveToDeadLetterQueueAsync(
-        ConsumeResult<string, string> consumeResult,
+        ConsumeResult<string, byte[]> consumeResult,
         Exception exception)
     {
-        var deadLetterMessage = new Message<string, string>
+        var deadLetterMessage = new Message<string, byte[]>
         {
             Key = consumeResult.Message.Key,
             Value = consumeResult.Message.Value,

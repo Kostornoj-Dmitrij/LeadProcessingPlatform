@@ -1,5 +1,5 @@
 ﻿using AutoFixture.NUnit3;
-using IntegrationEvents.LeadEvents;
+using AvroSchemas.Messages.LeadEvents;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;

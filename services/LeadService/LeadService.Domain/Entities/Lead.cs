@@ -4,6 +4,7 @@ using LeadService.Domain.ValueObjects;
 using SharedKernel.Base;
 using SharedKernel.Events;
 using System.Text.Json;
+using AvroSchemas.Messages.LeadEvents;
 using SharedKernel.Json;
 
 namespace LeadService.Domain.Entities;

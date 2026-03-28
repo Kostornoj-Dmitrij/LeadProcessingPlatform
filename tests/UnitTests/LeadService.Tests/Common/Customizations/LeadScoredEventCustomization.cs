@@ -1,16 +1,17 @@
 ﻿using AutoFixture;
-using IntegrationEvents.ScoringEvents;
+using AvroSchemas.Messages.ScoringEvents;
 
 namespace LeadService.Tests.Common.Customizations;
 
 /// <summary>
-/// Кастомизация для LeadScoredIntegrationEvent
+/// Кастомизация для LeadScoredEvent
 /// </summary>
 public class LeadScoredEventCustomization : ICustomization
 {
     public void Customize(IFixture fixture)
     {
-        fixture.Customize<LeadScoredIntegrationEvent>(composer => composer
+        fixture.Customize<LeadScored>(composer => composer
+            .With(e => e.EventId, fixture.Create<Guid>())
             .With(e => e.LeadId, fixture.Create<Guid>())
             .With(e => e.TotalScore, 75)
             .With(e => e.QualifiedThreshold, 50)

@@ -1,5 +1,5 @@
 ﻿using AutoFixture.NUnit3;
-using IntegrationEvents.LeadEvents;
+using AvroSchemas.Messages.LeadEvents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -7,7 +7,6 @@ using NUnit.Framework;
 using ScoringService.Application.EventHandlers;
 using ScoringService.Domain.Entities;
 using ScoringService.Tests.Common.Attributes;
-using SharedKernel.Events;
 using SharedTestInfrastructure.Database;
 
 namespace ScoringService.Tests.Application.EventHandlers;
@@ -41,12 +40,12 @@ public class LeadRejectedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenScoringResultAndRequestExist_ShouldRemoveBothAndCreateLog(
-        [WithValidLeadRejectedEvent] LeadRejectedIntegrationEvent integrationEvent,
+        [WithValidLeadRejectedEvent] LeadRejected @event,
         [WithValidScoringResult] ScoringResult scoringResult,
         [WithValidScoringRequest] ScoringRequest scoringRequest)
     {
-        ResultType.GetProperty(nameof(ScoringResult.LeadId))?.SetValue(scoringResult, integrationEvent.LeadId);
-        RequestType.GetProperty(nameof(ScoringRequest.LeadId))?.SetValue(scoringRequest, integrationEvent.LeadId);
+        ResultType.GetProperty(nameof(ScoringResult.LeadId))?.SetValue(scoringResult, @event.LeadId);
+        RequestType.GetProperty(nameof(ScoringRequest.LeadId))?.SetValue(scoringRequest, @event.LeadId);
         scoringRequest.UpdateEnrichedData("{\"data\":\"test\"}");
 
         var results = new List<ScoringResult> { scoringResult };
@@ -61,9 +60,7 @@ public class LeadRejectedEventHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.Set<ScoringRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<CompensationLog>()).Returns(logSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadRejectedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         UnitOfWorkMock.Verify(x => x.Set<CompensationLog>().AddAsync(
             It.IsAny<CompensationLog>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -75,11 +72,11 @@ public class LeadRejectedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public async Task Handle_WhenOnlyRequestExists_ShouldRemoveRequestAndCreateLog(
-        [WithValidLeadRejectedEvent] LeadRejectedIntegrationEvent integrationEvent,
+        [WithValidLeadRejectedEvent] LeadRejected @event,
         [WithValidScoringRequest] ScoringRequest scoringRequest,
         List<ScoringResult> results)
     {
-        RequestType.GetProperty(nameof(ScoringRequest.LeadId))?.SetValue(scoringRequest, integrationEvent.LeadId);
+        RequestType.GetProperty(nameof(ScoringRequest.LeadId))?.SetValue(scoringRequest, @event.LeadId);
 
         var requests = new List<ScoringRequest> { scoringRequest };
         var logs = new List<CompensationLog>();
@@ -92,9 +89,7 @@ public class LeadRejectedEventHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.Set<ScoringRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<CompensationLog>()).Returns(logSetMock.Object);
 
-        var wrapper = new IntegrationEventWrapper<LeadRejectedIntegrationEvent>(integrationEvent);
-
-        await _sut.Handle(wrapper, CancellationToken.None);
+        await _sut.Handle(@event, CancellationToken.None);
 
         UnitOfWorkMock.Verify(x => x.Set<CompensationLog>().AddAsync(
             It.IsAny<CompensationLog>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -104,7 +99,7 @@ public class LeadRejectedEventHandlerTests : DatabaseTestBase
 
     [Test, AutoData]
     public void Handle_WhenConcurrencyException_ShouldThrow(
-        [WithValidLeadRejectedEvent] LeadRejectedIntegrationEvent integrationEvent,
+        [WithValidLeadRejectedEvent] LeadRejected @event,
         List<ScoringResult> results,
         List<ScoringRequest> requests,
         List<CompensationLog> logs)
@@ -119,9 +114,7 @@ public class LeadRejectedEventHandlerTests : DatabaseTestBase
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var wrapper = new IntegrationEventWrapper<LeadRejectedIntegrationEvent>(integrationEvent);
-
         Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
-            _sut.Handle(wrapper, CancellationToken.None));
+            _sut.Handle(@event, CancellationToken.None));
     }
 }
