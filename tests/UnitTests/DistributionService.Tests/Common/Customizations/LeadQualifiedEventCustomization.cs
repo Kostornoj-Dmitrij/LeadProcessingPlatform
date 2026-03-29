@@ -28,7 +28,7 @@ public class LeadQualifiedEventCustomization : ICustomization
             .With(e => e.CustomFields, new Dictionary<string, string>
             {
                 { "source", "web_form" },
-                { "campaign", "summer_2024" }
+                { "campaign", "campaign" }
             }));
     }
 }
