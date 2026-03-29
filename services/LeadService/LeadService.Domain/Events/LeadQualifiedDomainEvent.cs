@@ -13,7 +13,8 @@ public class LeadQualifiedDomainEvent(
     string companyName,
     string? contactPerson,
     string email,
-    EnrichedDataDto? enrichedData = null) : DomainEvent
+    EnrichedDataDto? enrichedData = null,
+    Dictionary<string, string>? customFields = null) : DomainEvent
 {
     public Guid LeadId { get; } = leadId;
     public int Score { get; } = score;
@@ -21,9 +22,11 @@ public class LeadQualifiedDomainEvent(
     public string? ContactPerson { get; } = contactPerson;
     public string Email { get; } = email;
     public EnrichedDataDto? EnrichedData { get; } = enrichedData;
+    public Dictionary<string, string>? CustomFields { get; } = customFields;
 
     public override IIntegrationEvent ToIntegrationEvent()
     {
+        Console.WriteLine($"CustomFields count: {CustomFields?.Count ?? 0}");
         return new LeadQualified
         {
             EventId = EventId,
@@ -35,7 +38,8 @@ public class LeadQualifiedDomainEvent(
             ContactPerson = ContactPerson,
             Email = Email,
             Score = Score,
-            EnrichedData = EnrichedData != null ? AvroSchemas.Messages.LeadEvents.EnrichedData.FromDto(EnrichedData) : null
+            EnrichedData = EnrichedData != null ? AvroSchemas.Messages.LeadEvents.EnrichedData.FromDto(EnrichedData) : null,
+            CustomFields = CustomFields
         };
     }
 }
