@@ -37,7 +37,8 @@ public class LeadQualified : IntegrationEventAvro
                         { ""name"": ""Version"", ""type"": ""int"" }
                     ]
                 }]
-            }
+            },
+            { ""name"": ""CustomFields"", ""type"": [""null"", { ""type"": ""map"", ""values"": ""string"" }] }
         ]
     }");
 
@@ -49,6 +50,7 @@ public class LeadQualified : IntegrationEventAvro
     public string Email { get; set; } = string.Empty;
     public int Score { get; set; }
     public EnrichedData? EnrichedData { get; set; }
+    public Dictionary<string, string>? CustomFields { get; set; }
 
     public override object? Get(int fieldPos)
     {
@@ -64,6 +66,7 @@ public class LeadQualified : IntegrationEventAvro
             7 => Email,
             8 => Score,
             9 => EnrichedData,
+            10 => CustomFields,
             _ => throw new AvroRuntimeException($"Invalid field position: {fieldPos}")
         };
     }
@@ -82,6 +85,7 @@ public class LeadQualified : IntegrationEventAvro
             case 7: Email = fieldValue.ToString() ?? string.Empty; break;
             case 8: Score = Convert.ToInt32(fieldValue); break;
             case 9: EnrichedData = fieldValue as EnrichedData; break;
+            case 10: CustomFields = fieldValue as Dictionary<string, string>; break;
             default: throw new AvroRuntimeException($"Invalid field position: {fieldPos}");
         }
     }

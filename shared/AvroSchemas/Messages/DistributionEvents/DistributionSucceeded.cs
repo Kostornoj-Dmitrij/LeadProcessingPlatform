@@ -29,7 +29,7 @@ public class DistributionSucceeded : IntegrationEventAvro
 
     public Guid LeadId { get; set; }
     public string Target { get; set; } = string.Empty;
-    private long DistributedAt { get; set; }
+    public long DistributedAt { get; set; }
 
     public override object? Get(int fieldPos)
     {
