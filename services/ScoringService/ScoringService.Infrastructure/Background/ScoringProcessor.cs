@@ -4,11 +4,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ScoringService.Domain.Entities;
 using ScoringService.Domain.Enums;
-using ScoringService.Domain.Services;
 using ScoringService.Infrastructure.Data;
 using SharedKernel.Base;
 using System.Text.Json;
 using AvroSchemas.Messages.LeadEvents;
+using ScoringService.Application.Services;
 
 namespace ScoringService.Infrastructure.Background;
 

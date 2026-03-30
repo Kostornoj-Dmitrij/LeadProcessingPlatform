@@ -1,7 +1,7 @@
 ﻿using AvroSchemas.Messages.LeadEvents;
 using ScoringService.Domain.Entities;
 
-namespace ScoringService.Domain.Services;
+namespace ScoringService.Application.Services;
 
 /// <summary>
 /// Интерфейс для оценки правил скоринга

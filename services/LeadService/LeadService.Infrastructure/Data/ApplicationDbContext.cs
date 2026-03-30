@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using LeadService.Domain.Entities;
-using LeadService.Infrastructure.Data.Entities;
 using SharedKernel.Entities;
 using System.Reflection;
 using LeadService.Domain.Enums;

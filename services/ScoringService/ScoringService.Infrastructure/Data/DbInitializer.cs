@@ -15,11 +15,11 @@ public static class DbInitializer
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Checking for existing scoring rules...");
-        
+
         if (!await context.ScoringRules.AnyAsync(cancellationToken))
         {
             logger.LogInformation("No scoring rules found. Seeding initial rules...");
-            
+
             var rules = new List<ScoringRule>
             {
                 ScoringRule.Create(Guid.NewGuid(), "base_score", "{\"type\": \"always_true\"}", 20),
@@ -30,10 +30,10 @@ public static class DbInitializer
                 ScoringRule.Create(Guid.NewGuid(), "industry_healthcare", "{\"type\": \"custom_field_equals\", \"field_name\": \"industry\", \"value\": \"Healthcare\"}", 15, 3),
                 ScoringRule.Create(Guid.NewGuid(), "industry_finance", "{\"type\": \"custom_field_equals\", \"field_name\": \"industry\", \"value\": \"Finance\"}", 25, 3),
             };
-            
+
             await context.ScoringRules.AddRangeAsync(rules, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Successfully seeded {Count} scoring rules", rules.Count);
         }
         else

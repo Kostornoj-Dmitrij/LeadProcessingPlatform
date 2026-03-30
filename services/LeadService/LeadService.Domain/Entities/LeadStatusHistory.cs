@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using LeadService.Domain.Entities;
 
-namespace LeadService.Infrastructure.Data.Entities;
+namespace LeadService.Domain.Entities;
 
 /// <summary>
 /// История изменений статуса лида

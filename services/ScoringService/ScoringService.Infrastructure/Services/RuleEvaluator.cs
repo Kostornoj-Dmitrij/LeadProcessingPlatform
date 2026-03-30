@@ -1,9 +1,10 @@
 ﻿using System.Text.Json;
 using AvroSchemas.Messages.LeadEvents;
 using Microsoft.Extensions.Logging;
+using ScoringService.Application.Services;
 using ScoringService.Domain.Entities;
 
-namespace ScoringService.Domain.Services;
+namespace ScoringService.Infrastructure.Services;
 
 /// <summary>
 /// Реализация оценки правил скоринга

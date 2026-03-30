@@ -1,9 +1,10 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using ScoringService.Domain.Services;
+using ScoringService.Application.Services;
 using ScoringService.Infrastructure.Background;
 using ScoringService.Infrastructure.Data;
 using ScoringService.Infrastructure.Outbox;
+using ScoringService.Infrastructure.Services;
 using SharedInfrastructure;
 using SharedInfrastructure.Outbox;
 

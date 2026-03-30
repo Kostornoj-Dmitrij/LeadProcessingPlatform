@@ -1,6 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using LeadService.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using LeadService.Infrastructure.Data.Entities;
 
 namespace LeadService.Infrastructure.Data.Configurations;
 
