@@ -33,7 +33,7 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
+COPY _infrastructure/scripts/wait-for-it.sh /wait-for-it.sh
+RUN chmod +x /wait-for-it.sh
 
 ENTRYPOINT ["dotnet", "NotificationService.Host.dll"]
