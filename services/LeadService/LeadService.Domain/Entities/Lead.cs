@@ -160,11 +160,6 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
             try
             {
                 enrichedData = JsonSerializer.Deserialize<EnrichedDataDto>(EnrichedData, JsonDefaults.Options);
-
-                if (enrichedData == null)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to deserialize EnrichedData for lead {Id}: result is null");
-                }
             }
             catch (JsonException ex)
             {

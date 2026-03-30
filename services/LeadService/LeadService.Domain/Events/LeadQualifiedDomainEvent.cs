@@ -26,7 +26,6 @@ public class LeadQualifiedDomainEvent(
 
     public override IIntegrationEvent ToIntegrationEvent()
     {
-        Console.WriteLine($"CustomFields count: {CustomFields?.Count ?? 0}");
         return new LeadQualified
         {
             EventId = EventId,

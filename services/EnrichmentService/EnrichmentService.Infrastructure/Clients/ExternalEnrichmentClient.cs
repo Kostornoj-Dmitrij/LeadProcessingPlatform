@@ -20,6 +20,14 @@ public class ExternalEnrichmentClient(HttpClient httpClient, ILogger<ExternalEnr
         await Task.Delay(100, cancellationToken);
 
         if (customFields != null &&
+            customFields.TryGetValue("forceEnrichmentFail", out var forceFail) &&
+            forceFail == "true")
+        {
+            logger.LogWarning("Forced enrichment failure for company {CompanyName}", companyName);
+            return EnrichmentResponse.Failure("Forced enrichment failure for testing");
+        }
+
+        if (customFields != null &&
             customFields.TryGetValue("industry", out var industry) &&
             industry == "Unknown")
         {
