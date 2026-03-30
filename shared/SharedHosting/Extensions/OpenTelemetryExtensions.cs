@@ -1,10 +1,14 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using SharedHosting.Options;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Exporter;
 using SharedHosting.Filters;
+using SharedHosting.Options;
 
 namespace SharedHosting.Extensions;
 
@@ -19,45 +23,32 @@ public static class OpenTelemetryExtensions
         string serviceName,
         string[]? additionalSources = null)
     {
-        var otelOptions = configuration.GetSection(OpenTelemetryOptions.SectionName)
+        var otelOptions = configuration.GetSection("OpenTelemetry")
             .Get<OpenTelemetryOptions>() ?? new OpenTelemetryOptions();
+
+        var activitySource = new System.Diagnostics.ActivitySource(serviceName);
+        services.AddSingleton(activitySource);
 
         services.AddOpenTelemetry()
             .ConfigureResource(resource => resource
-                .AddService(serviceName)
+                .AddService(
+                    serviceName: serviceName,
+                    serviceVersion: "1.0.0")
                 .AddTelemetrySdk()
-                .AddAttributes([
-                    new KeyValuePair<string, object>("deployment.environment", 
-                        configuration["ASPNETCORE_ENVIRONMENT"] ?? "Development"),
-                    new KeyValuePair<string, object>("service.version", 
-                        typeof(OpenTelemetryExtensions).Assembly.GetName().Version?.ToString() ?? "1.0.0")
-                ]));
+                .AddAttributes(new Dictionary<string, object>
+                {
+                    ["deployment.environment"] = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Development"
+                }));
 
         if (otelOptions.EnableTracing)
         {
-            services.ConfigureOpenTelemetryTracerProvider(tracing =>
+            services.AddOpenTelemetry().WithTracing(tracing =>
             {
-                tracing
-                    .AddAspNetCoreInstrumentation(options =>
-                    {
-                        options.Filter = httpContext =>
-                        {
-                            if (otelOptions.FilterPaths != null)
-                            {
-                                foreach (var path in otelOptions.FilterPaths)
-                                {
-                                    if (httpContext.Request.Path.StartsWithSegments(path))
-                                        return false;
-                                }
-                            }
-                            return true;
-                        };
-                        options.RecordException = true;
-                    })
-                    .AddHttpClientInstrumentation()
-                    .AddSource($"{serviceName}.InboxProcessor")
-                    .AddSource($"{serviceName}.OutboxPublisher")
-                    .AddSource($"{serviceName}.KafkaConsumer");
+                tracing.AddSource(serviceName);
+                tracing.AddSource("Microsoft.AspNetCore");
+                tracing.AddSource("Microsoft.EntityFrameworkCore");
+                tracing.AddSource("Npgsql");
+                tracing.AddSource("Confluent.Kafka");
 
                 if (additionalSources != null)
                 {
@@ -67,34 +58,122 @@ public static class OpenTelemetryExtensions
                     }
                 }
 
-                if (otelOptions.FilterBackgroundQueries)
-                {
-                    tracing.AddProcessor<DatabaseFilterProcessor>();
-                }
+                tracing
+                    .AddAspNetCoreInstrumentation(options =>
+                    {
+                        options.RecordException = true;
+                        options.Filter = (httpContext) => !httpContext.Request.Path.StartsWithSegments("/health") &&
+                                                          !httpContext.Request.Path.StartsWithSegments("/swagger");
+                    })
+                    .AddHttpClientInstrumentation(options =>
+                    {
+                        options.RecordException = true;
+                        options.FilterHttpRequestMessage = (httpRequestMessage) => !httpRequestMessage.RequestUri?.AbsolutePath.Contains("/health") == true;
+                    })
+                    .AddEntityFrameworkCoreInstrumentation(options =>
+                    {
+                        options.SetDbStatementForText = true;
+                        options.SetDbStatementForStoredProcedure = true;
+                        options.Filter = (_, command) =>
+                        {
+                            var commandText = command.CommandText.ToLowerInvariant();
+                            return !commandText.Contains("inbox_messages") && 
+                                   !commandText.Contains("outbox_messages") &&
+                                   !commandText.Contains("pending_enriched_data") &&
+                                   !commandText.Contains("scoring_requests") &&
+                                   !commandText.Contains("enrichment_requests");
+                        };
+                    })
+                    .AddNpgsql();
 
-                tracing.AddOtlpExporter(options => 
-                    options.Endpoint = new Uri(otelOptions.Endpoint));
+                tracing.AddProcessor(new DatabaseFilterProcessor());
+
+                if (!string.IsNullOrEmpty(otelOptions.Endpoint))
+                {
+                    var useGrpc = otelOptions.Endpoint.Contains("4317") || 
+                                   otelOptions.Protocol.Equals("Grpc", StringComparison.OrdinalIgnoreCase);
+
+                    tracing.AddOtlpExporter(options =>
+                    {
+                        options.Endpoint = new Uri(otelOptions.Endpoint);
+                        options.Protocol = useGrpc 
+                            ? OtlpExportProtocol.Grpc 
+                            : OtlpExportProtocol.HttpProtobuf;
+                    });
+                }
+                else
+                {
+                    tracing.AddConsoleExporter();
+                }
             });
         }
 
         if (otelOptions.EnableMetrics)
         {
-            services.ConfigureOpenTelemetryMeterProvider(metrics =>
+            services.AddOpenTelemetry().WithMetrics(metrics =>
             {
+                metrics
+                    .AddMeter(serviceName)
+                    .AddMeter("Microsoft.AspNetCore.Hosting")
+                    .AddMeter("Microsoft.AspNetCore.Server.Kestrel")
+                    .AddMeter("System.Net.Http")
+                    .AddMeter("Npgsql");
+
+                if (additionalSources != null)
+                {
+                    foreach (var source in additionalSources)
+                    {
+                        metrics.AddMeter(source);
+                    }
+                }
+
                 metrics
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation()
-                    .AddMeter(
-                        "Microsoft.AspNetCore.Hosting",
-                        "Microsoft.AspNetCore.Server.Kestrel",
-                        "System.Net.Http",
-                        $"{serviceName}.InboxProcessor",
-                        $"{serviceName}.OutboxPublisher")
-                    .AddOtlpExporter(options => 
-                        options.Endpoint = new Uri(otelOptions.Endpoint));
+                    .AddRuntimeInstrumentation();
+
+                if (!string.IsNullOrEmpty(otelOptions.Endpoint))
+                {
+                    var useGrpc = otelOptions.Endpoint.Contains("4317") || 
+                                   otelOptions.Protocol.Equals("Grpc", StringComparison.OrdinalIgnoreCase);
+
+                    metrics.AddOtlpExporter(options =>
+                    {
+                        options.Endpoint = new Uri(otelOptions.Endpoint);
+                        options.Protocol = useGrpc 
+                            ? OtlpExportProtocol.Grpc 
+                            : OtlpExportProtocol.HttpProtobuf;
+                    });
+                }
+                else
+                {
+                    metrics.AddConsoleExporter();
+                }
             });
         }
+
+        services.AddLogging(logging =>
+        {
+            logging.AddOpenTelemetry(options =>
+            {
+                if (!string.IsNullOrEmpty(otelOptions.Endpoint))
+                {
+                    var useGrpc = otelOptions.Endpoint.Contains("4317") || 
+                                   otelOptions.Protocol.Equals("Grpc", StringComparison.OrdinalIgnoreCase);
+
+                    options.AddOtlpExporter(otlpOptions =>
+                    {
+                        otlpOptions.Endpoint = new Uri(otelOptions.Endpoint);
+                        otlpOptions.Protocol = useGrpc 
+                            ? OtlpExportProtocol.Grpc 
+                            : OtlpExportProtocol.HttpProtobuf;
+                    });
+                }
+
+                options.IncludeFormattedMessage = true;
+                options.IncludeScopes = true;
+            });
+        });
 
         return services;
     }

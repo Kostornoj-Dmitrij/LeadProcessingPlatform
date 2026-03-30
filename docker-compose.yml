@@ -178,9 +178,12 @@ services:
     container_name: aspire-dashboard
     environment:
       DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+      DOTNET_DASHBOARD_OTLP_ENDPOINT_URL: "http://0.0.0.0:4317"
+      DOTNET_DASHBOARD_OTLP_HTTP_ENDPOINT_URL: "http://0.0.0.0:4318"
     ports:
       - "${ASPIRE_DASHBOARD_PORT:-18888}:18888"
-      - "${OTLP_PORT:-18889}:18889"
+      - "4317:4317"
+      - "4318:4318"
     networks:
       - lead-network
     restart: unless-stopped
@@ -198,7 +201,7 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: lead-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
-      OpenTelemetry__Endpoint: http://aspire-dashboard:18889
+      OpenTelemetry__Endpoint: http://aspire-dashboard:4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -222,7 +225,7 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: enrichment-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
-      OpenTelemetry__Endpoint: http://aspire-dashboard:18889
+      OpenTelemetry__Endpoint: http://aspire-dashboard:4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -244,7 +247,7 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: scoring-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
-      OpenTelemetry__Endpoint: http://aspire-dashboard:18889
+      OpenTelemetry__Endpoint: http://aspire-dashboard:4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -266,7 +269,7 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: distribution-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
-      OpenTelemetry__Endpoint: http://aspire-dashboard:18889
+      OpenTelemetry__Endpoint: http://aspire-dashboard:4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -288,7 +291,7 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: notification-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
-      OpenTelemetry__Endpoint: http://aspire-dashboard:18889
+      OpenTelemetry__Endpoint: http://aspire-dashboard:4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -307,7 +310,7 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:8080
       Services__LeadService: http://lead-service:80
-      OpenTelemetry__Endpoint: http://aspire-dashboard:18889
+      OpenTelemetry__Endpoint: http://aspire-dashboard:4317
     ports:
       - "${GATEWAY_HTTP_PORT:-8080}:8080"
     depends_on:

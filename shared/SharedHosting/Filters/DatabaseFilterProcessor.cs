@@ -9,7 +9,13 @@ namespace SharedHosting.Filters;
 public class DatabaseFilterProcessor : BaseProcessor<Activity>
 {
     private static readonly string[] BackgroundQueryPatterns = 
-        ["inbox_messages", "outbox_messages", "pending_enriched_data"];
+    [
+        "inbox_messages", 
+        "outbox_messages", 
+        "pending_enriched_data",
+        "scoring_requests",
+        "enrichment_requests"
+    ];
 
     public override void OnEnd(Activity activity)
     {

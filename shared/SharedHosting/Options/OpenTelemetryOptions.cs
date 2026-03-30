@@ -7,13 +7,11 @@ public class OpenTelemetryOptions
 {
     public const string SectionName = "OpenTelemetry";
 
-    public string Endpoint { get; set; } = "http://aspire-dashboard:18889";
+    public string Endpoint { get; set; } = "http://localhost:4317";
+
+    public string Protocol { get; set; } = "Grpc";
 
     public bool EnableTracing { get; set; } = true;
 
     public bool EnableMetrics { get; set; } = true;
-
-    public string[]? FilterPaths { get; set; } = ["/health", "/swagger", "/metrics"];
-
-    public bool FilterBackgroundQueries { get; set; } = true;
 }

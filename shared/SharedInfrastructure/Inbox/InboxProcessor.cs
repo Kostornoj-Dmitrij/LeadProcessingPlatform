@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using AvroSchemas;
 using Confluent.Kafka;
@@ -24,7 +23,6 @@ public class InboxProcessor<TInboxStore>(
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(2);
     private readonly int _batchSize = 50;
     private const int MaxRetryAttempts = 5;
-    private readonly ActivitySource _activitySource = new("InboxProcessor");
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -63,37 +61,14 @@ public class InboxProcessor<TInboxStore>(
 
         foreach (var message in messages)
         {
-            ActivityContext parentContext = default;
-            if (!string.IsNullOrEmpty(message.TraceId))
-            {
-                if (ActivityContext.TryParse(message.TraceId, null, out var parsedContext))
-                    parentContext = parsedContext;
-            }
-
-            using var activity = _activitySource.StartActivity(
-                $"Process {message.EventType}",
-                ActivityKind.Consumer,
-                parentContext: parentContext);
-
-            if (activity != null)
-            {
-                activity.SetTag("messaging.system", "kafka");
-                activity.SetTag("messaging.destination", message.Topic);
-                activity.SetTag("messaging.message_id", message.MessageId);
-                activity.SetTag("event.type", message.EventType);
-            }
-
             try
             {
                 await ProcessMessageAsync(message, mediator, cancellationToken);
                 await inboxStore.MarkAsProcessedAsync(message.Id, cancellationToken);
-                activity?.SetStatus(ActivityStatusCode.Ok);
                 logger.LogDebug("Successfully processed inbox message {MessageId}", message.MessageId);
             }
             catch (Exception ex)
             {
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                activity?.AddException(ex);
                 logger.LogError(ex, "Failed to process inbox message {MessageId}, attempt {Attempts}",
                     message.MessageId, message.ProcessingAttempts + 1);
 
