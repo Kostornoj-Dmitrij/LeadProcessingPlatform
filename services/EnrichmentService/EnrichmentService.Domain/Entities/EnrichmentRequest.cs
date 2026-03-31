@@ -22,13 +22,14 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
     public DateTime? LastAttemptAt { get; private set; }
     public string? ErrorMessage { get; private set; }
     public DateTime? NextRetryAt { get; private set; }
+    public string? TraceParent { get; private set; }
 
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
     private EnrichmentRequest(Guid id) : base(id) { }
 
     public static EnrichmentRequest Create(Guid leadId, string companyName, string email,
-        string? contactPerson, Dictionary<string, string>? customFields)
+        string? contactPerson, Dictionary<string, string>? customFields, string? traceParent = null)
     {
         return new EnrichmentRequest(Guid.NewGuid())
         {
@@ -37,6 +38,7 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
             Email = email,
             ContactPerson = contactPerson,
             CustomFields = customFields,
+            TraceParent = traceParent,
             Status = EnrichmentRequestStatus.Pending,
             RetryCount = 0,
             NextRetryAt = null
@@ -51,7 +53,7 @@ public class EnrichmentRequest : Entity<Guid>, IAggregateRoot
                 $"Cannot start processing an enrichment request that is not in Pending or Failed state. " +
                 $"Current state: {Status}");
         }
-    
+
         Status = EnrichmentRequestStatus.Processing;
         LastAttemptAt = DateTime.UtcNow;
     }

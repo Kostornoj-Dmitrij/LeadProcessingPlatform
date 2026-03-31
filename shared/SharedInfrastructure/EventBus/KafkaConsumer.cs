@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SharedInfrastructure.Inbox;
 using SharedInfrastructure.Serialization;
+using SharedInfrastructure.Telemetry;
 
 namespace SharedInfrastructure.EventBus;
 
@@ -25,7 +26,6 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     private readonly int _maxRetryAttempts = 3;
     private bool _isRunning;
     private readonly string _serviceName;
-    private readonly ActivitySource _activitySource;
     private readonly IEnumerable<string> _topics;
     private readonly Dictionary<string, Type> _eventTypeCache = new();
 
@@ -40,7 +40,8 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         _logger = logger;
         _serviceName = serviceName;
         _topics = topics;
-        _activitySource = new ActivitySource($"{serviceName}.KafkaConsumer");
+        var activitySource = new ActivitySource($"{serviceName}.KafkaConsumer");
+        _logger.LogInformation("ActivitySource created: {ActivitySourceName}", activitySource.Name);
 
         var bootstrapServers = configuration["Kafka:BootstrapServers"];
         var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
@@ -191,17 +192,63 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         var eventId = Encoding.UTF8.GetString(eventIdBytes);
 
         ActivityContext parentContext = default;
-        if (consumeResult.Message.Headers.TryGetLastBytes("trace-id", out var traceIdBytes))
+        bool hasParentContext = false;
+        string? traceState = null;
+
+        if (consumeResult.Message.Headers.TryGetLastBytes("traceparent", out var traceParentBytes))
         {
-            var traceId = Encoding.UTF8.GetString(traceIdBytes);
-            if (ActivityContext.TryParse(traceId, null, out var parsedContext))
+            var traceParent = Encoding.UTF8.GetString(traceParentBytes);
+
+            if (ActivityContext.TryParse(traceParent, traceState, out var parsedContext))
+            {
                 parentContext = parsedContext;
+                hasParentContext = true;
+                _logger.LogDebug("Successfully parsed traceparent: TraceId={TraceId}, SpanId={SpanId}",
+                    parentContext.TraceId, parentContext.SpanId);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to parse traceparent: {TraceParent}", traceParent);
+            }
         }
 
-        using var activity = _activitySource.StartActivity(
-            $"Kafka Consumer {eventTypeName}",
-            ActivityKind.Consumer,
-            parentContext: parentContext);
+        if (consumeResult.Message.Headers.TryGetLastBytes("tracestate", out var traceStateBytes))
+        {
+            traceState = Encoding.UTF8.GetString(traceStateBytes);
+            _logger.LogDebug("Found tracestate: {TraceState}", traceState);
+        }
+
+        Activity? activity;
+        string? traceIdToStore = null;
+
+        if (hasParentContext)
+        {
+            activity = TelemetryConstants.ActivitySource.StartActivity(
+                $"Kafka Consumer {eventTypeName}",
+                ActivityKind.Consumer,
+                parentContext: parentContext);
+
+            if (activity != null)
+            {
+                traceIdToStore = activity.TraceId.ToString();
+                _logger.LogInformation("Created activity with TraceId: {TraceId}, SpanId: {SpanId}", 
+                    traceIdToStore, activity.SpanId);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to create activity via ActivitySource");
+            }
+        }
+        else
+        {
+            activity = TelemetryConstants.ActivitySource.StartActivity($"Kafka Consumer {eventTypeName}");
+            if (activity != null)
+            {
+                traceIdToStore = activity.TraceId.ToString();
+                _logger.LogInformation("Created new activity with TraceId: {TraceId}, SpanId: {SpanId}", 
+                    traceIdToStore, activity.SpanId);
+            }
+        }
 
         if (activity != null)
         {
@@ -212,6 +259,8 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             activity.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
             activity.SetTag("event.type", eventTypeName);
             activity.SetTag("service.name", _serviceName);
+            _logger.LogDebug("Activity created: TraceId={TraceId}, SpanId={SpanId}, ParentContext={HasParent}",
+                activity.TraceId, activity.SpanId, hasParentContext);
         }
 
         var deserializerType = typeof(AvroDeserializer<>).MakeGenericType(eventType);
@@ -237,7 +286,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             key: consumeResult.Message.Key,
             eventType: eventType.AssemblyQualifiedName!,
             payload: payloadJson,
-            traceId: GetTraceId(consumeResult),
+            traceId: traceIdToStore,
             cancellationToken: cancellationToken);
 
         if (!added)
@@ -256,13 +305,6 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             return type;
         }
 
-        return null;
-    }
-
-    private string? GetTraceId(ConsumeResult<string, byte[]> consumeResult)
-    {
-        if (consumeResult.Message.Headers.TryGetLastBytes("trace-id", out var traceIdBytes))
-            return Encoding.UTF8.GetString(traceIdBytes);
         return null;
     }
 

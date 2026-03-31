@@ -59,6 +59,10 @@ public class ScoringRequestConfiguration : IEntityTypeConfiguration<ScoringReque
         builder.Property(x => x.ErrorMessage)
             .HasColumnName("error_message");
 
+        builder.Property(x => x.TraceParent)
+            .HasColumnName("trace_parent")
+            .HasMaxLength(255);
+
         builder.HasIndex(x => x.LeadId)
             .IsUnique()
             .HasDatabaseName("ix_scoring_requests_lead_id");

@@ -120,6 +120,11 @@ namespace EnrichmentService.Infrastructure.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("status");
 
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("trace_parent");
+
                     b.HasKey("Id");
 
                     b.HasIndex("LeadId")
@@ -317,10 +322,23 @@ namespace EnrichmentService.Infrastructure.Data.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("processing_attempts");
 
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("trace_parent");
+
+                    b.Property<string>("TraceState")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("trace_state");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProcessedAt")
                         .HasDatabaseName("ix_outbox_messages_processed_at");
+
+                    b.HasIndex("TraceParent")
+                        .HasDatabaseName("ix_outbox_messages_trace_parent");
 
                     b.ToTable("outbox_messages", (string)null);
                 });

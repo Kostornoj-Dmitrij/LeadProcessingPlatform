@@ -40,6 +40,10 @@ public class EnrichmentRequestConfiguration : IEntityTypeConfiguration<Enrichmen
             .HasColumnName("custom_fields")
             .HasColumnType("jsonb");
 
+        builder.Property(x => x.TraceParent)
+            .HasColumnName("trace_parent")
+            .HasMaxLength(255);
+
         builder.Property(x => x.Status)
             .HasColumnName("status")
             .HasConversion<int>()

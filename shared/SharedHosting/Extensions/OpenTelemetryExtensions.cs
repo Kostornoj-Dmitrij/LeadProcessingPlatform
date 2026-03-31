@@ -45,6 +45,7 @@ public static class OpenTelemetryExtensions
             services.AddOpenTelemetry().WithTracing(tracing =>
             {
                 tracing.AddSource(serviceName);
+                tracing.AddSource("SharedInfrastructure");
                 tracing.AddSource("Microsoft.AspNetCore");
                 tracing.AddSource("Microsoft.EntityFrameworkCore");
                 tracing.AddSource("Npgsql");
@@ -81,6 +82,7 @@ public static class OpenTelemetryExtensions
                                    !commandText.Contains("outbox_messages") &&
                                    !commandText.Contains("pending_enriched_data") &&
                                    !commandText.Contains("scoring_requests") &&
+                                   !commandText.Contains("scoring_rules") &&
                                    !commandText.Contains("enrichment_requests");
                         };
                     })

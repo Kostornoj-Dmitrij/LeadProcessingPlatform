@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using System.Diagnostics;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using AvroSchemas.Messages.LeadEvents;
 using EnrichmentService.Domain.Entities;
@@ -28,12 +29,17 @@ public class LeadCreatedEventHandler(
             return;
         }
 
+        var currentActivity = Activity.Current;
+        var traceParent = currentActivity != null 
+            ? $"00-{currentActivity.TraceId}-{currentActivity.SpanId}-01"
+            : null;
         var request = EnrichmentRequest.Create(
             leadId: @event.LeadId,
             companyName: @event.CompanyName,
             email: @event.Email,
             contactPerson: @event.ContactPerson,
-            customFields: @event.CustomFields);
+            customFields: @event.CustomFields,
+            traceParent: traceParent);
 
         await unitOfWork.Set<EnrichmentRequest>().AddAsync(request, cancellationToken);
 

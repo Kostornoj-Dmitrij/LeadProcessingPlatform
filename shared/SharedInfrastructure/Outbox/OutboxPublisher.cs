@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SharedInfrastructure.EventBus;
 using SharedInfrastructure.Inbox;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Entities;
 using SharedKernel.Json;
 
@@ -86,6 +88,31 @@ public class OutboxPublisher<TContext>(
                         new Exception($"Failed to deserialize event: {message.EventType}"),
                         deadLetterQueue, cancellationToken);
                     continue;
+                }
+
+                ActivityContext? parentContext = null;
+                if (!string.IsNullOrEmpty(message.TraceParent))
+                {
+                    if (ActivityContext.TryParse(message.TraceParent, message.TraceState, out var parsedContext))
+                    {
+                        parentContext = parsedContext;
+                        logger.LogDebug("Restored trace context from outbox: TraceId={TraceId}", 
+                            parentContext.Value.TraceId);
+                    }
+                }
+
+                using var activity = parentContext.HasValue 
+                    ? TelemetryConstants.ActivitySource.StartActivity(
+                        "OutboxPublish", 
+                        ActivityKind.Internal, 
+                        parentContext.Value)
+                    : TelemetryConstants.ActivitySource.StartActivity("OutboxPublish");
+
+                if (activity != null)
+                {
+                    activity.SetTag("outbox.message_id", message.Id);
+                    activity.SetTag("outbox.event_type", message.EventType);
+                    activity.SetTag("outbox.aggregate_id", message.AggregateId);
                 }
 
                 var method = typeof(IEventBus).GetMethod("PublishAsync");

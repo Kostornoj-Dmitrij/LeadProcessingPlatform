@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -9,6 +10,7 @@ using SharedKernel.Base;
 using System.Text.Json;
 using AvroSchemas.Messages.LeadEvents;
 using ScoringService.Application.Services;
+using SharedInfrastructure.Telemetry;
 
 namespace ScoringService.Infrastructure.Background;
 
@@ -75,6 +77,27 @@ public class ScoringProcessor(
 
         foreach (var request in pendingRequests)
         {
+            ActivityContext? parentContext = null;
+            if (!string.IsNullOrEmpty(request.TraceParent))
+            {
+                if (ActivityContext.TryParse(request.TraceParent, null, out var parsedContext))
+                {
+                    parentContext = parsedContext;
+                }
+            }
+
+            using var activity = parentContext.HasValue 
+                ? TelemetryConstants.ActivitySource.StartActivity(
+                    "ScoringProcess", 
+                    ActivityKind.Internal, 
+                    parentContext.Value)
+                : TelemetryConstants.ActivitySource.StartActivity("ScoringProcess");
+
+            if (activity != null)
+            {
+                activity.SetTag("scoring.request_id", request.Id);
+                activity.SetTag("scoring.lead_id", request.LeadId);
+            }
             request.StartProcessing();
 
             try

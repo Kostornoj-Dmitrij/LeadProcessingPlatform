@@ -83,11 +83,18 @@ public class KafkaEventBus : IEventBus
             };
 
             var currentActivity = Activity.Current;
-            if (currentActivity?.Id != null)
+            if (currentActivity != null)
             {
-                message.Headers.Add("trace-id", Encoding.UTF8.GetBytes(currentActivity.Id));
+                var traceparent = $"00-{currentActivity.TraceId}-{currentActivity.SpanId}-01";
+                message.Headers.Add("traceparent", Encoding.UTF8.GetBytes(traceparent));
+
+                _logger.LogDebug("Added traceparent header: {TraceParent}", traceparent);
+
                 if (!string.IsNullOrEmpty(currentActivity.TraceStateString))
+                {
                     message.Headers.Add("tracestate", Encoding.UTF8.GetBytes(currentActivity.TraceStateString));
+                    _logger.LogDebug("Added tracestate header");
+                }
             }
 
             await _producer.ProduceAsync(topic, message, cancellationToken);

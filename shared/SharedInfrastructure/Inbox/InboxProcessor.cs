@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using AvroSchemas;
 using Confluent.Kafka;
@@ -7,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Json;
 
 namespace SharedInfrastructure.Inbox;
@@ -101,6 +103,34 @@ public class InboxProcessor<TInboxStore>(
         var eventType = Type.GetType(message.EventType);
         if (eventType == null)
             throw new InvalidOperationException($"Unknown event type: {message.EventType}");
+
+        ActivityContext? parentContext = null;
+        if (!string.IsNullOrEmpty(message.TraceId))
+        {
+            var newSpanId = ActivitySpanId.CreateRandom().ToString();
+            var traceparent = $"00-{message.TraceId}-{newSpanId}-01";
+
+            if (ActivityContext.TryParse(traceparent, null, out var parsedContext))
+            {
+                parentContext = parsedContext;
+                logger.LogDebug("Restored trace context from inbox: TraceId={TraceId}", 
+                    parentContext.Value.TraceId);
+            }
+        }
+
+        using var activity = parentContext.HasValue 
+            ? TelemetryConstants.ActivitySource.StartActivity(
+                "InboxProcess", 
+                ActivityKind.Internal, 
+                parentContext.Value)
+            : TelemetryConstants.ActivitySource.StartActivity("InboxProcess");
+
+        if (activity != null)
+        {
+            activity.SetTag("inbox.message_id", message.Id);
+            activity.SetTag("inbox.event_type", message.EventType);
+            activity.SetTag("inbox.topic", message.Topic);
+        }
 
         var @event = JsonSerializer.Deserialize(message.Payload, eventType, JsonDefaults.Options) as IIntegrationEvent;
         if (@event == null)

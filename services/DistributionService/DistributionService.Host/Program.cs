@@ -5,6 +5,7 @@ using SharedHosting;
 using SharedHosting.Extensions;
 using SharedHosting.Options;
 using AvroSchemas;
+using SharedHosting.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +34,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 var app = builder.Build();
 
 app.UseSharedHosting();
+app.UseMiddleware<TraceDiagnosticsMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

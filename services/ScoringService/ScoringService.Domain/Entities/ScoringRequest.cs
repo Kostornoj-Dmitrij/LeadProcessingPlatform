@@ -22,6 +22,7 @@ public class ScoringRequest : Entity<Guid>, IAggregateRoot
     public int RetryCount { get; private set; }
     public DateTime? LastAttemptAt { get; private set; }
     public string? ErrorMessage { get; private set; }
+    public string? TraceParent { get; private set; }
 
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
@@ -33,7 +34,8 @@ public class ScoringRequest : Entity<Guid>, IAggregateRoot
         string email,
         string? contactPerson = null,
         Dictionary<string, string>? customFields = null,
-        string? enrichedData = null)
+        string? enrichedData = null,
+        string? traceParent = null)
     {
         var request = new ScoringRequest(Guid.NewGuid())
         {
@@ -43,6 +45,7 @@ public class ScoringRequest : Entity<Guid>, IAggregateRoot
             ContactPerson = contactPerson,
             CustomFields = customFields,
             EnrichedData = enrichedData,
+            TraceParent = traceParent,
             Status = ScoringRequestStatus.Pending,
             RetryCount = 0
         };

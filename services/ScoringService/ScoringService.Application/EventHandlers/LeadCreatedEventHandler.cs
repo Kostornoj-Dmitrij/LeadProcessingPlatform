@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using System.Diagnostics;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using AvroSchemas.Messages.LeadEvents;
@@ -40,13 +41,18 @@ public class LeadCreatedEventHandler(
             pendingData.MarkAsProcessed();
         }
 
+        var currentActivity = Activity.Current;
+        var traceParent = currentActivity != null 
+            ? $"00-{currentActivity.TraceId}-{currentActivity.SpanId}-01"
+            : null;
         var request = ScoringRequest.Create(
             leadId: @event.LeadId,
             companyName: @event.CompanyName,
             email: @event.Email,
             contactPerson: @event.ContactPerson,
             customFields: @event.CustomFields,
-            enrichedData: enrichedDataJson);
+            enrichedData: enrichedDataJson,
+            traceParent: traceParent);
 
         await unitOfWork.Set<ScoringRequest>().AddAsync(request, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

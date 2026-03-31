@@ -52,6 +52,17 @@ public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage
         builder.Property(x => x.ErrorMessage)
             .HasColumnName("error_message");
 
+        builder.Property(x => x.TraceParent)
+            .HasColumnName("trace_parent")
+            .HasMaxLength(255);
+
+        builder.Property(x => x.TraceState)
+            .HasColumnName("trace_state")
+            .HasMaxLength(255);
+
+        builder.HasIndex(x => x.TraceParent)
+            .HasDatabaseName("ix_outbox_messages_trace_parent");
+
         builder.HasIndex(x => x.ProcessedAt)
             .HasDatabaseName("ix_outbox_messages_processed_at");
     }
