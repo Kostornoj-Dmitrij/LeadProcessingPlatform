@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -6,6 +7,7 @@ using EnrichmentService.Application.Common.Interfaces;
 using EnrichmentService.Domain.Entities;
 using EnrichmentService.Domain.Enums;
 using EnrichmentService.Infrastructure.Data;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace EnrichmentService.Infrastructure.Background;
@@ -59,6 +61,7 @@ public class EnrichmentProcessor(
         var requests = await readContext.EnrichmentRequests
             .Where(x => x.Status == EnrichmentRequestStatus.Pending ||
                         (x.Status == EnrichmentRequestStatus.Failed && 
+                         x.RetryCount < MaxRetryAttempts &&
                          x.NextRetryAt != null && 
                          x.NextRetryAt <= now))
             .OrderBy(x => x.LastAttemptAt)
@@ -78,6 +81,33 @@ public class EnrichmentProcessor(
 
     private async Task ProcessSingleRequestAsync(EnrichmentRequest request, CancellationToken cancellationToken)
     {
+        ActivityContext? parentContext = null;
+        if (!string.IsNullOrEmpty(request.TraceParent))
+        {
+            if (ActivityContext.TryParse(request.TraceParent, null, out var parsedContext))
+            {
+                parentContext = parsedContext;
+                logger.LogDebug("Restored trace context from request: TraceId={TraceId}", 
+                    parentContext.Value.TraceId);
+            }
+        }
+
+        using var activity = parentContext.HasValue 
+            ? TelemetryConstants.ActivitySource.StartActivity(
+                "EnrichmentProcess", 
+                ActivityKind.Internal, 
+                parentContext.Value)
+            : TelemetryConstants.ActivitySource.StartActivity("EnrichmentProcess");
+
+        if (activity != null)
+        {
+            activity.SetTag("enrichment.request_id", request.Id);
+            activity.SetTag("enrichment.lead_id", request.LeadId);
+            activity.SetTag("enrichment.attempt", request.RetryCount + 1);
+        
+            logger.LogInformation("Processing enrichment request {RequestId} for lead {LeadId} with TraceId: {TraceId}", 
+                request.Id, request.LeadId, activity.TraceId);
+        }
         using var scope = scopeFactory.CreateScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var enrichmentClient = scope.ServiceProvider.GetRequiredService<IExternalEnrichmentClient>();
@@ -88,14 +118,6 @@ public class EnrichmentProcessor(
         if (freshRequest == null)
         {
             logger.LogWarning("Enrichment request {RequestId} not found", request.Id);
-            return;
-        }
-
-        if (!IsReadyForProcessing(freshRequest))
-        {
-            logger.LogDebug(
-                "Request {RequestId} for lead {LeadId} is not ready for processing (Status: {Status}, RetryCount: {RetryCount})",
-                freshRequest.Id, freshRequest.LeadId, freshRequest.Status, freshRequest.RetryCount);
             return;
         }
 
@@ -152,7 +174,7 @@ public class EnrichmentProcessor(
         CancellationToken cancellationToken)
     {
         var nextRetryAt = CalculateNextRetryTime(request.RetryCount);
-    
+
         if (request.RetryCount < MaxRetryAttempts)
         {
             request.MarkFailed(errorMessage, nextRetryAt);
@@ -185,25 +207,5 @@ public class EnrichmentProcessor(
             
         var delay = RetryDelays[Math.Min(retryCount, RetryDelays.Length - 1)];
         return DateTime.UtcNow.Add(delay);
-    }
-
-    private bool IsReadyForProcessing(EnrichmentRequest request)
-    {
-        if (request.Status == EnrichmentRequestStatus.Pending)
-            return true;
-
-        if (request.Status == EnrichmentRequestStatus.Failed)
-        {
-            if (request.RetryCount >= MaxRetryAttempts)
-                return false;
-
-            if (request.NextRetryAt.HasValue && request.NextRetryAt.Value <= DateTime.UtcNow)
-                return true;
-            
-            if (!request.NextRetryAt.HasValue)
-                return true;
-        }
-
-        return false;
     }
 }
