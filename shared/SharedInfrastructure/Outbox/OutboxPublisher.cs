@@ -90,30 +90,21 @@ public class OutboxPublisher<TContext>(
                     continue;
                 }
 
-                ActivityContext? parentContext = null;
-                if (!string.IsNullOrEmpty(message.TraceParent))
-                {
-                    if (ActivityContext.TryParse(message.TraceParent, message.TraceState, out var parsedContext))
-                    {
-                        parentContext = parsedContext;
-                        logger.LogDebug("Restored trace context from outbox: TraceId={TraceId}", 
-                            parentContext.Value.TraceId);
-                    }
-                }
+                string eventTypeShort = GetSimpleTypeName(message.EventType);
 
-                using var activity = parentContext.HasValue 
-                    ? TelemetryConstants.ActivitySource.StartActivity(
-                        "OutboxPublish", 
-                        ActivityKind.Internal, 
-                        parentContext.Value)
-                    : TelemetryConstants.ActivitySource.StartActivity("OutboxPublish");
-
-                if (activity != null)
-                {
-                    activity.SetTag("outbox.message_id", message.Id);
-                    activity.SetTag("outbox.event_type", message.EventType);
-                    activity.SetTag("outbox.aggregate_id", message.AggregateId);
-                }
+                using var activity = TelemetryRestorer.RestoreAndStartActivity(
+                        TelemetryConstants.ActivitySource,
+                        $"{TelemetrySpanNames.OutboxPublish} {eventTypeShort}",
+                        message.TraceParent,
+                        ActivityKind.Producer)!
+                    .AddTags(
+                        (TelemetryAttributes.EventType, message.EventType),
+                        (TelemetryAttributes.EventName, eventTypeShort),
+                        (TelemetryAttributes.LeadId, message.AggregateId),
+                        (TelemetryAttributes.ProcessingStep, "outbox_publish"),
+                        (TelemetryAttributes.OutboxMessageId, message.Id),
+                        (TelemetryAttributes.OutboxAggregateType, message.AggregateType),
+                        (TelemetryAttributes.OutboxProcessingAttempts, message.ProcessingAttempts));
 
                 var method = typeof(IEventBus).GetMethod("PublishAsync");
                 if (method == null)
@@ -184,5 +175,36 @@ public class OutboxPublisher<TContext>(
                 { "original-source", "outbox-publisher"u8.ToArray() }
             }
         };
+    }
+
+    private string GetSimpleTypeName(string assemblyQualifiedName)
+    {
+        try
+        {
+            var parts = assemblyQualifiedName.Split(',');
+            if (parts.Length > 0)
+            {
+                var fullTypeName = parts[0].Trim();
+                var lastDotIndex = fullTypeName.LastIndexOf('.');
+                if (lastDotIndex >= 0)
+                {
+                    return fullTypeName.Substring(lastDotIndex + 1);
+                }
+                return fullTypeName;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to parse type name: {AssemblyQualifiedName}", assemblyQualifiedName);
+        }
+
+        var cleaned = assemblyQualifiedName.Split(',')[0];
+        var lastDot = cleaned.LastIndexOf('.');
+        if (lastDot >= 0)
+        {
+            return cleaned.Substring(lastDot + 1);
+        }
+
+        return assemblyQualifiedName;
     }
 }

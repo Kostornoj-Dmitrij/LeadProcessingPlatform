@@ -1,9 +1,10 @@
-﻿using MediatR;
+﻿using AvroSchemas.Messages.LeadEvents;
+using MediatR;
 using Microsoft.Extensions.Logging;
-using AvroSchemas.Messages.LeadEvents;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace NotificationService.Application.EventHandlers;
@@ -19,6 +20,12 @@ public class LeadDistributedEventHandler(
 {
     public async Task Handle(LeadDistributed @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadDistributed")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadDistributed"),
+                (TelemetryAttributes.DistributionTarget, @event.Target),
+                (TelemetryAttributes.ProcessingStep, "notification_distributed"));
         logger.LogInformation("Processing LeadDistributed notification for lead {LeadId}", @event.LeadId);
 
         var variables = new Dictionary<string, string>

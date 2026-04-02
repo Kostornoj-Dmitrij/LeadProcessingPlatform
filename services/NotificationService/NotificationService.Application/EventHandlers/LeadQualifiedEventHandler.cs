@@ -1,9 +1,10 @@
-﻿using MediatR;
+﻿using AvroSchemas.Messages.LeadEvents;
+using MediatR;
 using Microsoft.Extensions.Logging;
-using AvroSchemas.Messages.LeadEvents;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace NotificationService.Application.EventHandlers;
@@ -19,6 +20,14 @@ public class LeadQualifiedEventHandler(
 {
     public async Task Handle(LeadQualified @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadQualified")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadQualified"),
+                (TelemetryAttributes.LeadScore, @event.Score),
+                (TelemetryAttributes.LeadCompany, @event.CompanyName),
+                (TelemetryAttributes.LeadEmail, @event.Email),
+                (TelemetryAttributes.ProcessingStep, "notification_qualified"));
         logger.LogInformation("Processing LeadQualified notification for lead {LeadId}", @event.LeadId);
 
         var variables = new Dictionary<string, string>

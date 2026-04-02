@@ -8,6 +8,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\..\shared\AvroSchemas\AvroSchemas.csproj" />
+        <ProjectReference Include="..\..\..\shared\SharedInfrastructure\SharedInfrastructure.csproj" />
         <ProjectReference Include="..\LeadService.Domain\LeadService.Domain.csproj" />
         <ProjectReference Include="..\..\..\shared\SharedKernel\SharedKernel.csproj" />
     </ItemGroup>

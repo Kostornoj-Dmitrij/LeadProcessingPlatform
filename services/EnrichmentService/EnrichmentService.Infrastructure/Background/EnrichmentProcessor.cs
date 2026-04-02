@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -23,7 +22,7 @@ public class EnrichmentProcessor(
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
     private readonly int _batchSize = 10;
     private const int MaxRetryAttempts = 3;
-    private static readonly TimeSpan[] RetryDelays = 
+    private static readonly TimeSpan[] RetryDelays =
     [
         TimeSpan.FromSeconds(10),
         TimeSpan.FromSeconds(30),
@@ -60,9 +59,9 @@ public class EnrichmentProcessor(
 
         var requests = await readContext.EnrichmentRequests
             .Where(x => x.Status == EnrichmentRequestStatus.Pending ||
-                        (x.Status == EnrichmentRequestStatus.Failed && 
+                        (x.Status == EnrichmentRequestStatus.Failed &&
                          x.RetryCount < MaxRetryAttempts &&
-                         x.NextRetryAt != null && 
+                         x.NextRetryAt != null &&
                          x.NextRetryAt <= now))
             .OrderBy(x => x.LastAttemptAt)
             .Take(_batchSize)
@@ -81,33 +80,17 @@ public class EnrichmentProcessor(
 
     private async Task ProcessSingleRequestAsync(EnrichmentRequest request, CancellationToken cancellationToken)
     {
-        ActivityContext? parentContext = null;
-        if (!string.IsNullOrEmpty(request.TraceParent))
-        {
-            if (ActivityContext.TryParse(request.TraceParent, null, out var parsedContext))
-            {
-                parentContext = parsedContext;
-                logger.LogDebug("Restored trace context from request: TraceId={TraceId}", 
-                    parentContext.Value.TraceId);
-            }
-        }
+        using var activity = TelemetryRestorer.RestoreAndStartActivity(
+                TelemetryConstants.ActivitySource,
+                TelemetrySpanNames.EnrichmentProcess,
+                request.TraceParent)!
+            .AddTags(
+                (TelemetryAttributes.LeadId, request.LeadId),
+                (TelemetryAttributes.EnrichmentRequestId, request.Id),
+                (TelemetryAttributes.EnrichmentCompanyName, request.CompanyName),
+                (TelemetryAttributes.EnrichmentAttempt, request.RetryCount + 1),
+                (TelemetryAttributes.EnrichmentMaxRetries, MaxRetryAttempts));
 
-        using var activity = parentContext.HasValue 
-            ? TelemetryConstants.ActivitySource.StartActivity(
-                "EnrichmentProcess", 
-                ActivityKind.Internal, 
-                parentContext.Value)
-            : TelemetryConstants.ActivitySource.StartActivity("EnrichmentProcess");
-
-        if (activity != null)
-        {
-            activity.SetTag("enrichment.request_id", request.Id);
-            activity.SetTag("enrichment.lead_id", request.LeadId);
-            activity.SetTag("enrichment.attempt", request.RetryCount + 1);
-        
-            logger.LogInformation("Processing enrichment request {RequestId} for lead {LeadId} with TraceId: {TraceId}", 
-                request.Id, request.LeadId, activity.TraceId);
-        }
         using var scope = scopeFactory.CreateScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var enrichmentClient = scope.ServiceProvider.GetRequiredService<IExternalEnrichmentClient>();
@@ -204,7 +187,7 @@ public class EnrichmentProcessor(
     {
         if (retryCount >= MaxRetryAttempts)
             return DateTime.MaxValue;
-            
+
         var delay = RetryDelays[Math.Min(retryCount, RetryDelays.Length - 1)];
         return DateTime.UtcNow.Add(delay);
     }

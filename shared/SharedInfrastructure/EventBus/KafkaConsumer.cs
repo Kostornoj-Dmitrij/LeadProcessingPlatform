@@ -40,8 +40,6 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         _logger = logger;
         _serviceName = serviceName;
         _topics = topics;
-        var activitySource = new ActivitySource($"{serviceName}.KafkaConsumer");
-        _logger.LogInformation("ActivitySource created: {ActivitySourceName}", activitySource.Name);
 
         var bootstrapServers = configuration["Kafka:BootstrapServers"];
         var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
@@ -191,77 +189,58 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             throw new InvalidOperationException("Missing event-id header");
         var eventId = Encoding.UTF8.GetString(eventIdBytes);
 
-        ActivityContext parentContext = default;
-        bool hasParentContext = false;
-        string? traceState = null;
+        string? traceParent = null;
 
         if (consumeResult.Message.Headers.TryGetLastBytes("traceparent", out var traceParentBytes))
         {
-            var traceParent = Encoding.UTF8.GetString(traceParentBytes);
-
-            if (ActivityContext.TryParse(traceParent, traceState, out var parsedContext))
+            traceParent = Encoding.UTF8.GetString(traceParentBytes);
+            if (consumeResult.Message.Headers.TryGetLastBytes("tracestate", out var traceStateBytes))
             {
-                parentContext = parsedContext;
-                hasParentContext = true;
-                _logger.LogDebug("Successfully parsed traceparent: TraceId={TraceId}, SpanId={SpanId}",
-                    parentContext.TraceId, parentContext.SpanId);
-            }
-            else
-            {
-                _logger.LogWarning("Failed to parse traceparent: {TraceParent}", traceParent);
+                Encoding.UTF8.GetString(traceStateBytes);
             }
         }
 
-        if (consumeResult.Message.Headers.TryGetLastBytes("tracestate", out var traceStateBytes))
+        string leadId = ExtractLeadIdFromMessage(consumeResult.Message);
+        if (!string.IsNullOrEmpty(leadId))
         {
-            traceState = Encoding.UTF8.GetString(traceStateBytes);
-            _logger.LogDebug("Found tracestate: {TraceState}", traceState);
+            TelemetryContext.SetBaggage(TelemetryBaggageKeys.LeadId, leadId);
+            TelemetryContext.SetBaggage(TelemetryBaggageKeys.BusinessProcess, "LeadProcessing");
         }
 
-        Activity? activity;
-        string? traceIdToStore = null;
+        string spanName = $"{TelemetrySpanNames.KafkaConsume} {GetSimpleTypeName(eventTypeName)}";
 
-        if (hasParentContext)
+        using var activity = TelemetryRestorer.RestoreAndStartActivity(
+                TelemetryConstants.ActivitySource,
+                spanName,
+                traceParent,
+                ActivityKind.Consumer)!
+            .AddTags(
+                (TelemetryAttributes.EventType, eventTypeName),
+                (TelemetryAttributes.EventName, GetSimpleTypeName(eventTypeName)),
+                (TelemetryAttributes.EventId, eventId),
+                (TelemetryAttributes.KafkaTopic, consumeResult.Topic),
+                (TelemetryAttributes.KafkaPartition, consumeResult.Partition.Value),
+                (TelemetryAttributes.KafkaOffset, consumeResult.Offset.Value),
+                (TelemetryAttributes.KafkaConsumerGroup, _consumer.MemberId),
+                (TelemetryAttributes.ServiceName, _serviceName),
+                (TelemetryAttributes.LeadId, leadId),
+                (TelemetryAttributes.KafkaMessagingSystem, "kafka"),
+                (TelemetryAttributes.KafkaMessagingDestination, consumeResult.Topic),
+                (TelemetryAttributes.KafkaMessagingMessageId, eventId),
+                (TelemetryAttributes.KafkaMessagingOperation, "receive"),
+                (TelemetryAttributes.ProcessingStep, "kafka_consume"));
+
+        foreach (var header in consumeResult.Message.Headers)
         {
-            activity = TelemetryConstants.ActivitySource.StartActivity(
-                $"Kafka Consumer {eventTypeName}",
-                ActivityKind.Consumer,
-                parentContext: parentContext);
-
-            if (activity != null)
+            if (header.Key.StartsWith("baggage-"))
             {
-                traceIdToStore = activity.TraceId.ToString();
-                _logger.LogInformation("Created activity with TraceId: {TraceId}, SpanId: {SpanId}", 
-                    traceIdToStore, activity.SpanId);
-            }
-            else
-            {
-                _logger.LogWarning("Failed to create activity via ActivitySource");
-            }
-        }
-        else
-        {
-            activity = TelemetryConstants.ActivitySource.StartActivity($"Kafka Consumer {eventTypeName}");
-            if (activity != null)
-            {
-                traceIdToStore = activity.TraceId.ToString();
-                _logger.LogInformation("Created new activity with TraceId: {TraceId}, SpanId: {SpanId}", 
-                    traceIdToStore, activity.SpanId);
+                var key = header.Key.Substring(8);
+                var value = Encoding.UTF8.GetString(header.GetValueBytes());
+                activity.SetBaggage(key, value);
             }
         }
 
-        if (activity != null)
-        {
-            activity.SetTag("messaging.system", "kafka");
-            activity.SetTag("messaging.destination", consumeResult.Topic);
-            activity.SetTag("messaging.message_id", eventId);
-            activity.SetTag("messaging.kafka.partition", consumeResult.Partition.Value);
-            activity.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
-            activity.SetTag("event.type", eventTypeName);
-            activity.SetTag("service.name", _serviceName);
-            _logger.LogDebug("Activity created: TraceId={TraceId}, SpanId={SpanId}, ParentContext={HasParent}",
-                activity.TraceId, activity.SpanId, hasParentContext);
-        }
+        var traceIdToStore = activity.TraceId.ToString();
 
         var deserializerType = typeof(AvroDeserializer<>).MakeGenericType(eventType);
 
@@ -306,6 +285,52 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         }
 
         return null;
+    }
+
+    private string GetSimpleTypeName(string eventTypeName)
+    {
+        try
+        {
+            var parts = eventTypeName.Split(',');
+            if (parts.Length > 0)
+            {
+                var fullTypeName = parts[0].Trim();
+                var lastDotIndex = fullTypeName.LastIndexOf('.');
+                if (lastDotIndex >= 0)
+                {
+                    return fullTypeName.Substring(lastDotIndex + 1);
+                }
+                return fullTypeName;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse event type name: {EventTypeName}", eventTypeName);
+        }
+
+        var cleaned = eventTypeName.Split(',')[0];
+        var lastDot = cleaned.LastIndexOf('.');
+        if (lastDot >= 0)
+        {
+            return cleaned.Substring(lastDot + 1);
+        }
+
+        return eventTypeName;
+    }
+
+    private string ExtractLeadIdFromMessage(Message<string, byte[]> message)
+    {
+        if (message.Headers.TryGetLastBytes("lead-id", out var leadIdBytes))
+        {
+            return Encoding.UTF8.GetString(leadIdBytes);
+        }
+
+        if (!string.IsNullOrEmpty(message.Key) && Guid.TryParse(message.Key, out _))
+        {
+            return message.Key;
+        }
+
+        return string.Empty;
     }
 
     private bool IsTransientError(Exception ex)

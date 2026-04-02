@@ -104,39 +104,61 @@ public class InboxProcessor<TInboxStore>(
         if (eventType == null)
             throw new InvalidOperationException($"Unknown event type: {message.EventType}");
 
-        ActivityContext? parentContext = null;
-        if (!string.IsNullOrEmpty(message.TraceId))
-        {
-            var newSpanId = ActivitySpanId.CreateRandom().ToString();
-            var traceparent = $"00-{message.TraceId}-{newSpanId}-01";
+        string leadId = ExtractLeadIdFromPayload(message.Payload);
+        string eventTypeShort = GetSimpleTypeName(message.EventType);
 
-            if (ActivityContext.TryParse(traceparent, null, out var parsedContext))
-            {
-                parentContext = parsedContext;
-                logger.LogDebug("Restored trace context from inbox: TraceId={TraceId}", 
-                    parentContext.Value.TraceId);
-            }
-        }
-
-        using var activity = parentContext.HasValue 
+        ActivityContext? parentContext = TryRestoreContextFromTraceId(message.TraceId);
+        using var activity = parentContext.HasValue
             ? TelemetryConstants.ActivitySource.StartActivity(
-                "InboxProcess", 
-                ActivityKind.Internal, 
+                $"{TelemetrySpanNames.InboxProcess} {eventTypeShort}",
+                ActivityKind.Internal,
                 parentContext.Value)
-            : TelemetryConstants.ActivitySource.StartActivity("InboxProcess");
+            : TelemetryConstants.ActivitySource.StartActivity(
+                $"{TelemetrySpanNames.InboxProcess} {eventTypeShort}");
 
-        if (activity != null)
-        {
-            activity.SetTag("inbox.message_id", message.Id);
-            activity.SetTag("inbox.event_type", message.EventType);
-            activity.SetTag("inbox.topic", message.Topic);
-        }
+        if (activity == null)
+            throw new InvalidOperationException("Failed to create activity");
+
+        activity.AddTags(
+            (TelemetryAttributes.EventType, message.EventType),
+            (TelemetryAttributes.EventName, eventTypeShort),
+            (TelemetryAttributes.LeadId, leadId),
+            (TelemetryAttributes.KafkaTopic, message.Topic),
+            (TelemetryAttributes.ProcessingStep, "inbox_process"),
+            (TelemetryAttributes.InboxMessageId, message.Id),
+            (TelemetryAttributes.InboxProcessingAttempts, message.ProcessingAttempts));
 
         var @event = JsonSerializer.Deserialize(message.Payload, eventType, JsonDefaults.Options) as IIntegrationEvent;
         if (@event == null)
             throw new InvalidOperationException($"Failed to deserialize event: {message.EventType}");
 
         await mediator.Publish(@event, cancellationToken);
+    }
+
+    private ActivityContext? TryRestoreContextFromTraceId(string? traceId)
+    {
+        if (string.IsNullOrEmpty(traceId))
+            return null;
+
+        try
+        {
+            var newSpanId = ActivitySpanId.CreateRandom().ToString();
+            var traceparent = $"00-{traceId}-{newSpanId}-01";
+
+            if (ActivityContext.TryParse(traceparent, null, out var parsedContext))
+            {
+                logger.LogDebug(
+                    "Restored trace context from TraceId: TraceId={TraceId}, SpanId={SpanId}", 
+                    parsedContext.TraceId, parsedContext.SpanId);
+                return parsedContext;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to restore trace context from TraceId: {TraceId}", traceId);
+        }
+
+        return null;
     }
 
     private Message<string, string> CreateKafkaMessageFromInbox(InboxMessage message)
@@ -153,6 +175,63 @@ public class InboxProcessor<TInboxStore>(
                 { "inbox-message-id", Encoding.UTF8.GetBytes(message.Id.ToString()) }
             }
         };
+    }
+
+    private string ExtractLeadIdFromPayload(string payload)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            if (doc.RootElement.TryGetProperty("LeadId", out var leadIdElement))
+            {
+                var leadId = leadIdElement.GetString();
+                if (!string.IsNullOrEmpty(leadId))
+                    return leadId;
+            }
+
+            if (doc.RootElement.TryGetProperty("leadId", out var leadIdLowerElement))
+            {
+                var leadId = leadIdLowerElement.GetString();
+                if (!string.IsNullOrEmpty(leadId))
+                    return leadId;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to extract LeadId from payload");
+        }
+        return string.Empty;
+    }
+
+    private string GetSimpleTypeName(string eventType)
+    {
+        try
+        {
+            var parts = eventType.Split(',');
+            if (parts.Length > 0)
+            {
+                var fullTypeName = parts[0].Trim();
+                var lastDotIndex = fullTypeName.LastIndexOf('.');
+                if (lastDotIndex >= 0)
+                {
+                    return fullTypeName.Substring(lastDotIndex + 1);
+                }
+                return fullTypeName;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to parse event type: {EventType}", eventType);
+        }
+
+        var cleaned = eventType.Split(',')[0];
+        var lastDot = cleaned.LastIndexOf('.');
+        if (lastDot >= 0)
+        {
+            return cleaned.Substring(lastDot + 1);
+        }
+
+        return eventType;
     }
 
     private bool IsTransientError(Exception ex)

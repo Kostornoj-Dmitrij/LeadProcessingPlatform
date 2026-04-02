@@ -69,7 +69,13 @@ public static class OpenTelemetryExtensions
                     .AddHttpClientInstrumentation(options =>
                     {
                         options.RecordException = true;
-                        options.FilterHttpRequestMessage = (httpRequestMessage) => !httpRequestMessage.RequestUri?.AbsolutePath.Contains("/health") == true;
+                        options.FilterHttpRequestMessage = (httpRequestMessage) =>
+                        {
+                            var uri = httpRequestMessage.RequestUri?.AbsolutePath ?? "";
+                            return !uri.Contains("/health") && 
+                                   !uri.Contains("/subjects") &&
+                                   !uri.Contains("/schemas"); 
+                        };
                     })
                     .AddEntityFrameworkCoreInstrumentation(options =>
                     {

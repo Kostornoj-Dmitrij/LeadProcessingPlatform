@@ -1,10 +1,11 @@
-﻿using MediatR;
+﻿using System.Text.Json;
+using AvroSchemas.Messages.EnrichmentEvents;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
-using AvroSchemas.Messages.EnrichmentEvents;
 using ScoringService.Domain.Entities;
 using ScoringService.Domain.Enums;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace ScoringService.Application.EventHandlers;
@@ -19,6 +20,13 @@ public class LeadEnrichedEventHandler(
 {
     public async Task Handle(LeadEnriched @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadEnriched")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadEnriched"),
+                (TelemetryAttributes.EnrichmentIndustry, @event.Industry),
+                (TelemetryAttributes.EnrichmentCompanySize, @event.CompanySize),
+                (TelemetryAttributes.ProcessingStep, "scoring_enrichment_received"));
         logger.LogInformation("Processing LeadEnriched for lead {LeadId}", @event.LeadId);
 
         var enrichedData = new

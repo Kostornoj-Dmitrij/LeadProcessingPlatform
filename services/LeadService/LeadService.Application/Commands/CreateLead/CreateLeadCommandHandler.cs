@@ -1,11 +1,12 @@
-﻿using System.Text.Json;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using LeadService.Application.Common.DTOs;
-using MediatR;
 using LeadService.Application.Common.Interfaces;
 using LeadService.Domain.Entities;
+using MediatR;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 using SharedKernel.Json;
 
@@ -22,6 +23,16 @@ public class CreateLeadCommandHandler(
 {
     public async Task<LeadDto> Handle(CreateLeadCommand request, CancellationToken cancellationToken)
     {
+        TelemetryContext.SetLeadBaggage(Guid.NewGuid(), "LeadCreation");
+
+        using var activity = TelemetryConstants.ActivitySource.StartCommandHandlerSpan("CreateLead")!
+            .AddTags(
+                (TelemetryAttributes.LeadSource, request.Source),
+                (TelemetryAttributes.LeadCompany, request.CompanyName),
+                (TelemetryAttributes.LeadEmail, request.Email),
+                (TelemetryAttributes.LeadExternalId, request.ExternalLeadId ?? "none"),
+                (TelemetryAttributes.LeadHasCustomFields, request.CustomFields?.Count > 0));
+
         if (string.IsNullOrEmpty(request.ExternalLeadId))
         {
             return await CreateLeadInternal(request, cancellationToken);

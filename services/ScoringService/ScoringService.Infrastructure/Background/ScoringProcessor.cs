@@ -1,16 +1,15 @@
-﻿using System.Diagnostics;
+﻿using System.Text.Json;
+using AvroSchemas.Messages.LeadEvents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ScoringService.Application.Services;
 using ScoringService.Domain.Entities;
 using ScoringService.Domain.Enums;
 using ScoringService.Infrastructure.Data;
-using SharedKernel.Base;
-using System.Text.Json;
-using AvroSchemas.Messages.LeadEvents;
-using ScoringService.Application.Services;
 using SharedInfrastructure.Telemetry;
+using SharedKernel.Base;
 
 namespace ScoringService.Infrastructure.Background;
 
@@ -70,34 +69,25 @@ public class ScoringProcessor(
         logger.LogInformation("Processing {Count} scoring requests", pendingRequests.Count);
 
         var rules = await context.ScoringRules
-            .Where(r => r.IsActive && 
+            .Where(r => r.IsActive &&
                         (r.ValidTo == null || r.ValidTo > DateTime.UtcNow))
             .OrderBy(r => r.Priority)
             .ToListAsync(cancellationToken);
 
         foreach (var request in pendingRequests)
         {
-            ActivityContext? parentContext = null;
-            if (!string.IsNullOrEmpty(request.TraceParent))
-            {
-                if (ActivityContext.TryParse(request.TraceParent, null, out var parsedContext))
-                {
-                    parentContext = parsedContext;
-                }
-            }
+            using var activity = TelemetryRestorer.RestoreAndStartActivity(
+                    TelemetryConstants.ActivitySource,
+                    TelemetrySpanNames.ScoringProcess,
+                    request.TraceParent)!
+                .AddTags(
+                    (TelemetryAttributes.LeadId, request.LeadId),
+                    (TelemetryAttributes.ScoringRequestId, request.Id),
+                    (TelemetryAttributes.ScoringCompanyName, request.CompanyName),
+                    (TelemetryAttributes.ScoringAttempt, request.RetryCount + 1),
+                    (TelemetryAttributes.ScoringMaxRetries, MaxRetryAttempts),
+                    (TelemetryAttributes.ScoringHasEnrichedData, !string.IsNullOrEmpty(request.EnrichedData)));
 
-            using var activity = parentContext.HasValue 
-                ? TelemetryConstants.ActivitySource.StartActivity(
-                    "ScoringProcess", 
-                    ActivityKind.Internal, 
-                    parentContext.Value)
-                : TelemetryConstants.ActivitySource.StartActivity("ScoringProcess");
-
-            if (activity != null)
-            {
-                activity.SetTag("scoring.request_id", request.Id);
-                activity.SetTag("scoring.lead_id", request.LeadId);
-            }
             request.StartProcessing();
 
             try
@@ -108,7 +98,7 @@ public class ScoringProcessor(
                     try
                     {
                         enrichedData = JsonSerializer.Deserialize<EnrichedDataDto>(
-                            request.EnrichedData, 
+                            request.EnrichedData,
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     }
                     catch (JsonException ex)
@@ -129,15 +119,15 @@ public class ScoringProcessor(
                     }
                 }
 
-                if (request.CustomFields != null && 
-                    request.CustomFields.TryGetValue("forceScoringFail", out var forceFail) && 
+                if (request.CustomFields != null &&
+                    request.CustomFields.TryGetValue("forceScoringFail", out var forceFail) &&
                     forceFail == "true")
                 {
                     throw new InvalidOperationException("Forced scoring failure for testing");
                 }
 
-                if (request.CustomFields != null && 
-                    request.CustomFields.TryGetValue("score", out var customScore) && 
+                if (request.CustomFields != null &&
+                    request.CustomFields.TryGetValue("score", out var customScore) &&
                     int.TryParse(customScore, out var parsedScore))
                 {
                     totalScore = parsedScore;

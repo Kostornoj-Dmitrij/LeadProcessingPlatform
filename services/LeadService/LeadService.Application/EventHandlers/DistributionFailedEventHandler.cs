@@ -1,9 +1,10 @@
-﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using AvroSchemas.Messages.DistributionEvents;
+﻿using AvroSchemas.Messages.DistributionEvents;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace LeadService.Application.EventHandlers;
@@ -18,6 +19,14 @@ public class DistributionFailedEventHandler(
 {
     public async Task Handle(DistributionFailed @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("DistributionFailed")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "DistributionFailed"),
+                (TelemetryAttributes.DistributionReason, @event.Reason),
+                (TelemetryAttributes.DistributionHttpStatusCode, @event.HttpStatusCode),
+                (TelemetryAttributes.ProcessingStep, "distribution_failure_handling"));
+
         logger.LogInformation("Processing DistributionFailed for lead {LeadId}", @event.LeadId);
 
         try

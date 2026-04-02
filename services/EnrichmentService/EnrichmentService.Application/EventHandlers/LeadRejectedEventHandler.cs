@@ -1,8 +1,9 @@
-﻿using MediatR;
+﻿using AvroSchemas.Messages.LeadEvents;
+using EnrichmentService.Domain.Entities;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using AvroSchemas.Messages.LeadEvents;
-using EnrichmentService.Domain.Entities;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace EnrichmentService.Application.EventHandlers;
@@ -17,6 +18,13 @@ public class LeadRejectedEventHandler(
 {
     public async Task Handle(LeadRejected @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadRejected")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadRejected"),
+                (TelemetryAttributes.FailureReason, @event.Reason),
+                (TelemetryAttributes.FailureType, @event.FailureType),
+                (TelemetryAttributes.ProcessingStep, "enrichment_compensation"));
         logger.LogInformation("Processing LeadRejected for lead {LeadId}", @event.LeadId);
 
         var enrichment = await unitOfWork.Set<EnrichmentResult>()

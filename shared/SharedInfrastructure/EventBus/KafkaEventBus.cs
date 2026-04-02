@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SharedInfrastructure.Serialization;
+using SharedInfrastructure.Telemetry;
 
 namespace SharedInfrastructure.EventBus;
 
@@ -50,7 +51,7 @@ public class KafkaEventBus : IEventBus
             .Build();
     }
 
-    public async Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default) 
+    public async Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : class, IIntegrationEvent
     {
         ArgumentNullException.ThrowIfNull(@event);
@@ -82,29 +83,38 @@ public class KafkaEventBus : IEventBus
                 }
             };
 
+            var leadIdProp = avroEvent.GetType().GetProperty("LeadId");
+            string? leadIdValue = null;
+            if (leadIdProp != null && leadIdProp.GetValue(avroEvent) is Guid leadId)
+            {
+                leadIdValue = leadId.ToString();
+                message.Headers.Add("lead-id", Encoding.UTF8.GetBytes(leadIdValue));
+            }
+
             var currentActivity = Activity.Current;
             if (currentActivity != null)
             {
                 var traceparent = $"00-{currentActivity.TraceId}-{currentActivity.SpanId}-01";
                 message.Headers.Add("traceparent", Encoding.UTF8.GetBytes(traceparent));
 
-                _logger.LogDebug("Added traceparent header: {TraceParent}", traceparent);
-
-                if (!string.IsNullOrEmpty(currentActivity.TraceStateString))
+                foreach (var item in currentActivity.Baggage)
                 {
-                    message.Headers.Add("tracestate", Encoding.UTF8.GetBytes(currentActivity.TraceStateString));
-                    _logger.LogDebug("Added tracestate header");
+                    if (item.Value != null)
+                        message.Headers.Add($"baggage-{item.Key}", Encoding.UTF8.GetBytes(item.Value));
                 }
             }
 
-            await _producer.ProduceAsync(topic, message, cancellationToken);
+            using var produceActivity = TelemetryConstants.ActivitySource.StartProducerSpan(
+                    TelemetrySpanNames.KafkaProduce,
+                    typeof(TEvent).Name.Replace("Event", ""))!
+                .AddTags(
+                    (TelemetryAttributes.EventType, typeof(TEvent).Name),
+                    (TelemetryAttributes.KafkaTopic, topic),
+                    (TelemetryAttributes.ServiceName, "LeadService"),
+                    (TelemetryAttributes.KafkaMessagingOperation, "publish"),
+                    (TelemetryAttributes.LeadId, leadIdValue));
 
-            _logger.LogDebug(
-                "Published event {EventType} with ID {EventId} to topic {Topic} using subject {Subject}",
-                typeof(TEvent).Name,
-                avroEvent.EventId,
-                topic,
-                subject);
+            await _producer.ProduceAsync(topic, message, cancellationToken);
         }
         catch (Exception ex)
         {

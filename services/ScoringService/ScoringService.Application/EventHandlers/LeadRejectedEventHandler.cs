@@ -1,8 +1,9 @@
-﻿using MediatR;
+﻿using AvroSchemas.Messages.LeadEvents;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using AvroSchemas.Messages.LeadEvents;
 using ScoringService.Domain.Entities;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace ScoringService.Application.EventHandlers;
@@ -17,6 +18,13 @@ public class LeadRejectedEventHandler(
 {
     public async Task Handle(LeadRejected @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadRejected")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadRejected"),
+                (TelemetryAttributes.FailureReason, @event.Reason),
+                (TelemetryAttributes.FailureType, @event.FailureType),
+                (TelemetryAttributes.ProcessingStep, "scoring_compensation"));
         logger.LogInformation("Processing LeadRejected for lead {LeadId}", @event.LeadId);
 
         var scoringResult = await unitOfWork.Set<ScoringResult>()
@@ -27,8 +35,8 @@ public class LeadRejectedEventHandler(
 
         var compensationLog = CompensationLog.CreateScoringCompensation(
             @event.LeadId,
-            scoringResult != null 
-                ? $"Scoring result removed due to lead rejection. Reason: {@event.Reason}" 
+            scoringResult != null
+                ? $"Scoring result removed due to lead rejection. Reason: {@event.Reason}"
                 : "No scoring result found, compensated anyway");
 
         await unitOfWork.Set<CompensationLog>().AddAsync(compensationLog, cancellationToken);

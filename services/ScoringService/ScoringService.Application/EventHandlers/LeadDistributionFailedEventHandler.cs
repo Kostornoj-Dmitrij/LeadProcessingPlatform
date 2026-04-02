@@ -1,8 +1,9 @@
-﻿using MediatR;
+﻿using AvroSchemas.Messages.LeadEvents;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using AvroSchemas.Messages.LeadEvents;
 using ScoringService.Domain.Entities;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace ScoringService.Application.EventHandlers;
@@ -17,6 +18,12 @@ public class LeadDistributionFailedEventHandler(
 {
     public async Task Handle(LeadDistributionFailed @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadDistributionFailed")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadDistributionFailed"),
+                (TelemetryAttributes.FailureReason, @event.Reason),
+                (TelemetryAttributes.ProcessingStep, "scoring_compensation"));
         logger.LogInformation("Processing LeadDistributionFailed for lead {LeadId}", @event.LeadId);
 
         var scoringResult = await unitOfWork.Set<ScoringResult>()
@@ -27,8 +34,8 @@ public class LeadDistributionFailedEventHandler(
 
         var compensationLog = CompensationLog.CreateScoringCompensation(
             @event.LeadId,
-            scoringResult != null 
-                ? $"Scoring result removed due to distribution failure. Score: {scoringResult.TotalScore}" 
+            scoringResult != null
+                ? $"Scoring result removed due to distribution failure. Score: {scoringResult.TotalScore}"
                 : "No scoring result found, compensated anyway");
 
         await unitOfWork.Set<CompensationLog>().AddAsync(compensationLog, cancellationToken);

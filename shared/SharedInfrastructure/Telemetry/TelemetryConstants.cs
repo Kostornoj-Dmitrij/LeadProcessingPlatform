@@ -3,7 +3,7 @@
 namespace SharedInfrastructure.Telemetry;
 
 /// <summary>
-/// Константы телеметрии
+/// ActivitySource для создания спанов телеметрии
 /// </summary>
 public static class TelemetryConstants
 {

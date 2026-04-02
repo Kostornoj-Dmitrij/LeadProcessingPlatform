@@ -1,11 +1,12 @@
-﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using AvroSchemas.Messages.EnrichmentEvents;
-using LeadService.Domain.Entities;
-using Microsoft.Extensions.Logging;
-using SharedKernel.Base;
+﻿using AvroSchemas.Messages.EnrichmentEvents;
 using LeadService.Domain.Constants;
+using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Telemetry;
+using SharedKernel.Base;
 
 namespace LeadService.Application.EventHandlers;
 
@@ -19,6 +20,14 @@ public class LeadEnrichmentFailedEventHandler(
 {
     public async Task Handle(LeadEnrichmentFailed @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadEnrichmentFailed")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadEnrichmentFailed"),
+                (TelemetryAttributes.FailureReason, @event.Reason),
+                (TelemetryAttributes.FailureRetryCount, @event.RetryCount),
+                (TelemetryAttributes.ProcessingStep, "enrichment_failure_handling"),
+                (TelemetryAttributes.FailureType, "EnrichmentFailed"));
         logger.LogInformation("Processing LeadEnrichmentFailed for lead {LeadId}", @event.LeadId);
 
         try

@@ -1,9 +1,10 @@
-﻿using MediatR;
+﻿using AvroSchemas.Messages.LeadEvents;
+using MediatR;
 using Microsoft.Extensions.Logging;
-using AvroSchemas.Messages.LeadEvents;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace NotificationService.Application.EventHandlers;
@@ -19,6 +20,12 @@ public class LeadRejectedFinalEventHandler(
 {
     public async Task Handle(LeadRejectedFinal @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadRejectedFinal")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadRejectedFinal"),
+                (TelemetryAttributes.LeadStatus, @event.FinalStatus),
+                (TelemetryAttributes.ProcessingStep, "notification_rejected_final"));
         logger.LogInformation("Processing LeadRejectedFinal notification for lead {LeadId}", @event.LeadId);
 
         var variables = new Dictionary<string, string>

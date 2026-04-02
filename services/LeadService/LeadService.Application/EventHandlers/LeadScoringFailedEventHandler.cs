@@ -1,10 +1,11 @@
-﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using AvroSchemas.Messages.ScoringEvents;
+﻿using AvroSchemas.Messages.ScoringEvents;
 using LeadService.Domain.Constants;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace LeadService.Application.EventHandlers;
@@ -19,7 +20,14 @@ public class LeadScoringFailedEventHandler(
 {
     public async Task Handle(LeadScoringFailed @event, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Processing LeadScoringFailed for lead {LeadId}", @event.LeadId);
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadScoringFailed")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadScoringFailed"),
+                (TelemetryAttributes.FailureReason, @event.Reason),
+                (TelemetryAttributes.FailureRetryCount, @event.RetryCount),
+                (TelemetryAttributes.ProcessingStep, "scoring_failure_handling"),
+                (TelemetryAttributes.FailureType, "ScoringFailed"));
 
         try
         {

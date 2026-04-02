@@ -1,12 +1,13 @@
-﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+﻿using System.Text.Json;
 using AvroSchemas.Messages.LeadEvents;
+using DistributionService.Application.Common.DTOs;
 using DistributionService.Domain.Entities;
 using DistributionService.Domain.Enums;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
-using System.Text.Json;
-using DistributionService.Application.Common.DTOs;
 using IDistributionTargetClient = DistributionService.Application.Common.Interfaces.IDistributionTargetClient;
 
 namespace DistributionService.Application.EventHandlers;
@@ -24,7 +25,15 @@ public class LeadQualifiedEventHandler(
 
     public async Task Handle(LeadQualified @event, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Processing LeadQualified for lead {LeadId} with score {Score}", 
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadQualified")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadQualified"),
+                (TelemetryAttributes.LeadScore, @event.Score),
+                (TelemetryAttributes.LeadCompany, @event.CompanyName),
+                (TelemetryAttributes.LeadEmail, @event.Email),
+                (TelemetryAttributes.ProcessingStep, "distribution_start"));
+        logger.LogInformation("Processing LeadQualified for lead {LeadId} with score {Score}",
             @event.LeadId, @event.Score);
 
         var rules = await unitOfWork.Set<DistributionRule>()
@@ -67,8 +76,8 @@ public class LeadQualifiedEventHandler(
             return;
         }
 
-        var customFields = @event.CustomFields != null 
-            ? new Dictionary<string, string>(@event.CustomFields) 
+        var customFields = @event.CustomFields != null
+            ? new Dictionary<string, string>(@event.CustomFields)
             : new Dictionary<string, string>();
         logger.LogInformation("CustomFields for lead {LeadId}: {@CustomFields}", @event.LeadId, customFields);
         if (@event.EnrichedData != null)
@@ -115,9 +124,7 @@ public class LeadQualifiedEventHandler(
         }
     }
 
-    private Task<bool> IsRuleApplicableAsync(
-        DistributionRule rule,
-        LeadQualified @event)
+    private Task<bool> IsRuleApplicableAsync(DistributionRule rule, LeadQualified @event)
     {
         try
         {
@@ -143,7 +150,7 @@ public class LeadQualifiedEventHandler(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error evaluating rule {RuleName} for lead {LeadId}", 
+            logger.LogError(ex, "Error evaluating rule {RuleName} for lead {LeadId}",
                 rule.RuleName, @event.LeadId);
             return Task.FromResult(false);
         }
@@ -276,7 +283,7 @@ public class LeadQualifiedEventHandler(
             return config.GetValueOrDefault("default_target")?.ToString() ?? string.Empty;
         }
 
-        foreach (var threshold in thresholds.OrderByDescending(t => 
+        foreach (var threshold in thresholds.OrderByDescending(t =>
             Convert.ToInt32(t.GetValueOrDefault("min_score", 0))))
         {
             if (score >= Convert.ToInt32(threshold.GetValueOrDefault("min_score", 0)))

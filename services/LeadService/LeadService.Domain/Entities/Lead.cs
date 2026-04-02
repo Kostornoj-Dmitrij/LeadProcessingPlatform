@@ -170,9 +170,9 @@ public sealed class Lead : Entity<Guid>, IAggregateRoot
 
         var customFields = CustomFields.ToDictionary(x => x.FieldName, x => x.FieldValue);
         AddDomainEvent(new LeadQualifiedDomainEvent(
-            Id, 
-            Score!.Value, 
-            CompanyName.Value, 
+            Id,
+            Score!.Value,
+            CompanyName.Value,
             ContactPerson,
             Email.Value,
             enrichedData,

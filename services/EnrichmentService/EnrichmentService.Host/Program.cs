@@ -17,7 +17,8 @@ builder.Services.AddSharedHosting(builder.Configuration, new HostingOptions
         EnableHealthChecks = true
     }, additionalTelemetrySources:
     [
-        "EnrichmentService.EnrichmentProcessor"
+        "EnrichmentService.EnrichmentProcessor",
+        "EnrichmentService.KafkaConsumer"
     ]);
 
 builder.Services.Configure<DatabaseOptions>(

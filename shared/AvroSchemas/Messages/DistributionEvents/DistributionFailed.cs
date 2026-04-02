@@ -29,7 +29,7 @@ public class DistributionFailed : IntegrationEventAvro
 
     public Guid LeadId { get; set; }
     public string Reason { get; set; } = string.Empty;
-    private int? HttpStatusCode { get; set; }
+    public int? HttpStatusCode { get; set; }
 
     public override object? Get(int fieldPos)
     {

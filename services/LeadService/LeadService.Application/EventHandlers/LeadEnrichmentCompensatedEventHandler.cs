@@ -1,8 +1,9 @@
-﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using AvroSchemas.Messages.EnrichmentEvents;
+﻿using AvroSchemas.Messages.EnrichmentEvents;
 using LeadService.Domain.Entities;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace LeadService.Application.EventHandlers;
@@ -17,6 +18,11 @@ public class LeadEnrichmentCompensatedEventHandler(
 {
     public async Task Handle(LeadEnrichmentCompensated @event, CancellationToken cancellationToken)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadEnrichmentCompensated")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadEnrichmentCompensated"),
+                (TelemetryAttributes.ProcessingStep, "enrichment_compensation"));
         logger.LogInformation("Processing LeadEnrichmentCompensated for lead {LeadId}", @event.LeadId);
 
         try

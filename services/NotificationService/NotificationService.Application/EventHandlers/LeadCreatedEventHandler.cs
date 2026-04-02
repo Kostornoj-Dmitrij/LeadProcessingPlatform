@@ -1,9 +1,10 @@
-﻿using MediatR;
+﻿using AvroSchemas.Messages.LeadEvents;
+using MediatR;
 using Microsoft.Extensions.Logging;
-using AvroSchemas.Messages.LeadEvents;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
 namespace NotificationService.Application.EventHandlers;
@@ -19,7 +20,14 @@ public class LeadCreatedEventHandler(
 {
     public async Task Handle(LeadCreated @event, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Processing LeadCreated notification for lead {LeadId}", @event.LeadId);
+        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadCreated")!
+            .AddTags(
+                (TelemetryAttributes.LeadId, @event.LeadId),
+                (TelemetryAttributes.EventName, "LeadCreated"),
+                (TelemetryAttributes.LeadCompany, @event.CompanyName),
+                (TelemetryAttributes.LeadEmail, @event.Email),
+                (TelemetryAttributes.LeadSource, @event.Source),
+                (TelemetryAttributes.ProcessingStep, "notification_created"));
 
         var variables = new Dictionary<string, string>
         {

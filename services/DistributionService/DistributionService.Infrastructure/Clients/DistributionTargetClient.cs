@@ -1,10 +1,12 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using DistributionService.Application.Common.DTOs;
 using DistributionService.Application.Common.Interfaces;
 using DistributionService.Infrastructure.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SharedInfrastructure.Telemetry;
 
 namespace DistributionService.Infrastructure.Clients;
 
@@ -28,24 +30,36 @@ public class DistributionTargetClient(
         string target,
         CancellationToken cancellationToken = default)
     {
+        using var activity = TelemetryConstants.ActivitySource.StartActivity(
+                TelemetrySpanNames.DistributionClient,
+                ActivityKind.Client)!
+            .AddTags(
+                (TelemetryAttributes.LeadId, leadId),
+                (TelemetryAttributes.DistributionTarget, target),
+                (TelemetryAttributes.DistributionCompany, companyName),
+                (TelemetryAttributes.DistributionScore, score));
+
         logger.LogInformation("Sending lead {LeadId} to target system: {Target}", leadId, target);
 
         await Task.Delay(50, cancellationToken);
 
-        if (customFields != null && 
-            customFields.TryGetValue("forceDistributionFail", out var forceFail) && 
+        if (customFields != null &&
+            customFields.TryGetValue("forceDistributionFail", out var forceFail) &&
             forceFail == "true")
         {
             logger.LogWarning("Forced distribution failure for lead {LeadId}", leadId);
+            activity.SetTag(TelemetryAttributes.DistributionForcedFailure, true);
             return new DistributionResult(false, null, "Forced distribution failure for testing");
         }
 
-        if (customFields != null && 
-            customFields.TryGetValue("distributionHttpStatus", out var httpStatusStr) && 
+        if (customFields != null &&
+            customFields.TryGetValue("distributionHttpStatus", out var httpStatusStr) &&
             int.TryParse(httpStatusStr, out var httpStatus) &&
             httpStatus >= 400)
         {
             logger.LogWarning("Forced HTTP {HttpStatus} for lead {LeadId}", httpStatus, leadId);
+            activity.SetTag(TelemetryAttributes.HttpStatusCode, httpStatus);
+            activity.SetTag(TelemetryAttributes.DistributionForcedFailure, true);
             return new DistributionResult(false, null, $"HTTP {httpStatus}: Forced error response");
         }
 
@@ -81,6 +95,7 @@ public class DistributionTargetClient(
                 };
 
                 var responseJson = JsonSerializer.Serialize(emulationResponse);
+                activity.SetTag(TelemetryAttributes.DistributionMode, "emulation");
                 return new DistributionResult(true, responseJson, null);
             }
 
@@ -91,17 +106,25 @@ public class DistributionTargetClient(
                 var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 logger.LogInformation("Lead {LeadId} successfully sent to {Target}. Response: {Response}",
                     leadId, target, responseContent);
+                activity.SetTag(TelemetryAttributes.HttpStatusCode, (int)response.StatusCode);
+                activity.SetTag(TelemetryAttributes.DistributionSuccess, true);
                 return new DistributionResult(true, responseContent, null);
             }
 
             var error = await response.Content.ReadAsStringAsync(cancellationToken);
             logger.LogWarning("Failed to send lead {LeadId} to {Target}. Status: {Status}, Error: {Error}",
                 leadId, target, response.StatusCode, error);
+            activity.SetTag(TelemetryAttributes.HttpStatusCode, (int)response.StatusCode);
+            activity.SetTag(TelemetryAttributes.DistributionSuccess, false);
+            activity.SetTag(TelemetryAttributes.Error, error);
             return new DistributionResult(false, null, $"HTTP {response.StatusCode}: {error}");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error sending lead {LeadId} to {Target}", leadId, target);
+            activity.SetTag(TelemetryAttributes.DistributionSuccess, false);
+            activity.SetTag(TelemetryAttributes.Error, ex.Message);
+            activity.SetTag(TelemetryAttributes.ErrorType, ex.GetType().Name);
             return new DistributionResult(false, null, ex.Message);
         }
     }
