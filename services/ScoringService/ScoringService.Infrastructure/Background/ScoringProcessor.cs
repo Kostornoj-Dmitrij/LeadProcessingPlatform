@@ -1,9 +1,11 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using AvroSchemas.Messages.LeadEvents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ScoringService.Application.Metrics;
 using ScoringService.Application.Services;
 using ScoringService.Domain.Entities;
 using ScoringService.Domain.Enums;
@@ -90,6 +92,8 @@ public class ScoringProcessor(
 
             request.StartProcessing();
 
+            ScoringMetrics.ScoringRequests.Add(1, new TagList { { "status", "processing" } });
+
             try
             {
                 EnrichedDataDto? enrichedData = null;
@@ -145,6 +149,8 @@ public class ScoringProcessor(
 
                 await unitOfWork.Set<ScoringResult>().AddAsync(scoringResult, cancellationToken);
 
+                ScoringMetrics.ScoringSuccess.Add(1);
+                ScoringMetrics.ScoringRequests.Add(1, new TagList { { "status", "completed" } });
                 logger.LogInformation(
                     "Lead {LeadId} scored with total {TotalScore} points (threshold: {Threshold})", 
                     request.LeadId, totalScore, qualifiedThreshold);
@@ -152,6 +158,10 @@ public class ScoringProcessor(
             catch (Exception ex)
             {
                 request.MarkFailed($"Exception during scoring: {ex.Message}");
+                var errorType = ex.Message.Contains("Forced") ? "forced_failure" : 
+                    ex.Message.Contains("timeout") ? "timeout" : "unknown";
+                ScoringMetrics.ScoringFailure.Add(1, new TagList { { "error_type", errorType } });
+                ScoringMetrics.ScoringRequests.Add(1, new TagList { { "status", "failed" } });
                 logger.LogError(ex, "Unexpected error during scoring for lead {LeadId}", request.LeadId);
             }
 

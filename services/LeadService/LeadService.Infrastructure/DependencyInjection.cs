@@ -27,7 +27,8 @@ public static class DependencyInjection
             "enrichment-events",
             "scoring-events",
             "distribution-events",
-            "saga-events"
+            "saga-events",
+            "lead-events"
         };
 
         services.AddSharedInfrastructure<ApplicationDbContext>(

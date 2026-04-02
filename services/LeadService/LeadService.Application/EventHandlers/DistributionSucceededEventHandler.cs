@@ -1,4 +1,6 @@
-﻿using AvroSchemas.Messages.DistributionEvents;
+﻿using System.Diagnostics;
+using AvroSchemas.Messages.DistributionEvents;
+using LeadService.Application.Metrics;
 using LeadService.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -42,11 +44,14 @@ public class DistributionSucceededEventHandler(
             lead.MarkAsDistributed(@event.Target);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            LeadMetrics.LeadsDistributed.Add(1, new TagList { { "target", @event.Target } });
             logger.LogInformation("Lead {LeadId} marked as distributed", lead.Id);
 
             lead.CloseAfterDistribution();
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            var totalDuration = (DateTime.UtcNow - lead.CreatedAt).TotalMilliseconds;
+            LeadMetrics.LeadProcessingDuration.Record(totalDuration, new TagList { { "stage", "completed" } });
             logger.LogInformation("Lead {LeadId} successfully closed after distribution", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

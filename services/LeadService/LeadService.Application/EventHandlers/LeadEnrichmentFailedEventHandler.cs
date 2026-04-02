@@ -1,4 +1,6 @@
-﻿using AvroSchemas.Messages.EnrichmentEvents;
+﻿using System.Diagnostics;
+using AvroSchemas.Messages.EnrichmentEvents;
+using LeadService.Application.Metrics;
 using LeadService.Domain.Constants;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
@@ -62,6 +64,7 @@ public class LeadEnrichmentFailedEventHandler(
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            LeadMetrics.LeadsRejected.Add(1, new TagList { { "failure_type", "EnrichmentFailed" } });
             logger.LogInformation("Lead {LeadId} rejected due to enrichment failure", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

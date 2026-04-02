@@ -122,6 +122,13 @@ public static class OpenTelemetryExtensions
             {
                 metrics
                     .AddMeter(serviceName)
+                    .AddMeter("LeadService.Metrics")
+                    .AddMeter("EnrichmentService.Metrics")
+                    .AddMeter("ScoringService.Metrics")
+                    .AddMeter("DistributionService.Metrics")
+                    .AddMeter("NotificationService.Metrics")
+                    .AddMeter("ApiGateway.Metrics")
+                    .AddMeter("SharedInfrastructure.Metrics")
                     .AddMeter("Microsoft.AspNetCore.Hosting")
                     .AddMeter("Microsoft.AspNetCore.Server.Kestrel")
                     .AddMeter("System.Net.Http")

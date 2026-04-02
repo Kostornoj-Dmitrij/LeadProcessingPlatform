@@ -1,8 +1,10 @@
-﻿using System.Security.Cryptography;
+﻿using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using LeadService.Application.Common.DTOs;
 using LeadService.Application.Common.Interfaces;
+using LeadService.Application.Metrics;
 using LeadService.Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -98,6 +100,8 @@ public class CreateLeadCommandHandler(
 
     private async Task<LeadDto> CreateLeadInternal(CreateLeadCommand request, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
+
         var lead = Lead.Create(
             id: Guid.NewGuid(),
             source: request.Source,
@@ -112,6 +116,10 @@ public class CreateLeadCommandHandler(
         await unitOfWork.Set<Lead>().AddAsync(lead, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        LeadMetrics.LeadsCreated.Add(1, new TagList { { "source", request.Source } });
+        LeadMetrics.CommandHandlingDuration.Record(stopwatch.Elapsed.TotalMilliseconds, 
+            new TagList { { "command_name", "CreateLead" } });
 
         return MapToDto(lead);
     }

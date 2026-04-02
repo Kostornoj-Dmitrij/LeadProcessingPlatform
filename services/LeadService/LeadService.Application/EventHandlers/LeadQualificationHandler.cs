@@ -1,7 +1,9 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using AvroSchemas.Messages.EnrichmentEvents;
 using AvroSchemas.Messages.LeadEvents;
 using AvroSchemas.Messages.ScoringEvents;
+using LeadService.Application.Metrics;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
 using MediatR;
@@ -120,6 +122,19 @@ public class LeadQualificationHandler(
 
                 await unitOfWork.SaveChangesAsync(cancellationToken);
                 await unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                if (lead.Status == LeadStatus.Qualified)
+                {
+                    LeadMetrics.LeadsQualified.Add(1);
+
+                    var duration = (DateTime.UtcNow - lead.CreatedAt).TotalMilliseconds;
+                    LeadMetrics.LeadProcessingDuration.Record(duration, new TagList { { "stage", "qualified" } });
+                }
+
+                LeadMetrics.EventHandlingDuration.Record(
+                    (DateTime.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(
+                        isEnriched ? enrichedEvent!.OccurredOnUtc : scoredEvent!.OccurredOnUtc).UtcDateTime).TotalMilliseconds,
+                    new TagList { { "event_type", isEnriched ? "LeadEnriched" : "LeadScored" } });
 
                 logger.LogInformation(
                     "Successfully processed {EventType} for lead {LeadId}. Status: {Status}, EnrichmentReceived: {Enrichment}, ScoringReceived: {Scoring}",

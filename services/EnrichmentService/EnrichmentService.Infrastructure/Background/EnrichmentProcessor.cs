@@ -1,8 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using EnrichmentService.Application.Common.Interfaces;
+using EnrichmentService.Application.Metrics;
 using EnrichmentService.Domain.Entities;
 using EnrichmentService.Domain.Enums;
 using EnrichmentService.Infrastructure.Data;
@@ -80,6 +82,8 @@ public class EnrichmentProcessor(
 
     private async Task ProcessSingleRequestAsync(EnrichmentRequest request, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
+
         using var activity = TelemetryRestorer.RestoreAndStartActivity(
                 TelemetryConstants.ActivitySource,
                 TelemetrySpanNames.EnrichmentProcess,
@@ -113,6 +117,8 @@ public class EnrichmentProcessor(
             freshRequest.StartProcessing();
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            EnrichmentMetrics.EnrichmentRequests.Add(1, new TagList { { "status", "processing" } });
+
             var result = await enrichmentClient.EnrichAsync(
                 freshRequest.CompanyName,
                 freshRequest.CustomFields,
@@ -120,6 +126,8 @@ public class EnrichmentProcessor(
 
             if (result.IsSuccess)
             {
+                EnrichmentMetrics.EnrichmentSuccess.Add(1);
+
                 var enrichmentResult = EnrichmentResult.Create(
                     freshRequest.LeadId,
                     freshRequest.CompanyName,
@@ -134,6 +142,8 @@ public class EnrichmentProcessor(
 
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
+                EnrichmentMetrics.EnrichmentRequests.Add(1, new TagList { { "status", "completed" } });
+                EnrichmentMetrics.EnrichmentDuration.Record(stopwatch.Elapsed.TotalMilliseconds);
                 logger.LogInformation(
                     "Successfully enriched lead {LeadId}. Industry: {Industry}, CompanySize: {CompanySize}",
                     freshRequest.LeadId, result.Industry, result.CompanySize);
@@ -161,10 +171,16 @@ public class EnrichmentProcessor(
         if (request.RetryCount < MaxRetryAttempts)
         {
             request.MarkFailed(errorMessage, nextRetryAt);
+            EnrichmentMetrics.EnrichmentRetry.Add(1, new TagList { { "attempt", (request.RetryCount + 1).ToString() } });
         }
         else
         {
             request.MarkFailed(errorMessage);
+            var errorType = errorMessage.Contains("timeout") ? "timeout" :
+                errorMessage.Contains("Forced") ? "forced_failure" : "unknown";
+            EnrichmentMetrics.EnrichmentFailure.Add(1, new TagList { { "error_type", errorType } });
+
+            EnrichmentMetrics.EnrichmentRequests.Add(1, new TagList { { "status", "failed" } });
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

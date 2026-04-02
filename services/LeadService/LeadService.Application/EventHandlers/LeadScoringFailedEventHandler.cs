@@ -1,4 +1,6 @@
-﻿using AvroSchemas.Messages.ScoringEvents;
+﻿using System.Diagnostics;
+using AvroSchemas.Messages.ScoringEvents;
+using LeadService.Application.Metrics;
 using LeadService.Domain.Constants;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
@@ -61,6 +63,7 @@ public class LeadScoringFailedEventHandler(
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            LeadMetrics.LeadsRejected.Add(1, new TagList { { "failure_type", "ScoringFailed" } });
             logger.LogInformation("Lead {LeadId} rejected due to scoring failure. Reason: {Reason}", 
                 lead.Id, @event.Reason);
         }

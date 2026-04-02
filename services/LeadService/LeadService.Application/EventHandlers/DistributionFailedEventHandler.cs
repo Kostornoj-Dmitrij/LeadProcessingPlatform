@@ -1,4 +1,6 @@
-﻿using AvroSchemas.Messages.DistributionEvents;
+﻿using System.Diagnostics;
+using AvroSchemas.Messages.DistributionEvents;
+using LeadService.Application.Metrics;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;
 using MediatR;
@@ -61,6 +63,15 @@ public class DistributionFailedEventHandler(
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            var errorType = @event.HttpStatusCode.HasValue 
+                ? $"http_{@event.HttpStatusCode}"
+                : @event.Reason.Contains("timeout") ? "timeout" : "unknown";
+
+            LeadMetrics.LeadsDistributionFailed.Add(1, new TagList 
+            { 
+                { "reason", @event.Reason },
+                { "error_type", errorType }
+            });
             logger.LogInformation("Lead {LeadId} marked as distribution failed", lead.Id);
         }
         catch (DbUpdateConcurrencyException)

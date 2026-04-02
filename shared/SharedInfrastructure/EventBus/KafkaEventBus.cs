@@ -113,6 +113,11 @@ public class KafkaEventBus : IEventBus
                     (TelemetryAttributes.ServiceName, "LeadService"),
                     (TelemetryAttributes.KafkaMessagingOperation, "publish"),
                     (TelemetryAttributes.LeadId, leadIdValue));
+            TelemetryMetrics.KafkaMessagesPublished.Add(1, new TagList
+            {
+                { "topic", topic },
+                { "event_type", typeof(TEvent).Name }
+            });
 
             await _producer.ProduceAsync(topic, message, cancellationToken);
         }

@@ -1,6 +1,8 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using AvroSchemas.Messages.LeadEvents;
 using Microsoft.Extensions.Logging;
+using ScoringService.Application.Metrics;
 using ScoringService.Application.Services;
 using ScoringService.Domain.Entities;
 
@@ -43,6 +45,7 @@ public class RuleEvaluator(ILogger<RuleEvaluator> logger) : IRuleEvaluator
                 _ => false
             };
 
+            ScoringMetrics.RulesEvaluated.Add(1, new TagList { { "rule_name", rule.RuleName } });
             logger.LogDebug(
                 "Rule {RuleName} evaluated to {Result} for lead {LeadId}",
                 rule.RuleName, result, request.LeadId);

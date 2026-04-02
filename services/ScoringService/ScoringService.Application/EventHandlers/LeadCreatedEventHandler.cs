@@ -1,7 +1,9 @@
-﻿using AvroSchemas.Messages.LeadEvents;
+﻿using System.Diagnostics;
+using AvroSchemas.Messages.LeadEvents;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ScoringService.Application.Metrics;
 using ScoringService.Domain.Entities;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
@@ -62,6 +64,7 @@ public class LeadCreatedEventHandler(
         await unitOfWork.Set<ScoringRequest>().AddAsync(request, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        ScoringMetrics.ScoringRequests.Add(1, new TagList { { "status", "pending" } });
         logger.LogInformation("Scoring request created for lead {LeadId} (has enriched data: {HasEnrichedData})", 
             @event.LeadId, enrichedDataJson != null);
     }

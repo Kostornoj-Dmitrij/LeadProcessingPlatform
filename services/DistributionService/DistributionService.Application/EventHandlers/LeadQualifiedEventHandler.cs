@@ -1,6 +1,8 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using AvroSchemas.Messages.LeadEvents;
 using DistributionService.Application.Common.DTOs;
+using DistributionService.Application.Metrics;
 using DistributionService.Domain.Entities;
 using DistributionService.Domain.Enums;
 using MediatR;
@@ -89,6 +91,9 @@ public class LeadQualifiedEventHandler(
             if (@event.EnrichedData.RevenueRange != null)
                 customFields["revenue_range"] = @event.EnrichedData.RevenueRange;
         }
+
+        DistributionMetrics.DistributionAttempts.Add(1, new TagList 
+            { { "target", target }, { "rule_name", applicableRule.RuleName } });
 
         var result = await SendWithRetryAsync(
             @event.LeadId,
@@ -330,25 +335,43 @@ public class LeadQualifiedEventHandler(
         CancellationToken cancellationToken)
     {
         int attempt = 0;
+        var overallStopwatch = Stopwatch.StartNew();
 
         while (attempt < MaxRetryAttempts)
         {
+            var attemptStopwatch = Stopwatch.StartNew();
+
             try
             {
                 var result = await targetClient.SendAsync(
                     leadId, companyName, email, score, customFields, target, cancellationToken);
 
                 if (result.IsSuccess)
+                {
+                    DistributionMetrics.DistributionSuccess.Add(1, new TagList { { "target", target } });
+                    DistributionMetrics.DistributionDuration.Record(attemptStopwatch.Elapsed.TotalMilliseconds, 
+                        new TagList { { "target", target }, { "success", "true" } });
                     return result;
+                }
 
                 attempt++;
                 if (attempt < MaxRetryAttempts)
                 {
+                    DistributionMetrics.DistributionRetry.Add(1, new TagList { { "attempt", attempt.ToString() } });
+
                     var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt));
                     logger.LogWarning(
                         "Retry {Attempt}/{MaxRetries} for lead {LeadId} to target {Target}",
                         attempt, MaxRetryAttempts, leadId, target);
                     await Task.Delay(delay, cancellationToken);
+                }
+                else
+                {
+                    var errorType = result.ErrorMessage?.Contains("timeout") == true ? "timeout" : "unknown";
+                    DistributionMetrics.DistributionFailure.Add(1, new TagList 
+                        { { "target", target }, { "error_type", errorType } });
+                    DistributionMetrics.DistributionDuration.Record(overallStopwatch.Elapsed.TotalMilliseconds, 
+                        new TagList { { "target", target }, { "success", "false" } });
                 }
             }
             catch (Exception ex)
@@ -358,7 +381,15 @@ public class LeadQualifiedEventHandler(
                     attempt, MaxRetryAttempts, leadId);
 
                 if (attempt >= MaxRetryAttempts)
+                {
+                    var errorType = ex.Message.Contains("timeout") ? "timeout" : "unknown";
+                    DistributionMetrics.DistributionFailure.Add(1, new TagList 
+                        { { "target", target }, { "error_type", errorType } });
+                    DistributionMetrics.DistributionDuration.Record(overallStopwatch.Elapsed.TotalMilliseconds, 
+                        new TagList { { "target", target }, { "success", "false" } });
+                    
                     return new DistributionResult(false, null, ex.Message);
+                }
             }
         }
 

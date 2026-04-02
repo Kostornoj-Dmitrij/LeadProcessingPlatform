@@ -1,9 +1,15 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ApiGateway.Host.Middleware;
 using SharedHosting.Extensions;
 using SharedHosting.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddOpenTelemetry().WithMetrics(metrics =>
+{
+    metrics.AddMeter("ApiGateway.Metrics");
+});
 
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
@@ -23,6 +29,7 @@ var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionHandler>();
 app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseMiddleware<YarpMetricsMiddleware>();
 
 app.UseRouting();
 

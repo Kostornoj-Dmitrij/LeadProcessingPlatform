@@ -1,4 +1,6 @@
-﻿using AvroSchemas.Messages.LeadEvents;
+﻿using System.Diagnostics;
+using AvroSchemas.Messages.LeadEvents;
+using EnrichmentService.Application.Metrics;
 using EnrichmentService.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -51,6 +53,7 @@ public class LeadCreatedEventHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        EnrichmentMetrics.EnrichmentRequests.Add(1, new TagList { { "status", "pending" } });
         logger.LogInformation("Enrichment request created for lead {LeadId}", @event.LeadId);
     }
 }
