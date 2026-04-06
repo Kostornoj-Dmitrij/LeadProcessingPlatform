@@ -2,7 +2,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_infrastructure", "_infrastructure", "{0A32C129-9332-4598-B496-6347DDA5B901}"
 	ProjectSection(SolutionItems) = preProject
-		_infrastructure\README.md = _infrastructure\README.md
 		_infrastructure\kafka\init-topics.sh = _infrastructure\kafka\init-topics.sh
 		_infrastructure\kafka\log4j.properties = _infrastructure\kafka\log4j.properties
 		_infrastructure\postgres\init\01-create-databases.sh = _infrastructure\postgres\init\01-create-databases.sh
