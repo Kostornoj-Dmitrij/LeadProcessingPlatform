@@ -50,6 +50,7 @@ var scenario = mode switch
 {
     "Success Flow Only" => SuccessFlowScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
     "Enrichment Failure Only" => EnrichmentFailureScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
+    "Scoring Failure Only" => ScoringFailureScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
     _ => throw new InvalidOperationException($"Mode {mode} not implemented yet")
 };
 
