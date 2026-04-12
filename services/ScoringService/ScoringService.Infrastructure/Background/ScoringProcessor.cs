@@ -23,8 +23,8 @@ public class ScoringProcessor(
     ILogger<ScoringProcessor> logger)
     : BackgroundService
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(3);
-    private readonly int _batchSize = 10;
+    private readonly TimeSpan _pollingInterval = TimeSpan.FromMilliseconds(100);
+    private readonly int _batchSize = 100;
     private const int MaxRetryAttempts = 3;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

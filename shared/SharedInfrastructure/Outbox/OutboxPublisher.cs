@@ -23,8 +23,8 @@ public class OutboxPublisher<TContext>(
     : BackgroundService
     where TContext : DbContext
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
-    private readonly int _batchSize = 100;
+    private readonly TimeSpan _pollingInterval = TimeSpan.FromMilliseconds(100);
+    private readonly int _batchSize = 200;
     private const int MaxRetryAttempts = 5;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

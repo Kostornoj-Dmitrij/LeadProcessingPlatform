@@ -22,8 +22,8 @@ public class InboxProcessor<TInboxStore>(
     : BackgroundService
     where TInboxStore : IInboxStore
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(2);
-    private readonly int _batchSize = 50;
+    private readonly TimeSpan _pollingInterval = TimeSpan.FromMilliseconds(100);
+    private readonly int _batchSize = 200;
     private const int MaxRetryAttempts = 5;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

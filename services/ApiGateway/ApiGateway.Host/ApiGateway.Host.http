@@ -10,7 +10,7 @@ Idempotency-Key: {{$guid}}
   "companyName": "Test Gateway Corp",
   "contactPerson": "Gateway User",
   "email": "test@gateway.com",
-  "phone": "+1-555-999-8888",
+  "phone": "+7-999-999-8888",
   "customFields": {
     "testSource": "gateway",
     "priority": "high"
@@ -26,6 +26,15 @@ Content-Type: application/json
   "companyName": "Simple Gateway Test",
   "email": "simple@gateway.com"
 }
+
+### Получение сводки по статусам списка лидов через API Gateway
+POST {{ApiGateway_HostAddress}}/api/leads/status-summary
+Content-Type: application/json
+
+[
+  "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "4fa85f64-5717-4562-b3fc-2c963f66afa7"
+]
 
 ### Получение лида по идентификатору
 GET {{ApiGateway_HostAddress}}/api/leads/{id}

@@ -21,8 +21,8 @@ public class EnrichmentProcessor(
     ILogger<EnrichmentProcessor> logger)
     : BackgroundService
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
-    private readonly int _batchSize = 10;
+    private readonly TimeSpan _pollingInterval = TimeSpan.FromMilliseconds(100);
+    private readonly int _batchSize = 100;
     private const int MaxRetryAttempts = 3;
     private static readonly TimeSpan[] RetryDelays =
     [

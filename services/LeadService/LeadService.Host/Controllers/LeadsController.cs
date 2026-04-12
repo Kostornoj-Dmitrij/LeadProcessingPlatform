@@ -4,6 +4,7 @@ using LeadService.Application.Commands.CreateLead;
 using LeadService.Application.Common.DTOs;
 using LeadService.Application.Queries.GetLeadById;
 using LeadService.Application.Queries.GetLeadsByStatus;
+using LeadService.Application.Queries.GetLeadsStatusSummary;
 using LeadService.Domain.Enums;
 
 namespace LeadService.Host.Controllers;
@@ -34,6 +35,14 @@ public class LeadsController(IMediator mediator, ILogger<LeadsController> logger
         var result = await mediator.Send(command);
 
         return Accepted(result);
+    }
+
+    [HttpPost("status-summary")]
+    public async Task<ActionResult<LeadsStatusSummaryDto>> GetStatusSummary([FromBody] List<Guid> ids)
+    {
+        var query = new GetLeadsStatusSummaryQuery { LeadIds = ids };
+        var result = await mediator.Send(query);
+        return Ok(result);
     }
 
     [HttpGet("{id}")]

@@ -8,8 +8,22 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="NBomber" Version="6.0.0" />
-        <PackageReference Include="NBomber.Http" Version="6.0.0" />
+        <PackageReference Include="NBomber" Version="5.8.1" />
+        <PackageReference Include="NBomber.Http" Version="5.1.1" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.3" />
+        <PackageReference Include="Spectre.Console" Version="0.49.1" />
+        <PackageReference Include="Npgsql" Version="9.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="appsettings.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\..\shared\SharedKernel\SharedKernel.csproj" />
     </ItemGroup>
 
 </Project>

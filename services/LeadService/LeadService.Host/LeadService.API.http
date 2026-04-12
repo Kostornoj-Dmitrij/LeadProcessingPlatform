@@ -10,7 +10,7 @@ Idempotency-Key: {{$guid}}
   "companyName": "Acme Corporation",
   "contactPerson": "John Doe",
   "email": "john.doe@acme.com",
-  "phone": "+1-555-123-4567",
+  "phone": "+7-999-123-4567",
   "customFields": {
     "industry": "Technology",
     "employeeCount": "50-100",
@@ -27,6 +27,15 @@ Content-Type: application/json
   "companyName": "TechStart Inc",
   "email": "info@techstart.io"
 }
+
+### Получение сводки по статусам списка лидов
+POST {{LeadService_HostAddress}}/api/leads/status-summary
+Content-Type: application/json
+
+[
+  "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "4fa85f64-5717-4562-b3fc-2c963f66afa7"
+]
 
 ### Получение лида по идентификатору
 GET {{LeadService_HostAddress}}/api/leads/3fa85f64-5717-4562-b3fc-2c963f66afa6

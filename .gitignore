@@ -108,3 +108,7 @@ Thumbs.db
 **/Migrations/*.Designer.cs
 **/Migrations/*.cs
 !**/Migrations/ApplicationDbContextModelSnapshot.cs
+
+# Load test reports
+**/LoadTests/**/Reports/
+**/Reports/
