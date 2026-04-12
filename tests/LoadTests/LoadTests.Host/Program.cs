@@ -2,6 +2,7 @@
 using LoadTests.Host.Infrastructure;
 using LoadTests.Host.Scenarios;
 using Microsoft.Extensions.Configuration;
+using NBomber.Contracts;
 using NBomber.CSharp;
 using NBomber.Contracts.Stats;
 using SharedKernel.Json;
@@ -33,10 +34,10 @@ var mode = AnsiConsole.Prompt(
         .Title("[yellow]Select test mode:[/]")
         .AddChoices(
             "Success Flow Only",
-            "Mixed Load",
             "Enrichment Failure Only",
             "Scoring Failure Only",
-            "Distribution Failure Only"));
+            "Distribution Failure Only",
+            "Mixed Load"));
 
 var targetRps = AnsiConsole.Ask($"[yellow]Target RPS (requests per second):[/]", 50);
 var durationSeconds = AnsiConsole.Ask($"[yellow]Test duration (seconds):[/]", 60);
@@ -46,14 +47,38 @@ AnsiConsole.WriteLine();
 
 var generator = new LeadGenerator();
 
-var scenario = mode switch
+ScenarioProps scenario;
+
+if (mode == "Mixed Load")
 {
-    "Success Flow Only" => SuccessFlowScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
-    "Enrichment Failure Only" => EnrichmentFailureScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
-    "Scoring Failure Only" => ScoringFailureScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
-    "Distribution Failure Only" => DistributionFailureScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
-    _ => throw new InvalidOperationException($"Mode {mode} not implemented yet")
-};
+    var successWeight = AnsiConsole.Ask("[yellow]Success flow weight (%):[/]", 70);
+    var enrichmentFailWeight = AnsiConsole.Ask("[yellow]Enrichment failure weight (%):[/]", 10);
+    var scoringFailWeight = AnsiConsole.Ask("[yellow]Scoring failure weight (%):[/]", 10);
+    var distributionFailWeight = AnsiConsole.Ask("[yellow]Distribution failure weight (%):[/]", 10);
+
+    scenario = MixedLoadScenario.Create(
+        apiGatewayUrl, 
+        targetRps, 
+        durationSeconds, 
+        generator,
+        successWeight,
+        enrichmentFailWeight,
+        scoringFailWeight,
+        distributionFailWeight);
+
+    AnsiConsole.MarkupLine($"[green]Mixed load weights: Success={successWeight}%, EnrichmentFail={enrichmentFailWeight}%, ScoringFail={scoringFailWeight}%, DistributionFail={distributionFailWeight}%[/]");
+}
+else
+{
+    scenario = mode switch
+    {
+        "Success Flow Only" => SuccessFlowScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
+        "Enrichment Failure Only" => EnrichmentFailureScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
+        "Scoring Failure Only" => ScoringFailureScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
+        "Distribution Failure Only" => DistributionFailureScenario.Create(apiGatewayUrl, targetRps, durationSeconds, generator),
+        _ => throw new InvalidOperationException($"Mode {mode} not implemented yet")
+    };
+}
 
 AnsiConsole.MarkupLine($"[green]Starting test: {mode}[/]");
 AnsiConsole.MarkupLine($"[green]Target: {targetRps} RPS for {durationSeconds} seconds[/]");
@@ -88,6 +113,32 @@ try
 
     AnsiConsole.Write(table);
 
+    if (mode == "Mixed Load")
+    {
+        AnsiConsole.WriteLine();
+        var breakdownTable = new Table()
+            .Border(TableBorder.Rounded)
+            .AddColumn("Path")
+            .AddColumn("Count")
+            .AddColumn("Percentage");
+
+        var pathGroups = generator.ExpectedPaths
+            .GroupBy(kvp => kvp.Value)
+            .Select(g => new { Path = g.Key.ToString(), Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .ToList();
+
+        foreach (var group in pathGroups)
+        {
+            var percentage = (double)group.Count / generator.CreatedLeadIds.Count * 100;
+            var color = group.Path.Contains("Success") ? "green" : 
+                       group.Path.Contains("Failure") ? "yellow" : "white";
+            breakdownTable.AddRow($"[{color}]{group.Path}[/]", group.Count.ToString(), $"{percentage:F1}%");
+        }
+
+        AnsiConsole.Write(breakdownTable);
+    }
+
     if (validateAfterTest && generator.CreatedLeadIds.Count > 0)
     {
         AnsiConsole.WriteLine();
@@ -121,13 +172,32 @@ try
         else
         {
             AnsiConsole.MarkupLine("[red]✗ VALIDATION FAILED![/]");
-            foreach (var error in validationReport.Errors.Take(20))
+
+            var errorsByType = validationReport.Errors
+                .GroupBy(e => 
+                    e.Contains("No status history") ? "No History" : 
+                    e.Contains("First status") ? "Wrong Initial Status" :
+                    e.Contains("Final status") ? "Not Closed" :
+                    e.Contains("Expected path") ? "Path Mismatch" : 
+                    e.Contains("Invalid state transition") ? "Invalid Transition" : 
+                    "Other")
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            foreach (var errorType in errorsByType)
+            {
+                var color = errorType.Key == "No History" ? "red" : "yellow";
+                AnsiConsole.MarkupLine($"[{color}]  {errorType.Key}: {errorType.Value}[/]");
+            }
+
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("[grey]Sample errors:[/]");
+            foreach (var error in validationReport.Errors.Take(10))
             {
                 AnsiConsole.MarkupLine($"[red]  {error}[/]");
             }
-            if (validationReport.Errors.Count > 20)
+            if (validationReport.Errors.Count > 10)
             {
-                AnsiConsole.MarkupLine($"[grey]  ... and {validationReport.Errors.Count - 20} more errors[/]");
+                AnsiConsole.MarkupLine($"[grey]  ... and {validationReport.Errors.Count - 10} more errors[/]");
             }
         }
 
@@ -151,6 +221,42 @@ try
             timesTable.AddRow("P99 Time to Close", $"{p99:F2}");
 
             AnsiConsole.Write(timesTable);
+
+            if (mode == "Mixed Load")
+            {
+                AnsiConsole.WriteLine();
+                var pathTimesTable = new Table()
+                    .Border(TableBorder.Rounded)
+                    .AddColumn("Path")
+                    .AddColumn("Count")
+                    .AddColumn("Avg Time (s)")
+                    .AddColumn("P95 Time (s)");
+
+                var timesByPath = validationReport.ProcessingTimes
+                    .GroupBy(t => t.ExpectedPath)
+                    .Select(g => new
+                    {
+                        Path = g.Key,
+                        Count = g.Count(),
+                        Avg = g.Average(t => t.TotalSeconds),
+                        P95 = g.OrderBy(t => t.TotalSeconds)
+                            .ElementAt((int)(g.Count() * 0.95))
+                            .TotalSeconds
+                    })
+                    .OrderBy(x => x.Path)
+                    .ToList();
+
+                foreach (var stat in timesByPath)
+                {
+                    pathTimesTable.AddRow(
+                        stat.Path,
+                        stat.Count.ToString(),
+                        $"{stat.Avg:F2}",
+                        $"{stat.P95:F2}");
+                }
+
+                AnsiConsole.Write(pathTimesTable);
+            }
         }
 
         var reportPath = Path.Combine("Reports", $"validation_{DateTime.Now:yyyyMMdd_HHmmss}.json");
