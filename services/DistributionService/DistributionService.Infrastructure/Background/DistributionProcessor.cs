@@ -122,9 +122,6 @@ public class DistributionProcessor(
 
             DistributionMetrics.DistributionRequests.Add(1, new TagList { { "status", "processing" } });
 
-            DistributionMetrics.DistributionAttempts.Add(1, new TagList
-                { { "target", freshRequest.Target ?? "unknown" }, { "rule_id", freshRequest.RuleId?.ToString() ?? "none" } });
-
             var customFields = freshRequest.CustomFields != null
                 ? new Dictionary<string, string>(freshRequest.CustomFields)
                 : new Dictionary<string, string>();

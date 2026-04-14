@@ -143,14 +143,14 @@ docker-compose down -v
 
 **Метрики:**
 
-| Сервис                   | Доступные метрики                                                                                                       |
-|:-------------------------|:------------------------------------------------------------------------------------------------------------------------|
-| **API Gateway**          | `gateway.proxy.duration`, `gateway.requests.total`                                                                      |
-| **Lead Service**         | `leads.created/qualified/rejected/distributed/closed.total`, `lead.processing.duration`                                 |
-| **Enrichment Service**   | `enrichment.requests/success/failure/retry.total`, `enrichment.duration`                                                |
-| **Scoring Service**      | `scoring.requests/success/failure.total`, `scoring.rules.evaluated`                                                     |
-| **Distribution Service** | `distribution.requests/attempts/success/failure/retry.total`, `distribution.duration`, `distribution.http.status_codes` |
-| **Notification Service** | `notifications.sent/failed.total`                                                                                       |
+| Сервис                   | Доступные метрики                                                                                              |
+|:-------------------------|:---------------------------------------------------------------------------------------------------------------|
+| **API Gateway**          | `gateway.proxy.duration`, `gateway.requests.total`                                                             |
+| **Lead Service**         | `leads.created/qualified/rejected/distributed/closed.total`, `lead.processing.duration`                        |
+| **Enrichment Service**   | `enrichment.requests/success/failure/retry.total`, `enrichment.duration`                                       |
+| **Scoring Service**      | `scoring.requests/success/failure.total`, `scoring.rules.evaluated`                                            |
+| **Distribution Service** | `distribution.requests/success/failure/retry.total`, `distribution.duration`, `distribution.http.status_codes` |
+| **Notification Service** | `notifications.sent/failed.total`                                                                              |
 
 ### 4. Хореографируемая Saga
 
@@ -180,7 +180,7 @@ LeadProcessingPlatform/
 │   ├── DistributionService/         # Сервис распределения
 │   └── NotificationService/         # Сервис уведомлений
 ├── shared/                          # Общие библиотеки
-│   ├── SharedKernel/                # BaseEntity, ValueObject, интерфейсы
+│   ├── SharedKernel/                # Entity, ValueObject, интерфейсы
 │   ├── SharedInfrastructure/        # Outbox, Inbox, Kafka, OpenTelemetry
 │   ├── SharedHosting/               # Настройка хоста, middleware
 │   └── AvroSchemas/                 # Avro-схемы для событий
@@ -213,3 +213,12 @@ LeadProcessingPlatform/
 cd tests/LoadTests/LoadTests.Host
 dotnet run
 ```
+
+Убедитесь, что вся система запущена через docker-compose up -d.
+
+В интерактивном режиме можно выбрать сценарий, задать RPS и длительность теста.
+После завершения нагрузки утилита предложит дождаться обработки всех лидов и выполнит валидацию консистенции (проверка корректности переходов статусов согласно State Machine).
+
+**Результаты:**
+
+Отчеты в форматах .html и .txt сохраняются в папку tests/LoadTests/LoadTests.Host/Reports/.

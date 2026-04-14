@@ -13,10 +13,6 @@ public static class DistributionMetrics
         Meter.CreateCounter<int>("distribution.requests.total", 
             description: "Total number of distribution requests by status");
 
-    public static readonly Counter<int> DistributionAttempts = 
-        Meter.CreateCounter<int>("distribution.attempts.total", 
-            description: "Total number of distribution attempts by target and rule");
-
     public static readonly Counter<int> DistributionSuccess = 
         Meter.CreateCounter<int>("distribution.success.total", 
             description: "Total number of successful distributions by target");
