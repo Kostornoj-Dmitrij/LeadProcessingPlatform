@@ -89,7 +89,8 @@ public static class OpenTelemetryExtensions
                                    !commandText.Contains("pending_enriched_data") &&
                                    !commandText.Contains("scoring_requests") &&
                                    !commandText.Contains("scoring_rules") &&
-                                   !commandText.Contains("enrichment_requests");
+                                   !commandText.Contains("enrichment_requests") &&
+                                   !commandText.Contains("distribution_requests");
                         };
                     })
                     .AddNpgsql();

@@ -1,4 +1,5 @@
 ﻿using DistributionService.Application.Common.Interfaces;
+using DistributionService.Infrastructure.Background;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using DistributionService.Infrastructure.Clients;
@@ -18,6 +19,8 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
+
+        services.AddHostedService<DistributionProcessor>();
 
         services.Configure<DistributionOptions>(configuration.GetSection("Distribution"));
 

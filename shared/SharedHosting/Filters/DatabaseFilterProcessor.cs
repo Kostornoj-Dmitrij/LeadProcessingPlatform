@@ -14,7 +14,8 @@ public class DatabaseFilterProcessor : BaseProcessor<Activity>
         "outbox_messages", 
         "pending_enriched_data",
         "scoring_requests",
-        "enrichment_requests"
+        "enrichment_requests",
+        "distribution_requests"
     ];
 
     public override void OnEnd(Activity activity)

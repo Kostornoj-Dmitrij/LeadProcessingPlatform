@@ -1,7 +1,5 @@
 ﻿using AutoFixture.NUnit3;
 using AvroSchemas.Messages.LeadEvents;
-using DistributionService.Application.Common.DTOs;
-using DistributionService.Application.Common.Interfaces;
 using DistributionService.Application.EventHandlers;
 using DistributionService.Domain.Entities;
 using DistributionService.Domain.Enums;
@@ -21,8 +19,8 @@ namespace DistributionService.Tests.Application.EventHandlers;
 public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 {
     private static readonly Type RuleType = typeof(DistributionRule);
+    private static readonly Type RequestType = typeof(DistributionRequest);
 
-    private Mock<IDistributionTargetClient> _targetClientMock = null!;
     private Mock<ILogger<LeadQualifiedEventHandler>> _loggerMock = null!;
     private LeadQualifiedEventHandler _sut = null!;
 
@@ -30,50 +28,115 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     public void Setup()
     {
         BaseSetup();
-        _targetClientMock = new Mock<IDistributionTargetClient>();
         _loggerMock = new Mock<ILogger<LeadQualifiedEventHandler>>();
-        _sut = new LeadQualifiedEventHandler(UnitOfWorkMock.Object, _targetClientMock.Object, _loggerMock.Object);
+        _sut = new LeadQualifiedEventHandler(UnitOfWorkMock.Object, _loggerMock.Object);
     }
 
     [TearDown]
     public void Cleanup()
     {
         BaseCleanup();
-        _targetClientMock.Reset();
         _loggerMock.Reset();
     }
 
-    #region Successful Distribution
+    #region Successful Request Creation
 
     [Test, AutoData]
-    public async Task Handle_WhenRulesExistAndApplicable_ShouldDistributeToTarget(
+    public async Task Handle_WhenRulesExistAndApplicable_ShouldCreateDistributionRequest(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                @event.LeadId,
-                @event.CompanyName,
-                @event.Email,
-                @event.Score,
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
+            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test, AutoData]
+    public async Task Handle_WhenExistingRequestExists_ShouldSkip(
+        [WithValidLeadQualifiedEvent] LeadQualified @event,
+        [WithValidDistributionRule] DistributionRule rule,
+        [WithValidDistributionRequest] DistributionRequest existingRequest)
+    {
+        RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
+        RequestType.GetProperty(nameof(DistributionRequest.LeadId))?.SetValue(existingRequest, @event.LeadId);
+
+        var rules = new List<DistributionRule> { rule };
+        var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet([existingRequest]);
+        var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
+
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
+
+        await _sut.Handle(@event, CancellationToken.None);
+
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(
+                    $"Lead {@event.LeadId} already has a distribution request")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Test, AutoData]
+    public async Task Handle_ShouldCreateRequestWithCorrectData(
+        [WithValidLeadQualifiedEvent] LeadQualified @event,
+        [WithValidDistributionRule] DistributionRule rule)
+    {
+        RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
+
+        DistributionRequest? createdRequest = null;
+        var rules = new List<DistributionRule> { rule };
+        var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
+        var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
+
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
+
+        await _sut.Handle(@event, CancellationToken.None);
+
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.LeadId, Is.EqualTo(@event.LeadId));
+        Assert.That(createdRequest.CompanyName, Is.EqualTo(@event.CompanyName));
+        Assert.That(createdRequest.Email, Is.EqualTo(@event.Email));
+        Assert.That(createdRequest.Score, Is.EqualTo(@event.Score));
+        Assert.That(createdRequest.ContactPerson, Is.EqualTo(@event.ContactPerson));
+        Assert.That(createdRequest.CustomFields, Is.EqualTo(@event.CustomFields));
+        Assert.That(createdRequest.RuleId, Is.EqualTo(rule.Id));
+        Assert.That(createdRequest.Status, Is.EqualTo(DistributionRequestStatus.Pending));
+        Assert.That(createdRequest.RetryCount, Is.EqualTo(0));
     }
 
     #endregion
@@ -86,13 +149,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     {
         var rules = new List<DistributionRule>();
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -116,13 +183,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -135,90 +206,68 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task Handle_WhenRuleHasScoreThresholdCondition_ShouldEvaluateCorrectly(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.FixedTarget, "{\"type\":\"score_threshold\",\"min_score\":75}")] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.FixedTarget, "{\"type\":\"score_threshold\",\"min_score\":75}")] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
         UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
     public async Task Handle_WhenScoreThresholdConditionHasNoMinScore_ShouldEvaluateToTrue(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.FixedTarget, "{\"type\":\"score_threshold\"}")] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.FixedTarget, "{\"type\":\"score_threshold\"}")] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
-    public async Task Handle_WhenScoreThresholdConditionHasInvalidMinScore_ShouldEvaluateToTrue(
+    public async Task Handle_WhenScoreThresholdConditionHasInvalidMinScore_ShouldNotMatch(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.FixedTarget, "{\"type\":\"score_threshold\",\"min_score\":\"invalid\"}")] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.FixedTarget, "{\"type\":\"score_threshold\",\"min_score\":\"invalid\"}")] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -228,33 +277,25 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     #region Rule Evaluation - Industry Match
 
     [Test, AutoData]
-    public async Task Handle_WhenRuleHasIndustryMatchConditionAndMatches_ShouldDistribute(
+    public async Task Handle_WhenRuleHasIndustryMatchConditionAndMatches_ShouldCreateRequest(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.Territory, "{\"type\":\"industry_match\",\"industry\":\"Technology\"}")] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.Territory, "{\"type\":\"industry_match\",\"industry\":\"Technology\"}")] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
@@ -266,13 +307,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -288,13 +333,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -304,33 +353,25 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     #region Rule Evaluation - Revenue Range
 
     [Test, AutoData]
-    public async Task Handle_WhenRuleHasRevenueRangeConditionAndMatches_ShouldDistribute(
+    public async Task Handle_WhenRuleHasRevenueRangeConditionAndMatches_ShouldCreateRequest(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.Territory, "{\"type\":\"revenue_range\",\"range\":\"$10M-$50M\"}")] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.Territory, "{\"type\":\"revenue_range\",\"range\":\"$10M-$50M\"}")] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
@@ -342,13 +383,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -365,13 +410,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -390,13 +439,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -410,13 +463,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -430,9 +487,11 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
@@ -446,6 +505,8 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -457,102 +518,122 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task Handle_WhenRuleUsesScoreBasedStrategy_ShouldResolveTargetCorrectly(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, 
             "{\"thresholds\":[{\"min_score\":90,\"target\":\"premium\"},{\"min_score\":70,\"target\":\"standard\"}],\"default_target\":\"basic\"}");
 
+        DistributionRequest? createdRequest = null;
+        DistributionHistory? createdHistory = null;
+        
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) =>
+            {
+                createdRequest = req;
+            })
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionHistory>().AddAsync(
+                It.IsAny<DistributionHistory>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<DistributionHistory, CancellationToken>((hist, _) =>
+            {
+                createdHistory = hist;
+            })
+            .ReturnsAsync((DistributionHistory _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null, $"Request was null. History error: {createdHistory?.ErrorMessage}");
+        Assert.That(createdRequest!.Target, Is.EqualTo("standard"));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
     public async Task Handle_WhenScoreBasedConfigHasNoThresholds_ShouldUseDefaultTarget(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, "{\"default_target\":\"default_system\"}");
 
+        DistributionRequest? createdRequest = null;
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.Target, Is.EqualTo("default_system"));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
     public async Task Handle_WhenScoreBasedConfigHasInvalidThresholds_ShouldUseDefaultTarget(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, "{\"thresholds\":\"invalid\",\"default_target\":\"default_system\"}");
 
+        DistributionRequest? createdRequest = null;
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.Target, Is.EqualTo("default_system"));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
     public async Task Handle_WhenScoreBasedConfigUsesListObjectType_ShouldResolveTargetCorrectly(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
@@ -569,33 +650,35 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
         var targetConfigJson = System.Text.Json.JsonSerializer.Serialize(targetConfig);
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, targetConfigJson);
 
+        DistributionRequest? createdRequest = null;
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.Target, Is.EqualTo("standard"));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
     public async Task Handle_WhenScoreBasedConfigHasInvalidThresholdsType_ShouldUseDefaultTarget(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
@@ -607,39 +690,41 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
         var targetConfigJson = System.Text.Json.JsonSerializer.Serialize(targetConfig);
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, targetConfigJson);
 
+        DistributionRequest? createdRequest = null;
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.Target, Is.EqualTo("default_system"));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
     public async Task Handle_WhenScoreBasedThresholdHasNoMinScore_ShouldUseZeroAndResolveTarget(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
         var thresholdsList = new List<object>
         {
-            new Dictionary<string, object> { { "target", "special_target" } }
+            new Dictionary<string, object> { { "target", "specialTarget" } }
         };
         var targetConfig = new Dictionary<string, object>
         {
@@ -649,33 +734,35 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
         var targetConfigJson = System.Text.Json.JsonSerializer.Serialize(targetConfig);
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, targetConfigJson);
 
+        DistributionRequest? createdRequest = null;
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.Target, Is.EqualTo("specialTarget"));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
     public async Task Handle_WhenScoreBasedThresholdHasTargetNull_ShouldUseDefaultTarget(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
@@ -686,38 +773,40 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
         var targetConfig = new Dictionary<string, object>
         {
             { "thresholds", thresholdsList },
-            { "default_target", "fallback_target" }
+            { "default_target", "fallbackTarget" }
         };
         var targetConfigJson = System.Text.Json.JsonSerializer.Serialize(targetConfig);
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, targetConfigJson);
 
+        DistributionRequest? createdRequest = null;
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.Target, Is.EqualTo("fallbackTarget"));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
-    public async Task Handle_WhenScoreBasedConfigHasNoDefaultTargetAndNoMatchingThreshold_ShouldReturnEmptyString(
+    public async Task Handle_WhenScoreBasedConfigHasNoDefaultTargetAndNoMatchingThreshold_ShouldRecordFailure(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.ScoreBased)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
@@ -734,22 +823,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -761,33 +845,36 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task Handle_WhenRuleUsesRoundRobinStrategy_ShouldResolveTarget(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.RoundRobin)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.RoundRobin)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, 
             "{\"targets\":[\"rep1\",\"rep2\",\"rep3\"]}");
 
+        DistributionRequest? createdRequest = null;
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.Target, Is.Not.Null.And.Not.Empty);
+        Assert.That(new[] { "rep1", "rep2", "rep3" }, Does.Contain(createdRequest.Target));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
@@ -800,13 +887,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -821,13 +912,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -846,13 +941,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -867,13 +966,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -881,8 +984,7 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public async Task Handle_WhenSpecializationConfigUsesDictionaryObjectType_ShouldResolveTargetCorrectly(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.Specialization)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.Specialization)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
@@ -898,26 +1000,29 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
         var targetConfigJson = System.Text.Json.JsonSerializer.Serialize(targetConfig);
         RuleType.GetProperty(nameof(DistributionRule.TargetConfigJson))?.SetValue(rule, targetConfigJson);
 
+        DistributionRequest? createdRequest = null;
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
+
+        UnitOfWorkMock
+            .Setup(x => x.Set<DistributionRequest>().AddAsync(
+                It.IsAny<DistributionRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+            .Callback<DistributionRequest, CancellationToken>((req, _) => createdRequest = req)
+            .ReturnsAsync((DistributionRequest _, CancellationToken _) => null!);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(createdRequest, Is.Not.Null);
+        Assert.That(createdRequest!.Target, Is.EqualTo("mid_market"));
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
@@ -936,22 +1041,25 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test, AutoData]
-    public async Task Handle_WhenSpecializationConfigHasNoDefault_ShouldFallbackToEmptyString(
+    public async Task Handle_WhenSpecializationConfigHasNoDefault_ShouldRecordFailure(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule(DistributionRuleStrategy.Specialization)] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule(DistributionRuleStrategy.Specialization)] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
@@ -971,136 +1079,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
 
         await _sut.Handle(@event, CancellationToken.None);
 
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    #endregion
-
-    #region Target Client - Failure and Retry
-
-    [Test, AutoData]
-    public async Task Handle_WhenTargetClientReturnsFailure_ShouldRecordFailure(
-        [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule] DistributionRule rule,
-        [WithDistributionResultFailure] DistributionResult result)
-    {
-        RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
-
-        var rules = new List<DistributionRule> { rule };
-        var ruleSetMock = CreateMockDbSet(rules);
-        var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
-
-        UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
-        UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
-
-        await _sut.Handle(@event, CancellationToken.None);
-
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
-        UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Test, AutoData]
-    public async Task Handle_WhenTargetClientThrowsException_ShouldRetryAndRecordFailure(
-        [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule] DistributionRule rule)
-    {
-        RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
-
-        var rules = new List<DistributionRule> { rule };
-        var ruleSetMock = CreateMockDbSet(rules);
-        var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
-
-        UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
-        UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Network error"));
-
-        await _sut.Handle(@event, CancellationToken.None);
-
-        _targetClientMock.Verify(x => x.SendAsync(
-            It.IsAny<Guid>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<int>(),
-            It.IsAny<Dictionary<string, string>>(),
-            It.IsAny<string>(),
-            It.IsAny<CancellationToken>()), Times.Exactly(3));
-
-        UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
-            It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
-        UnitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Test, AutoData]
-    public async Task Handle_WhenSendWithRetrySucceedsOnSecondAttempt_ShouldSucceed(
-        [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
-    {
-        RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
-
-        var rules = new List<DistributionRule> { rule };
-        var ruleSetMock = CreateMockDbSet(rules);
-        var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
-
-        UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
-        UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.SetupSequence(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new DistributionResult(false, null, "Temporary error"))
-            .ReturnsAsync(result);
-
-        await _sut.Handle(@event, CancellationToken.None);
-
-        _targetClientMock.Verify(x => x.SendAsync(
-            It.IsAny<Guid>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<int>(),
-            It.IsAny<Dictionary<string, string>>(),
-            It.IsAny<string>(),
-            It.IsAny<CancellationToken>()), Times.Exactly(2));
-
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -1112,26 +1101,18 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
     [Test, AutoData]
     public void Handle_WhenConcurrencyExceptionOccurs_ShouldThrow(
         [WithValidLeadQualifiedEvent] LeadQualified @event,
-        [WithValidDistributionRule] DistributionRule rule,
-        [WithDistributionResultSuccess] DistributionResult result)
+        [WithValidDistributionRule] DistributionRule rule)
     {
         RuleType.GetProperty(nameof(DistributionRule.Id))?.SetValue(rule, Guid.NewGuid());
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
-        _targetClientMock.Setup(x => x.SendAsync(
-                It.IsAny<Guid>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<Dictionary<string, string>>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
         UnitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
@@ -1153,13 +1134,17 @@ public class LeadQualifiedEventHandlerTests : DatabaseTestBase
 
         var rules = new List<DistributionRule> { rule };
         var ruleSetMock = CreateMockDbSet(rules);
+        var requestSetMock = CreateMockDbSet(new List<DistributionRequest>());
         var historySetMock = CreateMockDbSet(new List<DistributionHistory>());
 
         UnitOfWorkMock.Setup(x => x.Set<DistributionRule>()).Returns(ruleSetMock.Object);
+        UnitOfWorkMock.Setup(x => x.Set<DistributionRequest>()).Returns(requestSetMock.Object);
         UnitOfWorkMock.Setup(x => x.Set<DistributionHistory>()).Returns(historySetMock.Object);
 
         await _sut.Handle(@event, CancellationToken.None);
 
+        UnitOfWorkMock.Verify(x => x.Set<DistributionRequest>().AddAsync(
+            It.IsAny<DistributionRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         UnitOfWorkMock.Verify(x => x.Set<DistributionHistory>().AddAsync(
             It.IsAny<DistributionHistory>(), It.IsAny<CancellationToken>()), Times.Once);
     }

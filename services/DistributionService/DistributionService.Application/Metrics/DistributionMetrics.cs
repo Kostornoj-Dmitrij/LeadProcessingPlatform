@@ -9,6 +9,10 @@ public static class DistributionMetrics
 {
     private static readonly Meter Meter = new("DistributionService.Metrics", "1.0.0");
 
+    public static readonly Counter<int> DistributionRequests = 
+        Meter.CreateCounter<int>("distribution.requests.total", 
+            description: "Total number of distribution requests by status");
+
     public static readonly Counter<int> DistributionAttempts = 
         Meter.CreateCounter<int>("distribution.attempts.total", 
             description: "Total number of distribution attempts by target and rule");

@@ -26,6 +26,7 @@ public class ApplicationDbContext(
 
     public DbSet<DistributionRule> DistributionRules => Set<DistributionRule>();
     public DbSet<DistributionHistory> DistributionHistory => Set<DistributionHistory>();
+    public DbSet<DistributionRequest> DistributionRequests => Set<DistributionRequest>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
@@ -47,6 +48,11 @@ public class ApplicationDbContext(
             if (entry.Entity is DistributionHistory history && history.DomainEvents.Any())
             {
                 aggregatesWithEvents.Add((history, history.DomainEvents.ToList()));
+            }
+
+            if (entry.Entity is DistributionRequest request && request.DomainEvents.Any())
+            {
+                aggregatesWithEvents.Add((request, request.DomainEvents.ToList()));
             }
         }
 

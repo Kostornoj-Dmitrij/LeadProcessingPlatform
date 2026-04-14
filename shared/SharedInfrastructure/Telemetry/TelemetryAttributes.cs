@@ -25,7 +25,7 @@ public static class TelemetryAttributes
 
     public const string ServiceName = "service.name";
     public const string DistributionTarget = "distribution.target";
-    public const string DistributionCompany = "distribution.company";
+    public const string DistributionCompanyName = "distribution.company_name";
     public const string DistributionScore = "distribution.score";
     public const string DistributionReason = "distribution.reason";
     public const string DistributionHttpStatusCode = "distribution.http_status_code";
@@ -33,6 +33,9 @@ public static class TelemetryAttributes
     public const string DistributionMode = "distribution.mode";
     public const string DistributionForcedFailure = "distribution.forced_failure";
     public const string DistributionDistributedAt = "distribution.distributed_at";
+    public const string DistributionRequestId = "distribution.request_id";
+    public const string DistributionAttempt = "distribution.attempt";
+    public const string DistributionMaxRetries = "distribution.max_retries";
 
     public const string EnrichmentRequestId = "enrichment.request_id";
     public const string EnrichmentCompanyName = "enrichment.company_name";

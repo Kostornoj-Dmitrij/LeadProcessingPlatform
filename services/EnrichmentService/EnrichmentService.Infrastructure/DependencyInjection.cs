@@ -1,7 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using EnrichmentService.Application.Common.Interfaces;
 using EnrichmentService.Infrastructure.Background;
 using EnrichmentService.Infrastructure.Clients;

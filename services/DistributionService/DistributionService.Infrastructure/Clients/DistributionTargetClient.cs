@@ -37,7 +37,7 @@ public class DistributionTargetClient(
             .AddTags(
                 (TelemetryAttributes.LeadId, leadId),
                 (TelemetryAttributes.DistributionTarget, target),
-                (TelemetryAttributes.DistributionCompany, companyName),
+                (TelemetryAttributes.DistributionCompanyName, companyName),
                 (TelemetryAttributes.DistributionScore, score));
 
         logger.LogInformation("Sending lead {LeadId} to target system: {Target}", leadId, target);

@@ -7,15 +7,15 @@ using DistributionService.Tests.Common.Customizations;
 namespace DistributionService.Tests.Common.Attributes;
 
 /// <summary>
-/// Атрибут для генерации успешного результата распределения
+/// Атрибут для генерации валидного DistributionRequest
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
-public class WithDistributionResultSuccessAttribute : CustomizeAttribute
+public class WithValidDistributionRequestAttribute : CustomizeAttribute
 {
     public override ICustomization GetCustomization(ParameterInfo parameter)
     {
         return new CompositeCustomization(
             new AutoMoqCustomization(),
-            new DistributionResultSuccessCustomization());
+            new DistributionRequestCustomization());
     }
 }
