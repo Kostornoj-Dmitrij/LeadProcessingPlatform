@@ -26,14 +26,14 @@
 
 ### Ключевые компоненты
 
-| Компонент | Ответственность | База данных |
-|:---|:---|:---|
-| **API Gateway (YARP)** | Единая точка входа, маршрутизация запросов к Lead Service | — |
-| **Lead Service** | Центральный агрегат. Управляет жизненным циклом лида (конечный автомат), идемпотентностью HTTP API | `lead_db` |
-| **Enrichment Service** | Асинхронное обогащение данных из внешних источников (API эмулятор) с механизмом повторных попыток | `enrichment_db` |
-| **Scoring Service** | Квалификация лида на основе динамических правил (хранятся в БД). Поддержка версионности правил | `scoring_db` |
+| Компонент                | Ответственность                                                                                    | База данных       |
+|:-------------------------|:---------------------------------------------------------------------------------------------------|:------------------|
+| **API Gateway (YARP)**   | Единая точка входа, маршрутизация запросов к Lead Service                                          | —                 |
+| **Lead Service**         | Центральный агрегат. Управляет жизненным циклом лида (конечный автомат), идемпотентностью HTTP API | `lead_db`         |
+| **Enrichment Service**   | Асинхронное обогащение данных из внешних источников (API эмулятор) с механизмом повторных попыток  | `enrichment_db`   |
+| **Scoring Service**      | Квалификация лида на основе динамических правил (хранятся в БД). Поддержка версионности правил     | `scoring_db`      |
 | **Distribution Service** | Распределение лидов по менеджерам/системам на основе стратегий (RoundRobin, Territory, ScoreBased) | `distribution_db` |
-| **Notification Service** | Отправка уведомлений о ключевых событиях (лог/email) | `notification_db` |
+| **Notification Service** | Отправка уведомлений о ключевых событиях (лог/email)                                               | `notification_db` |
 
 ### Диаграмма состояний агрегата Lead
 
@@ -41,15 +41,15 @@
 
 ## Технологический стек
 
-| Категория | Технологии |
-|:---|:---|
-| **Платформа** | .NET 10, ASP.NET Core |
+| Категория            | Технологии                                             |
+|:---------------------|:-------------------------------------------------------|
+| **Платформа**        | .NET 10, ASP.NET Core                                  |
 | **Брокер сообщений** | Apache Kafka (Confluent.Kafka), Schema Registry (Avro) |
-| **База данных** | PostgreSQL 16, Entity Framework Core 10 |
-| **Наблюдаемость** | OpenTelemetry, .NET Aspire Dashboard |
-| **Контейнеризация** | Docker, Docker Compose |
-| **API Gateway** | YARP |
-| **Тестирование** | NUnit, Moq, AutoFixture, NBomber |
+| **База данных**      | PostgreSQL 16, Entity Framework Core 10                |
+| **Наблюдаемость**    | OpenTelemetry, .NET Aspire Dashboard                   |
+| **Контейнеризация**  | Docker, Docker Compose                                 |
+| **API Gateway**      | YARP                                                   |
+| **Тестирование**     | NUnit, Moq, AutoFixture, NBomber                       |
 
 ## Старт
 
@@ -87,11 +87,11 @@ docker-compose down -v
 
 Используйте Postman (или любой другой клиент) для отправки запроса:
 
-| Параметр | Значение |
-|:---|:---|
-| **Method** | `POST` |
-| **URL** | `http://localhost:8080/api/leads` |
-| **Header** | `Content-Type: application/json` |
+| Параметр   | Значение                                      |
+|:-----------|:----------------------------------------------|
+| **Method** | `POST`                                        |
+| **URL**    | `http://localhost:8080/api/leads`             |
+| **Header** | `Content-Type: application/json`              |
 | **Header** | `Idempotency-Key: <уникальный-идентификатор>` |
 
 **Тело запроса (JSON):**
@@ -128,11 +128,11 @@ docker-compose down -v
 
 ### 2. Идемпотентность
 
-| Уровень | Механизм | Описание |
-|:---|:---|:---|
-| **HTTP (Lead Service)** | `Idempotency-Key` заголовок | Ключ и хэш запроса сохраняются в БД. При повторном запросе возвращается кэшированный ответ |
-| **События (Transactional Inbox)** | Таблица `inbox_messages` | Каждый потребитель сохраняет `message_id`. Уникальный индекс предотвращает повторную обработку |
-| **Dead Letter Queue (DLQ)** | Специальный топик Kafka | Сообщения, не прошедшие обработку после N попыток, перемещаются в DLQ для анализа |
+| Уровень                           | Механизм                    | Описание                                                                                       |
+|:----------------------------------|:----------------------------|:-----------------------------------------------------------------------------------------------|
+| **HTTP (Lead Service)**           | `Idempotency-Key` заголовок | Ключ и хэш запроса сохраняются в БД. При повторном запросе возвращается кэшированный ответ     |
+| **События (Transactional Inbox)** | Таблица `inbox_messages`    | Каждый потребитель сохраняет `message_id`. Уникальный индекс предотвращает повторную обработку |
+| **Dead Letter Queue (DLQ)**       | Специальный топик Kafka     | Сообщения, не прошедшие обработку после N попыток, перемещаются в DLQ для анализа              |
 
 ### 3. Наблюдаемость (OpenTelemetry)
 
@@ -143,14 +143,14 @@ docker-compose down -v
 
 **Метрики:**
 
-| Сервис | Доступные метрики |
-|:---|:---|
-| **API Gateway** | `gateway.proxy.duration`, `gateway.requests.total` |
-| **Lead Service** | `leads.created/qualified/rejected/distributed/closed.total`, `lead.processing.duration` |
-| **Enrichment Service** | `enrichment.requests/success/failure/retry.total`, `enrichment.duration` |
-| **Scoring Service** | `scoring.requests/success/failure.total`, `scoring.rules.evaluated` |
-| **Distribution Service** | `distribution.attempts/success/failure/retry.total`, `distribution.duration`, `distribution.http.status_codes` |
-| **Notification Service** | `notifications.sent/failed.total` |
+| Сервис                   | Доступные метрики                                                                                                       |
+|:-------------------------|:------------------------------------------------------------------------------------------------------------------------|
+| **API Gateway**          | `gateway.proxy.duration`, `gateway.requests.total`                                                                      |
+| **Lead Service**         | `leads.created/qualified/rejected/distributed/closed.total`, `lead.processing.duration`                                 |
+| **Enrichment Service**   | `enrichment.requests/success/failure/retry.total`, `enrichment.duration`                                                |
+| **Scoring Service**      | `scoring.requests/success/failure.total`, `scoring.rules.evaluated`                                                     |
+| **Distribution Service** | `distribution.requests/attempts/success/failure/retry.total`, `distribution.duration`, `distribution.http.status_codes` |
+| **Notification Service** | `notifications.sent/failed.total`                                                                                       |
 
 ### 4. Хореографируемая Saga
 
@@ -191,12 +191,25 @@ LeadProcessingPlatform/
 
 ### Модульные тесты
 
-| Сервис | Количество тестов | Покрытие |
-|:---|:---:|:---:|
-| Lead Service | 159 | ~87% |
-| Enrichment Service | 44 | ~90% |
-| Scoring Service | 42 | ~94% |
-| Distribution Service | 55 | ~86% |
-| Notification Service | 43 | ~96% |
+| Сервис               | Количество тестов | Покрытие |
+|:---------------------|:-----------------:|:--------:|
+| Lead Service         |        159        |   ~83%   |
+| Enrichment Service   |        44         |   ~90%   |
+| Scoring Service      |        42         |   ~94%   |
+| Distribution Service |        68         |   ~89%   |
+| Notification Service |        43         |   ~96%   |
 
-### Нагрузочное тестирование
+### Нагрузочное тестирование (NBomber)
+
+Для проверки стабильности и производительности системы используется фреймворк NBomber.
+
+**Сценарии:**
+- `Success Flow`: только успешная обработка
+- `Enrichment/Scoring/Distribution Failure`: целевая проверка отказоустойчивости сервисов
+- `Mixed Load`: комбинированная нагрузка с настраиваемыми весами вероятностей
+
+**Запуск (из корня проекта):**
+```bash
+cd tests/LoadTests/LoadTests.Host
+dotnet run
+```
