@@ -78,17 +78,16 @@ public class ScoringProcessor(
 
         foreach (var request in pendingRequests)
         {
-            using var activity = TelemetryRestorer.RestoreAndStartActivity(
-                    TelemetryConstants.ActivitySource,
+            using var activity = ActivityBuilder.RestoreAndCreateActivity(
                     TelemetrySpanNames.ScoringProcess,
-                    request.TraceParent)!
-                .AddTags(
-                    (TelemetryAttributes.LeadId, request.LeadId),
-                    (TelemetryAttributes.ScoringRequestId, request.Id),
-                    (TelemetryAttributes.ScoringCompanyName, request.CompanyName),
-                    (TelemetryAttributes.ScoringAttempt, request.RetryCount + 1),
-                    (TelemetryAttributes.ScoringMaxRetries, MaxRetryAttempts),
-                    (TelemetryAttributes.ScoringHasEnrichedData, !string.IsNullOrEmpty(request.EnrichedData)));
+                    request.TraceParent)
+                .WithTag(TelemetryAttributes.LeadId, request.LeadId)
+                .WithScoringProcessorTags(
+                    request.Id,
+                    request.CompanyName,
+                    request.RetryCount + 1,
+                    MaxRetryAttempts,
+                    !string.IsNullOrEmpty(request.EnrichedData));
 
             request.StartProcessing();
 

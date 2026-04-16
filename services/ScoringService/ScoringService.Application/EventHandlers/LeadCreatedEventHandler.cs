@@ -20,13 +20,11 @@ public class LeadCreatedEventHandler(
 {
     public async Task Handle(LeadCreated @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadCreated")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadCreated"),
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithTags(
                 (TelemetryAttributes.LeadSource, @event.Source),
-                (TelemetryAttributes.LeadCompany, @event.CompanyName),
-                (TelemetryAttributes.ProcessingStep, "scoring_request_creation"));
+                (TelemetryAttributes.LeadCompany, @event.CompanyName))
+            .WithProcessingStep("scoring_request_creation");
 
         var existingRequest = await unitOfWork.Set<ScoringRequest>()
             .FirstOrDefaultAsync(x => x.LeadId == @event.LeadId, cancellationToken);

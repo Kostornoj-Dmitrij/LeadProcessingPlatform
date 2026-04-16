@@ -22,14 +22,10 @@ public class LeadEnrichmentFailedEventHandler(
 {
     public async Task Handle(LeadEnrichmentFailed @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadEnrichmentFailed")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadEnrichmentFailed"),
-                (TelemetryAttributes.FailureReason, @event.Reason),
-                (TelemetryAttributes.FailureRetryCount, @event.RetryCount),
-                (TelemetryAttributes.ProcessingStep, "enrichment_failure_handling"),
-                (TelemetryAttributes.FailureType, "EnrichmentFailed"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithFailureTags(@event.Reason, @event.RetryCount, "EnrichmentFailed")
+            .WithProcessingStep("enrichment_failure_handling");
+
         logger.LogInformation("Processing LeadEnrichmentFailed for lead {LeadId}", @event.LeadId);
 
         try

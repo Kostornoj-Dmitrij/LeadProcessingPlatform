@@ -18,13 +18,10 @@ public class LeadRejectedEventHandler(
 {
     public async Task Handle(LeadRejected @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadRejected")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadRejected"),
-                (TelemetryAttributes.FailureReason, @event.Reason),
-                (TelemetryAttributes.FailureType, @event.FailureType),
-                (TelemetryAttributes.ProcessingStep, "scoring_compensation"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithFailureTags(reason: @event.Reason, failureType: @event.FailureType)
+            .WithProcessingStep("scoring_compensation");
+
         logger.LogInformation("Processing LeadRejected for lead {LeadId}", @event.LeadId);
 
         var scoringResult = await unitOfWork.Set<ScoringResult>()

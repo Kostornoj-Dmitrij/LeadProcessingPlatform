@@ -22,14 +22,11 @@ public class LeadScoringFailedEventHandler(
 {
     public async Task Handle(LeadScoringFailed @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadScoringFailed")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadScoringFailed"),
-                (TelemetryAttributes.FailureReason, @event.Reason),
-                (TelemetryAttributes.FailureRetryCount, @event.RetryCount),
-                (TelemetryAttributes.ProcessingStep, "scoring_failure_handling"),
-                (TelemetryAttributes.FailureType, "ScoringFailed"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithFailureTags(@event.Reason, @event.RetryCount, "ScoringFailed")
+            .WithProcessingStep("scoring_failure_handling");
+
+        logger.LogInformation("Processing LeadScoringFailed for lead {LeadId}", @event.LeadId);
 
         try
         {

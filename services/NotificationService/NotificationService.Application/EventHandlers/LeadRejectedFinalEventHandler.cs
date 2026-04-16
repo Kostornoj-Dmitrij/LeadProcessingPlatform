@@ -20,12 +20,10 @@ public class LeadRejectedFinalEventHandler(
 {
     public async Task Handle(LeadRejectedFinal @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadRejectedFinal")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadRejectedFinal"),
-                (TelemetryAttributes.LeadStatus, @event.FinalStatus),
-                (TelemetryAttributes.ProcessingStep, "notification_rejected_final"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithTag(TelemetryAttributes.LeadStatus, @event.FinalStatus)
+            .WithProcessingStep("notification_rejected_final");
+
         logger.LogInformation("Processing LeadRejectedFinal notification for lead {LeadId}", @event.LeadId);
 
         var variables = new Dictionary<string, string>

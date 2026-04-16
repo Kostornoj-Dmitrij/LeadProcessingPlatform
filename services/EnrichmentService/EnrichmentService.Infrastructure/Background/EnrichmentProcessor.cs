@@ -84,16 +84,15 @@ public class EnrichmentProcessor(
     {
         var stopwatch = Stopwatch.StartNew();
 
-        using var activity = TelemetryRestorer.RestoreAndStartActivity(
-                TelemetryConstants.ActivitySource,
+        using var activity = ActivityBuilder.RestoreAndCreateActivity(
                 TelemetrySpanNames.EnrichmentProcess,
-                request.TraceParent)!
-            .AddTags(
-                (TelemetryAttributes.LeadId, request.LeadId),
-                (TelemetryAttributes.EnrichmentRequestId, request.Id),
-                (TelemetryAttributes.EnrichmentCompanyName, request.CompanyName),
-                (TelemetryAttributes.EnrichmentAttempt, request.RetryCount + 1),
-                (TelemetryAttributes.EnrichmentMaxRetries, MaxRetryAttempts));
+                request.TraceParent)
+            .WithTag(TelemetryAttributes.LeadId, request.LeadId)
+            .WithEnrichmentProcessorTags(
+                request.Id,
+                request.CompanyName,
+                request.RetryCount + 1,
+                MaxRetryAttempts);
 
         using var scope = scopeFactory.CreateScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();

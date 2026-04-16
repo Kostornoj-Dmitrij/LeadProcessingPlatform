@@ -23,14 +23,13 @@ public class LeadQualifiedEventHandler(
 {
     public async Task Handle(LeadQualified @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadQualified")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadQualified"),
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithTags(
                 (TelemetryAttributes.LeadScore, @event.Score),
                 (TelemetryAttributes.LeadCompany, @event.CompanyName),
-                (TelemetryAttributes.LeadEmail, @event.Email),
-                (TelemetryAttributes.ProcessingStep, "distribution_request_creation"));
+                (TelemetryAttributes.LeadEmail, @event.Email))
+            .WithProcessingStep("distribution_request_creation");
+
         logger.LogInformation("Processing LeadQualified for lead {LeadId} with score {Score}",
             @event.LeadId, @event.Score);
 

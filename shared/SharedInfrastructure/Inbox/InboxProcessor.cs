@@ -109,24 +109,23 @@ public class InboxProcessor<TInboxStore>(
 
         ActivityContext? parentContext = TryRestoreContextFromTraceId(message.TraceId);
         using var activity = parentContext.HasValue
-            ? TelemetryConstants.ActivitySource.StartActivity(
+            ? new ActivityBuilder(TelemetryConstants.ActivitySource.StartActivity(
                 $"{TelemetrySpanNames.InboxProcess} {eventTypeShort}",
                 ActivityKind.Internal,
-                parentContext.Value)
-            : TelemetryConstants.ActivitySource.StartActivity(
-                $"{TelemetrySpanNames.InboxProcess} {eventTypeShort}");
+                parentContext.Value))
+            : new ActivityBuilder(TelemetryConstants.ActivitySource.StartActivity(
+                $"{TelemetrySpanNames.InboxProcess} {eventTypeShort}"));
 
         if (activity == null)
             throw new InvalidOperationException("Failed to create activity");
 
-        activity.AddTags(
-            (TelemetryAttributes.EventType, message.EventType),
-            (TelemetryAttributes.EventName, eventTypeShort),
-            (TelemetryAttributes.LeadId, leadId),
-            (TelemetryAttributes.KafkaTopic, message.Topic),
-            (TelemetryAttributes.ProcessingStep, "inbox_process"),
-            (TelemetryAttributes.InboxMessageId, message.Id),
-            (TelemetryAttributes.InboxProcessingAttempts, message.ProcessingAttempts));
+        activity.WithInboxProcessorTags(
+            message.EventType,
+            eventTypeShort,
+            leadId,
+            message.Topic,
+            message.Id,
+            message.ProcessingAttempts);
 
         var @event = JsonSerializer.Deserialize(message.Payload, eventType, JsonDefaults.Options) as IIntegrationEvent;
         if (@event == null)

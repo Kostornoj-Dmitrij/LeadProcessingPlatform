@@ -36,7 +36,11 @@ public static class DependencyInjection
 
         RegisterAvroSerializers(services);
 
-        services.AddSingleton(sp => new KafkaEventBus(configuration, sp, sp.GetRequiredService<ILogger<KafkaEventBus>>()));
+        services.AddSingleton(sp => new KafkaEventBus(
+            configuration, 
+            sp, 
+            sp.GetRequiredService<ILogger<KafkaEventBus>>(),
+            serviceName));
         services.AddSingleton<IEventBus>(sp => sp.GetRequiredService<KafkaEventBus>());
 
         services.AddSingleton(sp => new KafkaConsumer(

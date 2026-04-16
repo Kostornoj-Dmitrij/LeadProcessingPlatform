@@ -20,13 +20,10 @@ public class LeadRejectedEventHandler(
 {
     public async Task Handle(LeadRejected @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadRejected")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadRejected"),
-                (TelemetryAttributes.FailureReason, @event.Reason),
-                (TelemetryAttributes.FailureType, @event.FailureType),
-                (TelemetryAttributes.ProcessingStep, "notification_rejected"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithFailureTags(reason: @event.Reason, failureType: @event.FailureType)
+            .WithProcessingStep("notification_rejected");
+
         logger.LogInformation("Processing LeadRejected notification for lead {LeadId}", @event.LeadId);
 
         var variables = new Dictionary<string, string>

@@ -20,12 +20,10 @@ public class LeadDistributedFinalEventHandler(
 {
     public async Task Handle(LeadDistributedFinal @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadDistributedFinal")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadDistributedFinal"),
-                (TelemetryAttributes.LeadStatus, @event.FinalStatus),
-                (TelemetryAttributes.ProcessingStep, "notification_final"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithTag(TelemetryAttributes.LeadStatus, @event.FinalStatus)
+            .WithProcessingStep("notification_final");
+
         logger.LogInformation("Processing LeadDistributedFinal notification for lead {LeadId}", @event.LeadId);
 
         var variables = new Dictionary<string, string>

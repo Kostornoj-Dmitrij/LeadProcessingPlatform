@@ -87,16 +87,15 @@ public class DistributionProcessor(
     {
         var stopwatch = Stopwatch.StartNew();
 
-        using var activity = TelemetryRestorer.RestoreAndStartActivity(
-                TelemetryConstants.ActivitySource,
+        using var activity = ActivityBuilder.RestoreAndCreateActivity(
                 TelemetrySpanNames.DistributionProcess,
-                request.TraceParent)!
-            .AddTags(
-                (TelemetryAttributes.LeadId, request.LeadId),
-                (TelemetryAttributes.DistributionRequestId, request.Id),
-                (TelemetryAttributes.DistributionCompanyName, request.CompanyName),
-                (TelemetryAttributes.DistributionAttempt, request.RetryCount + 1),
-                (TelemetryAttributes.DistributionMaxRetries, MaxRetryAttempts));
+                request.TraceParent)
+            .WithTag(TelemetryAttributes.LeadId, request.LeadId)
+            .WithDistributionProcessorTags(
+                request.Id,
+                request.CompanyName,
+                request.RetryCount + 1,
+                MaxRetryAttempts);
 
         using var scope = scopeFactory.CreateScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();

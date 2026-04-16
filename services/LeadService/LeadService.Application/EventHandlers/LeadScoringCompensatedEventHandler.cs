@@ -18,11 +18,9 @@ public class LeadScoringCompensatedEventHandler(
 {
     public async Task Handle(LeadScoringCompensated @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadScoringCompensated")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadScoringCompensated"),
-                (TelemetryAttributes.ProcessingStep, "scoring_compensation"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithProcessingStep("scoring_compensation");
+
         logger.LogInformation("Processing LeadScoringCompensated for lead {LeadId}", @event.LeadId);
 
         try

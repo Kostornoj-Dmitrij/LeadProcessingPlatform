@@ -26,14 +26,10 @@ public class LeadQualificationHandler(
 {
     public async Task Handle(LeadEnriched @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadEnriched")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadEnriched"),
-                (TelemetryAttributes.LeadIndustry, @event.Industry),
-                (TelemetryAttributes.LeadCompanySize, @event.CompanySize),
-                (TelemetryAttributes.LeadEnrichmentVersion, @event.Version),
-                (TelemetryAttributes.ProcessingStep, "enrichment_processing"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithEnrichmentTags(@event.Industry, @event.CompanySize, @event.Version)
+            .WithProcessingStep("enrichment_processing");
+
         logger.LogInformation("Processing LeadEnriched for lead {LeadId}", @event.LeadId);
 
         await ProcessEvent(@event.LeadId, isEnriched: true, enrichedEvent: @event, scoredEvent: null, cancellationToken);
@@ -41,14 +37,10 @@ public class LeadQualificationHandler(
 
     public async Task Handle(LeadScored @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadScored")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadScored"),
-                (TelemetryAttributes.LeadScore, @event.TotalScore),
-                (TelemetryAttributes.LeadQualifiedThreshold, @event.QualifiedThreshold),
-                (TelemetryAttributes.LeadAppliedRulesCount, @event.AppliedRules?.Count ?? 0),
-                (TelemetryAttributes.ProcessingStep, "scoring_processing"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithScoringTags(@event.TotalScore, @event.QualifiedThreshold, @event.AppliedRules?.Count ?? 0)
+            .WithProcessingStep("scoring_processing");
+
         logger.LogInformation("Processing LeadScored for lead {LeadId}", @event.LeadId);
 
         await ProcessEvent(@event.LeadId, isEnriched: false, enrichedEvent: null, scoredEvent: @event, cancellationToken);

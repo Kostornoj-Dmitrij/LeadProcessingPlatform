@@ -20,13 +20,9 @@ public class DistributionSucceededEventHandler(
 {
     public async Task Handle(DistributionSucceeded @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("DistributionSucceeded")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "DistributionSucceeded"),
-                (TelemetryAttributes.DistributionTarget, @event.Target),
-                (TelemetryAttributes.DistributionDistributedAt, @event.DistributedAt),
-                (TelemetryAttributes.ProcessingStep, "distribution_success_handling"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithDistributionTags(target: @event.Target, distributedAt: @event.DistributedAt)
+            .WithProcessingStep("distribution_success_handling");
 
         logger.LogInformation("Processing DistributionSucceeded for lead {LeadId}", @event.LeadId);
 

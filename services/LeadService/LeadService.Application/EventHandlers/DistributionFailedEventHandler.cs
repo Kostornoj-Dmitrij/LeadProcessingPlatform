@@ -21,13 +21,9 @@ public class DistributionFailedEventHandler(
 {
     public async Task Handle(DistributionFailed @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("DistributionFailed")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "DistributionFailed"),
-                (TelemetryAttributes.DistributionReason, @event.Reason),
-                (TelemetryAttributes.DistributionHttpStatusCode, @event.HttpStatusCode),
-                (TelemetryAttributes.ProcessingStep, "distribution_failure_handling"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithDistributionTags(reason: @event.Reason, httpStatusCode: @event.HttpStatusCode)
+            .WithProcessingStep("distribution_failure_handling");
 
         logger.LogInformation("Processing DistributionFailed for lead {LeadId}", @event.LeadId);
 

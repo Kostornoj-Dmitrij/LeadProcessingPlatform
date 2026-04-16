@@ -209,26 +209,20 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 
         string spanName = $"{TelemetrySpanNames.KafkaConsume} {GetSimpleTypeName(eventTypeName)}";
 
-        using var activity = TelemetryRestorer.RestoreAndStartActivity(
-                TelemetryConstants.ActivitySource,
+        using var activity = ActivityBuilder.RestoreAndCreateActivity(
                 spanName,
                 traceParent,
-                ActivityKind.Consumer)!
-            .AddTags(
-                (TelemetryAttributes.EventType, eventTypeName),
-                (TelemetryAttributes.EventName, GetSimpleTypeName(eventTypeName)),
-                (TelemetryAttributes.EventId, eventId),
-                (TelemetryAttributes.KafkaTopic, consumeResult.Topic),
-                (TelemetryAttributes.KafkaPartition, consumeResult.Partition.Value),
-                (TelemetryAttributes.KafkaOffset, consumeResult.Offset.Value),
-                (TelemetryAttributes.KafkaConsumerGroup, _consumer.MemberId),
-                (TelemetryAttributes.ServiceName, _serviceName),
-                (TelemetryAttributes.LeadId, leadId),
-                (TelemetryAttributes.KafkaMessagingSystem, "kafka"),
-                (TelemetryAttributes.KafkaMessagingDestination, consumeResult.Topic),
-                (TelemetryAttributes.KafkaMessagingMessageId, eventId),
-                (TelemetryAttributes.KafkaMessagingOperation, "receive"),
-                (TelemetryAttributes.ProcessingStep, "kafka_consume"));
+                ActivityKind.Consumer)
+            .WithKafkaConsumerTags(
+                eventTypeName,
+                GetSimpleTypeName(eventTypeName),
+                eventId,
+                consumeResult.Topic,
+                consumeResult.Partition.Value,
+                consumeResult.Offset.Value,
+                _consumer.MemberId,
+                _serviceName,
+                leadId);
 
         foreach (var header in consumeResult.Message.Headers)
         {
@@ -240,7 +234,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             }
         }
 
-        var traceIdToStore = activity.TraceId.ToString();
+        var traceIdToStore = activity.TraceId;
 
         var deserializerType = typeof(AvroDeserializer<>).MakeGenericType(eventType);
 

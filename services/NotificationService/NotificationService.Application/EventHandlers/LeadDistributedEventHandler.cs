@@ -20,12 +20,10 @@ public class LeadDistributedEventHandler(
 {
     public async Task Handle(LeadDistributed @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadDistributed")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadDistributed"),
-                (TelemetryAttributes.DistributionTarget, @event.Target),
-                (TelemetryAttributes.ProcessingStep, "notification_distributed"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithTag(TelemetryAttributes.DistributionTarget, @event.Target)
+            .WithProcessingStep("notification_distributed");
+
         logger.LogInformation("Processing LeadDistributed notification for lead {LeadId}", @event.LeadId);
 
         var variables = new Dictionary<string, string>

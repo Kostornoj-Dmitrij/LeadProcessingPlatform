@@ -21,11 +21,17 @@ public class KafkaEventBus : IEventBus
     private readonly ISchemaRegistryClient _schemaRegistry;
     private readonly ILogger<KafkaEventBus> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly string _serviceName;
 
-    public KafkaEventBus(IConfiguration configuration, IServiceProvider serviceProvider, ILogger<KafkaEventBus> logger)
+    public KafkaEventBus(
+        IConfiguration configuration,
+        IServiceProvider serviceProvider,
+        ILogger<KafkaEventBus> logger,
+        string serviceName)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _serviceName = serviceName;
 
         var bootstrapServers = configuration["Kafka:BootstrapServers"];
         var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
@@ -104,15 +110,14 @@ public class KafkaEventBus : IEventBus
                 }
             }
 
-            using var produceActivity = TelemetryConstants.ActivitySource.StartProducerSpan(
+            using var produceActivity = ActivityBuilder.ForProducer(
                     TelemetrySpanNames.KafkaProduce,
-                    typeof(TEvent).Name.Replace("Event", ""))!
-                .AddTags(
-                    (TelemetryAttributes.EventType, typeof(TEvent).Name),
-                    (TelemetryAttributes.KafkaTopic, topic),
-                    (TelemetryAttributes.ServiceName, "LeadService"),
-                    (TelemetryAttributes.KafkaMessagingOperation, "publish"),
-                    (TelemetryAttributes.LeadId, leadIdValue));
+                    typeof(TEvent).Name.Replace("Event", ""))
+                .WithKafkaProducerTags(
+                    typeof(TEvent).Name,
+                    topic,
+                    _serviceName,
+                    leadIdValue);
             TelemetryMetrics.KafkaMessagesPublished.Add(1, new TagList
             {
                 { "topic", topic },

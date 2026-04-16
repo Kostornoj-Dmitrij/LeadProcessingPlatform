@@ -92,19 +92,17 @@ public class OutboxPublisher<TContext>(
 
                 string eventTypeShort = GetSimpleTypeName(message.EventType);
 
-                using var activity = TelemetryRestorer.RestoreAndStartActivity(
-                        TelemetryConstants.ActivitySource,
+                using var activity = ActivityBuilder.RestoreAndCreateActivity(
                         $"{TelemetrySpanNames.OutboxPublish} {eventTypeShort}",
                         message.TraceParent,
-                        ActivityKind.Producer)!
-                    .AddTags(
-                        (TelemetryAttributes.EventType, message.EventType),
-                        (TelemetryAttributes.EventName, eventTypeShort),
-                        (TelemetryAttributes.LeadId, message.AggregateId),
-                        (TelemetryAttributes.ProcessingStep, "outbox_publish"),
-                        (TelemetryAttributes.OutboxMessageId, message.Id),
-                        (TelemetryAttributes.OutboxAggregateType, message.AggregateType),
-                        (TelemetryAttributes.OutboxProcessingAttempts, message.ProcessingAttempts));
+                        ActivityKind.Producer)
+                    .WithOutboxPublisherTags(
+                        message.EventType,
+                        eventTypeShort,
+                        message.AggregateId,
+                        message.AggregateType,
+                        message.Id,
+                        message.ProcessingAttempts);
 
                 var method = typeof(IEventBus).GetMethod("PublishAsync");
                 if (method == null)

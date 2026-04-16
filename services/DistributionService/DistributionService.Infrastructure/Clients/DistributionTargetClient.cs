@@ -31,14 +31,10 @@ public class DistributionTargetClient(
         string target,
         CancellationToken cancellationToken = default)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartActivity(
+        using var activity = ActivityBuilder.ForHttpClient(
                 TelemetrySpanNames.DistributionClient,
-                ActivityKind.Client)!
-            .AddTags(
-                (TelemetryAttributes.LeadId, leadId),
-                (TelemetryAttributes.DistributionTarget, target),
-                (TelemetryAttributes.DistributionCompanyName, companyName),
-                (TelemetryAttributes.DistributionScore, score));
+                leadId)
+            .WithDistributionClientTags(target, companyName, score);
 
         logger.LogInformation("Sending lead {LeadId} to target system: {Target}", leadId, target);
 
@@ -49,7 +45,7 @@ public class DistributionTargetClient(
             forceFail == "true")
         {
             logger.LogWarning("Forced distribution failure for lead {LeadId}", leadId);
-            activity!.SetTag(TelemetryAttributes.DistributionForcedFailure, true);
+            activity.SetTag(TelemetryAttributes.DistributionForcedFailure, true);
             return new DistributionResult(false, null, "Forced distribution failure for testing");
         }
 
@@ -59,7 +55,7 @@ public class DistributionTargetClient(
             httpStatus >= 400)
         {
             logger.LogWarning("Forced HTTP {HttpStatus} for lead {LeadId}", httpStatus, leadId);
-            activity!.SetTag(TelemetryAttributes.HttpStatusCode, httpStatus);
+            activity.SetTag(TelemetryAttributes.HttpStatusCode, httpStatus);
             activity.SetTag(TelemetryAttributes.DistributionForcedFailure, true);
             return new DistributionResult(false, null, $"HTTP {httpStatus}: Forced error response");
         }
@@ -96,7 +92,7 @@ public class DistributionTargetClient(
                 };
 
                 var responseJson = JsonSerializer.Serialize(emulationResponse);
-                activity!.SetTag(TelemetryAttributes.DistributionMode, "emulation");
+                activity.SetTag(TelemetryAttributes.DistributionMode, "emulation");
                 return new DistributionResult(true, responseJson, null);
             }
 
@@ -107,7 +103,7 @@ public class DistributionTargetClient(
                 var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 logger.LogInformation("Lead {LeadId} successfully sent to {Target}. Response: {Response}",
                     leadId, target, responseContent);
-                activity!.SetTag(TelemetryAttributes.HttpStatusCode, (int)response.StatusCode);
+                activity.SetTag(TelemetryAttributes.HttpStatusCode, (int)response.StatusCode);
                 activity.SetTag(TelemetryAttributes.DistributionSuccess, true);
 
                 DistributionMetrics.DistributionHttpStatusCodes.Add(1, new TagList 
@@ -118,7 +114,7 @@ public class DistributionTargetClient(
             var error = await response.Content.ReadAsStringAsync(cancellationToken);
             logger.LogWarning("Failed to send lead {LeadId} to {Target}. Status: {Status}, Error: {Error}",
                 leadId, target, response.StatusCode, error);
-            activity!.SetTag(TelemetryAttributes.HttpStatusCode, (int)response.StatusCode);
+            activity.SetTag(TelemetryAttributes.HttpStatusCode, (int)response.StatusCode);
             activity.SetTag(TelemetryAttributes.DistributionSuccess, false);
             activity.SetTag(TelemetryAttributes.Error, error);
 

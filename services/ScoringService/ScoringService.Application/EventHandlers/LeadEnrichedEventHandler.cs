@@ -20,13 +20,10 @@ public class LeadEnrichedEventHandler(
 {
     public async Task Handle(LeadEnriched @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadEnriched")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadEnriched"),
-                (TelemetryAttributes.EnrichmentIndustry, @event.Industry),
-                (TelemetryAttributes.EnrichmentCompanySize, @event.CompanySize),
-                (TelemetryAttributes.ProcessingStep, "scoring_enrichment_received"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithEnrichmentTags(@event.Industry, @event.CompanySize)
+            .WithProcessingStep("scoring_enrichment_received");
+
         logger.LogInformation("Processing LeadEnriched for lead {LeadId}", @event.LeadId);
 
         var enrichedData = new

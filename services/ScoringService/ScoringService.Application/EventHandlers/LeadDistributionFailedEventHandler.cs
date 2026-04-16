@@ -18,12 +18,10 @@ public class LeadDistributionFailedEventHandler(
 {
     public async Task Handle(LeadDistributionFailed @event, CancellationToken cancellationToken)
     {
-        using var activity = TelemetryConstants.ActivitySource.StartEventHandlerSpan("LeadDistributionFailed")!
-            .AddTags(
-                (TelemetryAttributes.LeadId, @event.LeadId),
-                (TelemetryAttributes.EventName, "LeadDistributionFailed"),
-                (TelemetryAttributes.FailureReason, @event.Reason),
-                (TelemetryAttributes.ProcessingStep, "scoring_compensation"));
+        using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
+            .WithFailureTags(reason: @event.Reason)
+            .WithProcessingStep("scoring_compensation");
+
         logger.LogInformation("Processing LeadDistributionFailed for lead {LeadId}", @event.LeadId);
 
         var scoringResult = await unitOfWork.Set<ScoringResult>()

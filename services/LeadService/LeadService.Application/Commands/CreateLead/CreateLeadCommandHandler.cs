@@ -27,8 +27,8 @@ public class CreateLeadCommandHandler(
     {
         TelemetryContext.SetLeadBaggage(Guid.NewGuid(), "LeadCreation");
 
-        using var activity = TelemetryConstants.ActivitySource.StartCommandHandlerSpan("CreateLead")!
-            .AddTags(
+        using var activity = ActivityBuilderExtensions.CreateCommandActivity("CreateLead")
+            .WithTags(
                 (TelemetryAttributes.LeadSource, request.Source),
                 (TelemetryAttributes.LeadCompany, request.CompanyName),
                 (TelemetryAttributes.LeadEmail, request.Email),
