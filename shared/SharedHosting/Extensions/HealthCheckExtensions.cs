@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Confluent.Kafka;
+using SharedHosting.Constants;
 using SharedHosting.HealthChecks;
 
 namespace SharedHosting.Extensions;
@@ -17,7 +18,7 @@ public static class HealthCheckExtensions
     {
         var healthChecks = services.AddHealthChecks();
 
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString = configuration.GetConnectionString(ConfigurationKeys.DefaultConnection);
         if (!string.IsNullOrEmpty(connectionString))
         {
             healthChecks.AddNpgSql(
@@ -26,7 +27,7 @@ public static class HealthCheckExtensions
                 tags: ["db", "postgres"]);
         }
 
-        var bootstrapServers = configuration["Kafka:BootstrapServers"];
+        var bootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers];
         if (!string.IsNullOrEmpty(bootstrapServers))
         {
             healthChecks.AddKafka(
@@ -35,7 +36,7 @@ public static class HealthCheckExtensions
                 tags: ["messaging", "kafka"]);
         }
 
-        var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
+        var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
         if (!string.IsNullOrEmpty(schemaRegistryUrl))
         {
             healthChecks.AddUrlGroup(

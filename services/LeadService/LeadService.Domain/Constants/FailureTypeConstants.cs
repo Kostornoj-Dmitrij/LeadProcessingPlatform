@@ -6,6 +6,5 @@
 public static class FailureTypeConstants
 {
     public const string EnrichmentFailed = "EnrichmentFailed";
-
     public const string ScoringFailed = "ScoringFailed";
 }

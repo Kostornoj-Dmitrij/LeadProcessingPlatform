@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using NotificationService.Domain.Constants;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
@@ -29,15 +30,15 @@ public class LeadCreatedEventHandler(
 
         var variables = new Dictionary<string, string>
         {
-            ["LeadId"] = @event.LeadId.ToString(),
-            ["CompanyName"] = @event.CompanyName,
-            ["ContactPerson"] = @event.ContactPerson ?? "Unknown",
-            ["Email"] = @event.Email,
-            ["Source"] = @event.Source
+            [TemplateVariableKeys.LeadId] = @event.LeadId.ToString(),
+            [TemplateVariableKeys.CompanyName] = @event.CompanyName,
+            [TemplateVariableKeys.ContactPerson] = @event.ContactPerson ?? "Unknown",
+            [TemplateVariableKeys.Email] = @event.Email,
+            [TemplateVariableKeys.Source] = @event.Source
         };
 
         var (success, subject, body) = await notificationSender.SendAsync(
-            "LeadCreated",
+            NotificationTypeConstants.LeadCreated,
             NotificationChannel.Email,
             @event.Email,
             variables,
@@ -48,7 +49,7 @@ public class LeadCreatedEventHandler(
             var notification = Notification.Create(
                 @event.LeadId,
                 @event.EventId.ToString(),
-                "LeadCreated",
+                NotificationTypeConstants.LeadCreated,
                 NotificationChannel.Email,
                 @event.Email,
                 body,

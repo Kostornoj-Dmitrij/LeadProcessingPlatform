@@ -7,6 +7,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Constants;
+using SharedInfrastructure.Constants;
 using SharedInfrastructure.Inbox;
 using SharedInfrastructure.Serialization;
 using SharedInfrastructure.Telemetry;
@@ -41,8 +43,8 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         _serviceName = serviceName;
         _topics = topics;
 
-        var bootstrapServers = configuration["Kafka:BootstrapServers"];
-        var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
+        var bootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers];
+        var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
 
         if (string.IsNullOrEmpty(schemaRegistryUrl))
             throw new InvalidOperationException("SchemaRegistryUrl is not configured");
@@ -50,7 +52,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         var consumerConfig = new ConsumerConfig
         {
             BootstrapServers = bootstrapServers,
-            GroupId = configuration["Kafka:GroupId"] ?? $"{serviceName}",
+            GroupId = configuration[ConfigurationKeys.KafkaGroupId] ?? $"{serviceName}",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = true,
             EnableAutoOffsetStore = false,
@@ -73,7 +75,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             Acks = Acks.All
         };
         _dlqProducer = new ProducerBuilder<string, byte[]>(producerConfig).Build();
-        _dlqTopic = configuration["Kafka:DlqTopic"] ?? $"{serviceName}-dlq";
+        _dlqTopic = configuration[ConfigurationKeys.KafkaDlqTopic] ?? $"{serviceName}-dlq";
     }
 
     public bool IsRunning => _isRunning;
@@ -177,7 +179,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         ConsumeResult<string, byte[]> consumeResult,
         CancellationToken cancellationToken)
     {
-        if (!consumeResult.Message.Headers.TryGetLastBytes("event-type", out var eventTypeBytes))
+        if (!consumeResult.Message.Headers.TryGetLastBytes(KafkaHeaderKeys.EventType, out var eventTypeBytes))
             throw new InvalidOperationException("Missing event-type header");
 
         var eventTypeName = Encoding.UTF8.GetString(eventTypeBytes);
@@ -185,16 +187,16 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         if (eventType == null)
             throw new InvalidOperationException($"Unknown event type: {eventTypeName}");
 
-        if (!consumeResult.Message.Headers.TryGetLastBytes("event-id", out var eventIdBytes))
+        if (!consumeResult.Message.Headers.TryGetLastBytes(KafkaHeaderKeys.EventId, out var eventIdBytes))
             throw new InvalidOperationException("Missing event-id header");
         var eventId = Encoding.UTF8.GetString(eventIdBytes);
 
         string? traceParent = null;
 
-        if (consumeResult.Message.Headers.TryGetLastBytes("traceparent", out var traceParentBytes))
+        if (consumeResult.Message.Headers.TryGetLastBytes(KafkaHeaderKeys.TraceParent, out var traceParentBytes))
         {
             traceParent = Encoding.UTF8.GetString(traceParentBytes);
-            if (consumeResult.Message.Headers.TryGetLastBytes("tracestate", out var traceStateBytes))
+            if (consumeResult.Message.Headers.TryGetLastBytes(KafkaHeaderKeys.TraceState, out var traceStateBytes))
             {
                 Encoding.UTF8.GetString(traceStateBytes);
             }
@@ -204,7 +206,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         if (!string.IsNullOrEmpty(leadId))
         {
             TelemetryContext.SetBaggage(TelemetryBaggageKeys.LeadId, leadId);
-            TelemetryContext.SetBaggage(TelemetryBaggageKeys.BusinessProcess, "LeadProcessing");
+            TelemetryContext.SetBaggage(TelemetryBaggageKeys.BusinessProcess, TelemetryBaggageKeys.LeadProcessing);
         }
 
         string spanName = $"{TelemetrySpanNames.KafkaConsume} {GetSimpleTypeName(eventTypeName)}";
@@ -226,7 +228,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 
         foreach (var header in consumeResult.Message.Headers)
         {
-            if (header.Key.StartsWith("baggage-"))
+            if (header.Key.StartsWith(KafkaHeaderKeys.BaggagePrefix))
             {
                 var key = header.Key.Substring(8);
                 var value = Encoding.UTF8.GetString(header.GetValueBytes());
@@ -314,7 +316,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 
     private string ExtractLeadIdFromMessage(Message<string, byte[]> message)
     {
-        if (message.Headers.TryGetLastBytes("lead-id", out var leadIdBytes))
+        if (message.Headers.TryGetLastBytes(KafkaHeaderKeys.LeadId, out var leadIdBytes))
         {
             return Encoding.UTF8.GetString(leadIdBytes);
         }
@@ -348,14 +350,14 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             Value = consumeResult.Message.Value,
             Headers = new Headers
             {
-                { "original-topic", Encoding.UTF8.GetBytes(consumeResult.Topic) },
-                { "original-partition", Encoding.UTF8.GetBytes(consumeResult.Partition.ToString()) },
-                { "original-offset", Encoding.UTF8.GetBytes(consumeResult.Offset.ToString()) },
-                { "error-message", Encoding.UTF8.GetBytes(exception.Message) },
-                { "error-type", Encoding.UTF8.GetBytes(exception.GetType().Name) },
-                { "timestamp", Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) },
-                { "source", "kafka-consumer"u8.ToArray() },
-                { "service-name", Encoding.UTF8.GetBytes(_serviceName) }
+                { KafkaHeaderKeys.OriginalTopic, Encoding.UTF8.GetBytes(consumeResult.Topic) },
+                { KafkaHeaderKeys.OriginalPartition, Encoding.UTF8.GetBytes(consumeResult.Partition.ToString()) },
+                { KafkaHeaderKeys.OriginalOffset, Encoding.UTF8.GetBytes(consumeResult.Offset.ToString()) },
+                { KafkaHeaderKeys.ErrorMessage, Encoding.UTF8.GetBytes(exception.Message) },
+                { KafkaHeaderKeys.ErrorType, Encoding.UTF8.GetBytes(exception.GetType().Name) },
+                { KafkaHeaderKeys.Timestamp, Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) },
+                { KafkaHeaderKeys.Source, KafkaHeaderValues.SourceKafkaConsumerBytes },
+                { KafkaHeaderKeys.ServiceName, Encoding.UTF8.GetBytes(_serviceName) }
             }
         };
 

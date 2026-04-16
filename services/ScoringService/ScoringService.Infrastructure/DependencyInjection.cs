@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using AvroSchemas;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ScoringService.Application.Services;
 using ScoringService.Infrastructure.Background;
@@ -24,10 +25,10 @@ public static class DependencyInjection
 
         var topics = new[]
         {
-            "lead-events",
-            "saga-events",
-            "distribution-events",
-            "enrichment-events"
+            KafkaTopics.LeadEvents,
+            KafkaTopics.SagaEvents,
+            KafkaTopics.DistributionEvents,
+            KafkaTopics.EnrichmentEvents
         };
 
         services.AddSharedInfrastructure<ApplicationDbContext>(

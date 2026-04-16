@@ -2,6 +2,7 @@
 using System.Text.Json;
 using AvroSchemas.Messages.LeadEvents;
 using DistributionService.Application.Metrics;
+using DistributionService.Domain.Constants;
 using DistributionService.Domain.Entities;
 using DistributionService.Domain.Enums;
 using MediatR;
@@ -118,17 +119,17 @@ public class LeadQualifiedEventHandler(
         try
         {
             var condition = JsonSerializer.Deserialize<Dictionary<string, object>>(rule.ConditionJson, JsonDefaults.Options);
-            if (condition == null || !condition.TryGetValue("type", out var typeObj))
+            if (condition == null || !condition.TryGetValue(RuleConfigKeys.Type, out var typeObj))
                 return false;
 
             var type = typeObj.ToString();
 
             return type switch
             {
-                "score_threshold" => EvaluateScoreThreshold(condition, @event.Score),
-                "industry_match" => EvaluateIndustryMatch(condition, @event.EnrichedData?.Industry),
-                "revenue_range" => EvaluateRevenueRange(condition, @event.EnrichedData?.RevenueRange),
-                "always_true" => true,
+                RuleTypeConstants.ScoreThreshold => EvaluateScoreThreshold(condition, @event.Score),
+                RuleTypeConstants.IndustryMatch => EvaluateIndustryMatch(condition, @event.EnrichedData?.Industry),
+                RuleTypeConstants.RevenueRange => EvaluateRevenueRange(condition, @event.EnrichedData?.RevenueRange),
+                RuleTypeConstants.AlwaysTrue => true,
                 _ => false
             };
         }
@@ -142,7 +143,7 @@ public class LeadQualifiedEventHandler(
 
     private bool EvaluateScoreThreshold(Dictionary<string, object> condition, int score)
     {
-        if (!condition.TryGetValue("min_score", out var minScoreObj))
+        if (!condition.TryGetValue(RuleConfigKeys.MinScore, out var minScoreObj))
             return true;
 
         return int.TryParse(minScoreObj.ToString(), out var minScore) && score >= minScore;
@@ -150,14 +151,14 @@ public class LeadQualifiedEventHandler(
 
     private bool EvaluateIndustryMatch(Dictionary<string, object> condition, string? industry)
     {
-        if (string.IsNullOrEmpty(industry) || !condition.TryGetValue("industry", out var industryObj))
+        if (string.IsNullOrEmpty(industry) || !condition.TryGetValue(RuleConfigKeys.Industry, out var industryObj))
             return false;
         return industry.Equals(industryObj.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
     private bool EvaluateRevenueRange(Dictionary<string, object> condition, string? revenueRange)
     {
-        if (string.IsNullOrEmpty(revenueRange) || !condition.TryGetValue("range", out var rangeObj))
+        if (string.IsNullOrEmpty(revenueRange) || !condition.TryGetValue(RuleConfigKeys.Range, out var rangeObj))
             return false;
         return revenueRange.Equals(rangeObj.ToString(), StringComparison.OrdinalIgnoreCase);
     }
@@ -172,12 +173,12 @@ public class LeadQualifiedEventHandler(
 
             return rule.Strategy switch
             {
-                DistributionRuleStrategy.FixedTarget => config.GetValueOrDefault("target")?.ToString() ?? string.Empty,
+                DistributionRuleStrategy.FixedTarget => config.GetValueOrDefault(RuleConfigKeys.Target)?.ToString() ?? string.Empty,
                 DistributionRuleStrategy.ScoreBased => ResolveScoreBasedTarget(config, @event.Score),
                 DistributionRuleStrategy.RoundRobin => ResolveRoundRobinTarget(config, rule.Id),
                 DistributionRuleStrategy.Territory => ResolveTerritoryTarget(config, @event),
                 DistributionRuleStrategy.Specialization => ResolveSpecializationTarget(config, @event),
-                _ => config.GetValueOrDefault("target")?.ToString() ?? string.Empty
+                _ => config.GetValueOrDefault(RuleConfigKeys.Target)?.ToString() ?? string.Empty
             };
         }
         catch (Exception ex)
@@ -189,7 +190,7 @@ public class LeadQualifiedEventHandler(
 
     private string ResolveTerritoryTarget(Dictionary<string, object> config, LeadQualified @event)
     {
-        if (!config.TryGetValue("territories", out var territoriesObj))
+        if (!config.TryGetValue(RuleConfigKeys.Territories, out var territoriesObj))
             return string.Empty;
 
         Dictionary<string, string> territories;
@@ -208,13 +209,13 @@ public class LeadQualifiedEventHandler(
             return string.Empty;
         }
 
-        var territory = @event.EnrichedData?.Industry.ToLower() ?? "default";
-        return territories.GetValueOrDefault(territory) ?? territories.GetValueOrDefault("default") ?? string.Empty;
+        var territory = @event.EnrichedData?.Industry.ToLower() ?? RuleConfigKeys.Default;
+        return territories.GetValueOrDefault(territory) ?? territories.GetValueOrDefault(RuleConfigKeys.Default) ?? string.Empty;
     }
 
     private string ResolveSpecializationTarget(Dictionary<string, object> config, LeadQualified @event)
     {
-        if (!config.TryGetValue("specializations", out var specializationsObj))
+        if (!config.TryGetValue(RuleConfigKeys.Specializations, out var specializationsObj))
             return string.Empty;
 
         Dictionary<string, string> specializations;
@@ -233,14 +234,14 @@ public class LeadQualifiedEventHandler(
             return string.Empty;
         }
 
-        var specialization = @event.EnrichedData?.CompanySize.ToLower() ?? "default";
-        return specializations.GetValueOrDefault(specialization) ?? specializations.GetValueOrDefault("default") ?? string.Empty;
+        var specialization = @event.EnrichedData?.CompanySize.ToLower() ?? RuleConfigKeys.Default;
+        return specializations.GetValueOrDefault(specialization) ?? specializations.GetValueOrDefault(RuleConfigKeys.Default) ?? string.Empty;
     }
 
     private string ResolveScoreBasedTarget(Dictionary<string, object> config, int score)
     {
-        if (!config.TryGetValue("thresholds", out var thresholdsObj))
-            return config.GetValueOrDefault("default_target")?.ToString() ?? string.Empty;
+        if (!config.TryGetValue(RuleConfigKeys.Thresholds, out var thresholdsObj))
+            return config.GetValueOrDefault(RuleConfigKeys.DefaultTarget)?.ToString() ?? string.Empty;
 
         List<Dictionary<string, object>> thresholds;
 
@@ -259,32 +260,32 @@ public class LeadQualifiedEventHandler(
             {
                 logger.LogWarning("Invalid thresholds type in ScoreBased config: {ThresholdsType}. Using default_target.", 
                     thresholdsObj.GetType().Name);
-                return config.GetValueOrDefault("default_target")?.ToString() ?? string.Empty;
+                return config.GetValueOrDefault(RuleConfigKeys.DefaultTarget)?.ToString() ?? string.Empty;
             }
         }
         catch (JsonException ex)
         {
             logger.LogWarning(ex, "Failed to deserialize thresholds in ScoreBased config. Using default_target.");
-            return config.GetValueOrDefault("default_target")?.ToString() ?? string.Empty;
+            return config.GetValueOrDefault(RuleConfigKeys.DefaultTarget)?.ToString() ?? string.Empty;
         }
 
         foreach (var threshold in thresholds.OrderByDescending(t =>
-                     GetInt32(t.GetValueOrDefault("min_score"))))
+                     GetInt32(t.GetValueOrDefault(RuleConfigKeys.MinScore))))
         {
-            if (score >= GetInt32(threshold.GetValueOrDefault("min_score")))
+            if (score >= GetInt32(threshold.GetValueOrDefault(RuleConfigKeys.MinScore)))
             {
-                var target = threshold.GetValueOrDefault("target")?.ToString();
+                var target = threshold.GetValueOrDefault(RuleConfigKeys.Target)?.ToString();
                 if (!string.IsNullOrEmpty(target))
                     return target;
             }
         }
 
-        return config.GetValueOrDefault("default_target")?.ToString() ?? string.Empty;
+        return config.GetValueOrDefault(RuleConfigKeys.DefaultTarget)?.ToString() ?? string.Empty;
     }
 
     private string ResolveRoundRobinTarget(Dictionary<string, object> config, Guid ruleId)
     {
-        if (!config.TryGetValue("targets", out var targetsObj))
+        if (!config.TryGetValue(RuleConfigKeys.Targets, out var targetsObj))
             return string.Empty;
 
         List<string> targets;

@@ -7,4 +7,5 @@ public static class TelemetryBaggageKeys
 {
     public const string LeadId = "lead.id";
     public const string BusinessProcess = "business.process";
+    public const string LeadProcessing = "LeadProcessing";
 }

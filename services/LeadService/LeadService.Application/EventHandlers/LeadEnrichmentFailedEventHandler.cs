@@ -23,7 +23,7 @@ public class LeadEnrichmentFailedEventHandler(
     public async Task Handle(LeadEnrichmentFailed @event, CancellationToken cancellationToken)
     {
         using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
-            .WithFailureTags(@event.Reason, @event.RetryCount, "EnrichmentFailed")
+            .WithFailureTags(@event.Reason, @event.RetryCount, FailureTypeConstants.EnrichmentFailed)
             .WithProcessingStep("enrichment_failure_handling");
 
         logger.LogInformation("Processing LeadEnrichmentFailed for lead {LeadId}", @event.LeadId);

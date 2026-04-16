@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\SharedHosting\SharedHosting.csproj" />
         <ProjectReference Include="..\SharedKernel\SharedKernel.csproj" />
         <ProjectReference Include="..\AvroSchemas\AvroSchemas.csproj" />
     </ItemGroup>

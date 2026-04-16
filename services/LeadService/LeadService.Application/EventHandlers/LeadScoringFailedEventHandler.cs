@@ -23,7 +23,7 @@ public class LeadScoringFailedEventHandler(
     public async Task Handle(LeadScoringFailed @event, CancellationToken cancellationToken)
     {
         using var activity = ActivityBuilderExtensions.CreateEventActivity(@event)
-            .WithFailureTags(@event.Reason, @event.RetryCount, "ScoringFailed")
+            .WithFailureTags(@event.Reason, @event.RetryCount, FailureTypeConstants.ScoringFailed)
             .WithProcessingStep("scoring_failure_handling");
 
         logger.LogInformation("Processing LeadScoringFailed for lead {LeadId}", @event.LeadId);

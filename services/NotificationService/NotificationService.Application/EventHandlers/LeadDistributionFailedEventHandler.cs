@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using NotificationService.Domain.Constants;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
@@ -28,14 +29,14 @@ public class LeadDistributionFailedEventHandler(
 
         var variables = new Dictionary<string, string>
         {
-            ["LeadId"] = @event.LeadId.ToString(),
-            ["Reason"] = @event.Reason
+            [TemplateVariableKeys.LeadId] = @event.LeadId.ToString(),
+            [TemplateVariableKeys.Reason] = @event.Reason
         };
 
         var (success, subject, body) = await notificationSender.SendAsync(
-            "LeadDistributionFailed",
+            NotificationTypeConstants.LeadDistributionFailed,
             NotificationChannel.Email,
-            "support@example.com",
+            RecipientConstants.Support,
             variables,
             cancellationToken);
 
@@ -44,9 +45,9 @@ public class LeadDistributionFailedEventHandler(
             var notification = Notification.Create(
                 @event.LeadId,
                 @event.EventId.ToString(),
-                "LeadDistributionFailed",
+                NotificationTypeConstants.LeadDistributionFailed,
                 NotificationChannel.Email,
-                "support@example.com",
+                RecipientConstants.Support,
                 body,
                 subject);
 

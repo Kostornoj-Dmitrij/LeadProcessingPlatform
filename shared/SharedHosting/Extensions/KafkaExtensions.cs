@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Constants;
 
 namespace SharedHosting.Extensions;
 
@@ -19,7 +20,7 @@ public static class KafkaExtensions
         var logger = services.GetRequiredService<ILogger<object>>();
         var configuration = services.GetRequiredService<IConfiguration>();
 
-        var bootstrapServers = configuration["Kafka:BootstrapServers"];
+        var bootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers];
         var delay = retryDelay ?? TimeSpan.FromSeconds(2);
 
         using var adminClient = new AdminClientBuilder(new AdminClientConfig

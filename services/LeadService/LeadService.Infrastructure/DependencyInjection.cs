@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using AvroSchemas;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using LeadService.Application.Common.Interfaces;
 using LeadService.Infrastructure.Data;
@@ -24,11 +25,11 @@ public static class DependencyInjection
 
         var topics = new[]
         {
-            "enrichment-events",
-            "scoring-events",
-            "distribution-events",
-            "saga-events",
-            "lead-events"
+            KafkaTopics.EnrichmentEvents,
+            KafkaTopics.ScoringEvents,
+            KafkaTopics.DistributionEvents,
+            KafkaTopics.SagaEvents,
+            KafkaTopics.LeadEvents
         };
 
         services.AddSharedInfrastructure<ApplicationDbContext>(

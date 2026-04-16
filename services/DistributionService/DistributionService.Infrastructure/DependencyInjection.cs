@@ -1,4 +1,5 @@
-﻿using DistributionService.Application.Common.Interfaces;
+﻿using AvroSchemas;
+using DistributionService.Application.Common.Interfaces;
 using DistributionService.Infrastructure.Background;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,7 +37,7 @@ public static class DependencyInjection
 
         var topics = new[]
         {
-            "lead-events"
+            KafkaTopics.LeadEvents
         };
 
         services.AddSharedInfrastructure<ApplicationDbContext>(

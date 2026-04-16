@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using NotificationService.Domain.Constants;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
@@ -28,16 +29,16 @@ public class LeadRejectedEventHandler(
 
         var variables = new Dictionary<string, string>
         {
-            ["LeadId"] = @event.LeadId.ToString(),
-            ["Reason"] = @event.Reason,
-            ["FailureType"] = @event.FailureType,
-            ["ErrorDetails"] = @event.ErrorDetails ?? "N/A"
+            [TemplateVariableKeys.LeadId] = @event.LeadId.ToString(),
+            [TemplateVariableKeys.Reason] = @event.Reason,
+            [TemplateVariableKeys.FailureType] = @event.FailureType,
+            [TemplateVariableKeys.ErrorDetails] = @event.ErrorDetails ?? "N/A"
         };
 
         var (success, subject, body) = await notificationSender.SendAsync(
-            "LeadRejected",
+            NotificationTypeConstants.LeadRejected,
             NotificationChannel.Email,
-            "support@example.com",
+            RecipientConstants.Support,
             variables,
             cancellationToken);
 
@@ -46,9 +47,9 @@ public class LeadRejectedEventHandler(
             var notification = Notification.Create(
                 @event.LeadId,
                 @event.EventId.ToString(),
-                "LeadRejected",
+                NotificationTypeConstants.LeadRejected,
                 NotificationChannel.Email,
-                "support@example.com",
+                RecipientConstants.Support,
                 body,
                 subject);
 

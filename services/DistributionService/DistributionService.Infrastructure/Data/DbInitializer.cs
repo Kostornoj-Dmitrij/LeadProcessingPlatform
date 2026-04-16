@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DistributionService.Domain.Constants;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using DistributionService.Domain.Entities;
 using DistributionService.Domain.Enums;
@@ -26,24 +27,24 @@ public static class DbInitializer
                 Guid.NewGuid(),
                 "High Score Enterprise",
                 DistributionRuleStrategy.ScoreBased,
-                "{\"type\": \"score_threshold\", \"min_score\": 80}",
-                "{\"thresholds\": [{\"min_score\": 90, \"target\": \"enterprise_sales\"}, {\"min_score\": 80, \"target\": \"mid_market_sales\"}], \"default_target\": \"standard_sales\"}",
+                $"{{\"{RuleConfigKeys.Type}\": \"{RuleTypeConstants.ScoreThreshold}\", \"{RuleConfigKeys.MinScore}\": 80}}",
+                $"{{\"{RuleConfigKeys.Thresholds}\": [{{\"{RuleConfigKeys.MinScore}\": 90, \"{RuleConfigKeys.Target}\": \"enterprise_sales\"}}, {{\"{RuleConfigKeys.MinScore}\": 80, \"{RuleConfigKeys.Target}\": \"mid_market_sales\"}}], \"{RuleConfigKeys.DefaultTarget}\": \"standard_sales\"}}",
                 10),
 
             DistributionRule.Create(
                 Guid.NewGuid(),
                 "Technology Industry",
                 DistributionRuleStrategy.Territory,
-                "{\"type\": \"industry_match\", \"industry\": \"Technology\"}",
-                "{\"territories\": {\"technology\": \"tech_specialists\", \"finance\": \"finance_team\", \"default\": \"general_sales\"}}",
+                $"{{\"{RuleConfigKeys.Type}\": \"{RuleTypeConstants.IndustryMatch}\", \"{RuleConfigKeys.Industry}\": \"Technology\"}}",
+                $"{{\"{RuleConfigKeys.Territories}\": {{\"technology\": \"tech_specialists\", \"finance\": \"finance_team\", \"{RuleConfigKeys.Default}\": \"general_sales\"}}}}",
                 20),
 
             DistributionRule.Create(
                 Guid.NewGuid(),
                 "Round Robin Default",
                 DistributionRuleStrategy.RoundRobin,
-                "{\"type\": \"always_true\"}",
-                "{\"targets\": [\"sales_rep_1\", \"sales_rep_2\", \"sales_rep_3\", \"sales_rep_4\"]}",
+                $"{{\"{RuleConfigKeys.Type}\": \"{RuleTypeConstants.AlwaysTrue}\"}}",
+                $"{{\"{RuleConfigKeys.Targets}\": [\"sales_rep_1\", \"sales_rep_2\", \"sales_rep_3\", \"sales_rep_4\"]}}",
                 30)
         };
 

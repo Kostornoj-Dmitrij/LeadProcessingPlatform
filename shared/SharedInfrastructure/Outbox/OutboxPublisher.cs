@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Constants;
 using SharedInfrastructure.EventBus;
 using SharedInfrastructure.Inbox;
 using SharedInfrastructure.Telemetry;
@@ -144,7 +145,7 @@ public class OutboxPublisher<TContext>(
         try
         {
             var kafkaMessage = CreateKafkaMessageFromOutbox(message);
-            await deadLetterQueue.SendAsync("outbox", kafkaMessage, exception, cancellationToken);
+            await deadLetterQueue.SendAsync(KafkaHeaderValues.OutboxSource, kafkaMessage, exception, cancellationToken);
 
             message.ProcessedAt = DateTime.UtcNow;
             message.ErrorMessage = $"MOVED TO DLQ: {exception.Message}";
@@ -166,11 +167,11 @@ public class OutboxPublisher<TContext>(
             Value = message.Payload,
             Headers = new Headers
             {
-                { "event-type", Encoding.UTF8.GetBytes(message.EventType) },
-                { "aggregate-id", Encoding.UTF8.GetBytes(message.AggregateId) },
-                { "aggregate-type", Encoding.UTF8.GetBytes(message.AggregateType) },
-                { "outbox-message-id", Encoding.UTF8.GetBytes(message.Id.ToString()) },
-                { "original-source", "outbox-publisher"u8.ToArray() }
+                { KafkaHeaderKeys.EventType, Encoding.UTF8.GetBytes(message.EventType) },
+                { KafkaHeaderKeys.AggregateId, Encoding.UTF8.GetBytes(message.AggregateId) },
+                { KafkaHeaderKeys.AggregateType, Encoding.UTF8.GetBytes(message.AggregateType) },
+                { KafkaHeaderKeys.OutboxMessageId, Encoding.UTF8.GetBytes(message.Id.ToString()) },
+                { KafkaHeaderKeys.OriginalSource, KafkaHeaderValues.SourceOutboxPublisherBytes }
             }
         };
     }

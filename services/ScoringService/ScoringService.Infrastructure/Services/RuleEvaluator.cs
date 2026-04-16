@@ -4,6 +4,7 @@ using AvroSchemas.Messages.LeadEvents;
 using Microsoft.Extensions.Logging;
 using ScoringService.Application.Metrics;
 using ScoringService.Application.Services;
+using ScoringService.Domain.Constants;
 using ScoringService.Domain.Entities;
 
 namespace ScoringService.Infrastructure.Services;
@@ -28,7 +29,7 @@ public class RuleEvaluator(ILogger<RuleEvaluator> logger) : IRuleEvaluator
                 return false;
             }
 
-            if (!condition.TryGetValue("type", out var typeObj))
+            if (!condition.TryGetValue(RuleConfigKeys.Type, out var typeObj))
             {
                 logger.LogWarning("Rule {RuleName} missing 'type' field", rule.RuleName);
                 return false;
@@ -37,11 +38,11 @@ public class RuleEvaluator(ILogger<RuleEvaluator> logger) : IRuleEvaluator
             var type = typeObj.ToString();
             var result = type switch
             {
-                "field_equals" => EvaluateFieldEquals(condition, request, enrichedData),
-                "field_contains" => EvaluateFieldContains(condition, request, enrichedData),
-                "custom_field_equals" => EvaluateCustomFieldEquals(condition, request),
-                "score_threshold" => EvaluateScoreThreshold(condition, request),
-                "always_true" => true,
+                RuleTypeConstants.FieldEquals => EvaluateFieldEquals(condition, request, enrichedData),
+                RuleTypeConstants.FieldContains => EvaluateFieldContains(condition, request, enrichedData),
+                RuleTypeConstants.CustomFieldEquals => EvaluateCustomFieldEquals(condition, request),
+                RuleTypeConstants.ScoreThreshold => EvaluateScoreThreshold(condition, request),
+                RuleTypeConstants.AlwaysTrue => true,
                 _ => false
             };
 
@@ -65,8 +66,8 @@ public class RuleEvaluator(ILogger<RuleEvaluator> logger) : IRuleEvaluator
         ScoringRequest request,
         EnrichedDataDto? enrichedData)
     {
-        if (!condition.TryGetValue("field", out var fieldObj) ||
-            !condition.TryGetValue("value", out var valueObj))
+        if (!condition.TryGetValue(RuleConfigKeys.Field, out var fieldObj) ||
+            !condition.TryGetValue(RuleConfigKeys.Value, out var valueObj))
         {
             return false;
         }
@@ -76,11 +77,11 @@ public class RuleEvaluator(ILogger<RuleEvaluator> logger) : IRuleEvaluator
 
         return field switch
         {
-            "industry" => enrichedData?.Industry == expectedValue,
-            "company_size" => enrichedData?.CompanySize == expectedValue,
-            "revenue_range" => enrichedData?.RevenueRange == expectedValue,
-            "company_name" => request.CompanyName == expectedValue,
-            "email" => request.Email == expectedValue,
+            RuleFieldConstants.Industry => enrichedData?.Industry == expectedValue,
+            RuleFieldConstants.CompanySize => enrichedData?.CompanySize == expectedValue,
+            RuleFieldConstants.RevenueRange => enrichedData?.RevenueRange == expectedValue,
+            RuleFieldConstants.CompanyName => request.CompanyName == expectedValue,
+            RuleFieldConstants.Email => request.Email == expectedValue,
             _ => false
         };
     }
@@ -90,8 +91,8 @@ public class RuleEvaluator(ILogger<RuleEvaluator> logger) : IRuleEvaluator
         ScoringRequest request,
         EnrichedDataDto? enrichedData)
     {
-        if (!condition.TryGetValue("field", out var fieldObj) ||
-            !condition.TryGetValue("value", out var valueObj))
+        if (!condition.TryGetValue(RuleConfigKeys.Field, out var fieldObj) ||
+            !condition.TryGetValue(RuleConfigKeys.Value, out var valueObj))
         {
             return false;
         }
@@ -101,8 +102,8 @@ public class RuleEvaluator(ILogger<RuleEvaluator> logger) : IRuleEvaluator
 
         return field switch
         {
-            "industry" => enrichedData?.Industry.Contains(expectedValue ?? "") == true,
-            "company_name" => request.CompanyName.Contains(expectedValue ?? "") == true,
+            RuleFieldConstants.Industry => enrichedData?.Industry.Contains(expectedValue ?? "") == true,
+            RuleFieldConstants.CompanyName => request.CompanyName.Contains(expectedValue ?? "") == true,
             _ => false
         };
     }
@@ -111,8 +112,8 @@ public class RuleEvaluator(ILogger<RuleEvaluator> logger) : IRuleEvaluator
         Dictionary<string, object> condition,
         ScoringRequest request)
     {
-        if (!condition.TryGetValue("field_name", out var fieldNameObj) ||
-            !condition.TryGetValue("value", out var valueObj))
+        if (!condition.TryGetValue(RuleConfigKeys.FieldName, out var fieldNameObj) ||
+            !condition.TryGetValue(RuleConfigKeys.Value, out var valueObj))
         {
             return false;
         }

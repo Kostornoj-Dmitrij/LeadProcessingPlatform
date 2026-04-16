@@ -6,6 +6,7 @@ using NotificationService.Domain.Enums;
 using NotificationService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Metrics;
+using NotificationService.Domain.Constants;
 
 namespace NotificationService.Infrastructure.Services;
 
@@ -18,6 +19,8 @@ public class NotificationSender(
     ITemplateRenderer templateRenderer,
     ApplicationDbContext dbContext) : INotificationSender
 {
+    private const string TimestampFormat = "yyyy-MM-dd HH:mm:ss UTC";
+
     public async Task<(bool success, string subject, string body)> SendAsync(
         string notificationType,
         NotificationChannel channel,
@@ -25,8 +28,8 @@ public class NotificationSender(
         Dictionary<string, string> variables,
         CancellationToken cancellationToken = default)
     {
-        if (!variables.ContainsKey("Timestamp"))
-            variables["Timestamp"] = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+        if (!variables.ContainsKey(TemplateVariableKeys.Timestamp))
+            variables[TemplateVariableKeys.Timestamp] = DateTime.UtcNow.ToString(TimestampFormat);
 
         var template = await dbContext.NotificationTemplates
             .FirstOrDefaultAsync(t => t.TemplateType == notificationType && t.Channel == channel, cancellationToken);
@@ -49,7 +52,7 @@ public class NotificationSender(
             Recipient = recipient,
             Subject = subject,
             Body = body,
-            Timestamp = variables["Timestamp"]
+            Timestamp = variables[TemplateVariableKeys.Timestamp]
         };
 
         var json = JsonSerializer.Serialize(notification, new JsonSerializerOptions { WriteIndented = true });

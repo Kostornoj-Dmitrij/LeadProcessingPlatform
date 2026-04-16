@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Constants;
 using SharedHosting.Extensions;
 using SharedHosting.Middleware;
 using SharedHosting.Options;
@@ -74,12 +75,12 @@ public static class HostBuilderExtensions
             app.UseSwaggerUi(config =>
             {
                 config.DocumentTitle = $"{app.Environment.ApplicationName} API";
-                config.Path = "/swagger";
-                config.DocumentPath = "/swagger/v1/swagger.json";
+                config.Path = ConfigurationKeys.SwaggerPath;
+                config.DocumentPath = ConfigurationKeys.SwaggerJsonPath;
             });
         }
 
-        app.MapHealthChecks("/health");
+        app.MapHealthChecks(ConfigurationKeys.HealthPath);
 
         return app;
     }

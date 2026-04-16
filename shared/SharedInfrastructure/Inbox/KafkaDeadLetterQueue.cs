@@ -2,6 +2,8 @@
 using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Constants;
+using SharedInfrastructure.Constants;
 
 namespace SharedInfrastructure.Inbox;
 
@@ -13,6 +15,7 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
     private readonly IProducer<string, string> _producer;
     private readonly ILogger<KafkaDeadLetterQueue> _logger;
     private readonly string _dlqTopic;
+    private const string DefaultDlqTopic = "default-dlq";
 
     public KafkaDeadLetterQueue(IConfiguration configuration, ILogger<KafkaDeadLetterQueue> logger)
     {
@@ -20,13 +23,13 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
 
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = configuration["Kafka:BootstrapServers"],
+            BootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers],
             EnableIdempotence = true,
             Acks = Acks.All
         };
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
-        _dlqTopic = configuration["Kafka:DlqTopic"] ?? "default-dlq";
+        _dlqTopic = configuration[ConfigurationKeys.KafkaDlqTopic] ?? DefaultDlqTopic;
     }
 
     public async Task SendAsync(
@@ -41,11 +44,11 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
             Value = message.Value,
             Headers = new Headers
             {
-                { "original-topic", Encoding.UTF8.GetBytes(originalTopic) },
-                { "error-message", Encoding.UTF8.GetBytes(exception.Message) },
-                { "error-type", Encoding.UTF8.GetBytes(exception.GetType().Name) },
-                { "timestamp", Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) },
-                { "source", "inbox-processor"u8.ToArray() }
+                { KafkaHeaderKeys.OriginalTopic, Encoding.UTF8.GetBytes(originalTopic) },
+                { KafkaHeaderKeys.ErrorMessage, Encoding.UTF8.GetBytes(exception.Message) },
+                { KafkaHeaderKeys.ErrorType, Encoding.UTF8.GetBytes(exception.GetType().Name) },
+                { KafkaHeaderKeys.Timestamp, Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) },
+                { KafkaHeaderKeys.Source, KafkaHeaderValues.SourceInboxProcessorBytes }
             }
         };
 

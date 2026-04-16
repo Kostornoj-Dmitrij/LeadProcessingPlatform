@@ -20,30 +20,30 @@ public static class SchemaRegistryHelper
     {
         var subjectsAndTypes = new Dictionary<string, Type>
         {
-            ["lead-events-LeadCreated-value"] = typeof(LeadCreated),
-            ["lead-events-LeadQualified-value"] = typeof(LeadQualified),
-            ["lead-events-LeadRejected-value"] = typeof(LeadRejected),
-            ["lead-events-LeadDistributed-value"] = typeof(LeadDistributed),
-            ["lead-events-LeadDistributionFailed-value"] = typeof(LeadDistributionFailed),
-            ["lead-events-LeadRejectedFinal-value"] = typeof(LeadRejectedFinal),
-            ["lead-events-LeadDistributionFailedFinal-value"] = typeof(LeadDistributionFailedFinal),
-            ["lead-events-LeadDistributedFinal-value"] = typeof(LeadDistributedFinal),
+            [$"{KafkaTopics.LeadEvents}-{nameof(LeadCreated)}-value"] = typeof(LeadCreated),
+            [$"{KafkaTopics.LeadEvents}-{nameof(LeadQualified)}-value"] = typeof(LeadQualified),
+            [$"{KafkaTopics.LeadEvents}-{nameof(LeadRejected)}-value"] = typeof(LeadRejected),
+            [$"{KafkaTopics.LeadEvents}-{nameof(LeadDistributed)}-value"] = typeof(LeadDistributed),
+            [$"{KafkaTopics.LeadEvents}-{nameof(LeadDistributionFailed)}-value"] = typeof(LeadDistributionFailed),
+            [$"{KafkaTopics.LeadEvents}-{nameof(LeadRejectedFinal)}-value"] = typeof(LeadRejectedFinal),
+            [$"{KafkaTopics.LeadEvents}-{nameof(LeadDistributionFailedFinal)}-value"] = typeof(LeadDistributionFailedFinal),
+            [$"{KafkaTopics.LeadEvents}-{nameof(LeadDistributedFinal)}-value"] = typeof(LeadDistributedFinal),
 
-            ["enrichment-events-LeadEnriched-value"] = typeof(LeadEnriched),
-            ["enrichment-events-LeadEnrichmentFailed-value"] = typeof(LeadEnrichmentFailed),
+            [$"{KafkaTopics.EnrichmentEvents}-{nameof(LeadEnriched)}-value"] = typeof(LeadEnriched),
+            [$"{KafkaTopics.EnrichmentEvents}-{nameof(LeadEnrichmentFailed)}-value"] = typeof(LeadEnrichmentFailed),
 
-            ["scoring-events-LeadScored-value"] = typeof(LeadScored),
-            ["scoring-events-LeadScoringFailed-value"] = typeof(LeadScoringFailed),
+            [$"{KafkaTopics.ScoringEvents}-{nameof(LeadScored)}-value"] = typeof(LeadScored),
+            [$"{KafkaTopics.ScoringEvents}-{nameof(LeadScoringFailed)}-value"] = typeof(LeadScoringFailed),
 
-            ["distribution-events-DistributionSucceeded-value"] = typeof(DistributionSucceeded),
-            ["distribution-events-DistributionFailed-value"] = typeof(DistributionFailed),
+            [$"{KafkaTopics.DistributionEvents}-{nameof(DistributionSucceeded)}-value"] = typeof(DistributionSucceeded),
+            [$"{KafkaTopics.DistributionEvents}-{nameof(DistributionFailed)}-value"] = typeof(DistributionFailed),
 
-            ["saga-events-LeadEnrichmentCompensated-value"] = typeof(LeadEnrichmentCompensated),
-            ["saga-events-LeadScoringCompensated-value"] = typeof(LeadScoringCompensated),
+            [$"{KafkaTopics.SagaEvents}-{nameof(LeadEnrichmentCompensated)}-value"] = typeof(LeadEnrichmentCompensated),
+            [$"{KafkaTopics.SagaEvents}-{nameof(LeadScoringCompensated)}-value"] = typeof(LeadScoringCompensated),
 
-            ["notification-events-NotificationSent-value"] = typeof(NotificationSent),
+            [$"{KafkaTopics.NotificationEvents}-{nameof(NotificationSent)}-value"] = typeof(NotificationSent),
 
-            ["lead-events-EnrichedData-value"] = typeof(EnrichedData)
+            [$"{KafkaTopics.LeadEvents}-{nameof(EnrichedData)}-value"] = typeof(EnrichedData)
         };
 
         foreach (var (subject, type) in subjectsAndTypes)

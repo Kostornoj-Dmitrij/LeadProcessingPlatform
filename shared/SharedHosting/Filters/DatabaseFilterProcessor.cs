@@ -8,15 +8,8 @@ namespace SharedHosting.Filters;
 /// </summary>
 public class DatabaseFilterProcessor : BaseProcessor<Activity>
 {
-    private static readonly string[] BackgroundQueryPatterns = 
-    [
-        "inbox_messages", 
-        "outbox_messages", 
-        "pending_enriched_data",
-        "scoring_requests",
-        "enrichment_requests",
-        "distribution_requests"
-    ];
+    private const string DbStatementTag = "db.statement";
+    private static readonly string[] BackgroundQueryPatterns = Constants.BackgroundQueryPatterns.All;
 
     public override void OnEnd(Activity activity)
     {
@@ -30,7 +23,7 @@ public class DatabaseFilterProcessor : BaseProcessor<Activity>
     {
         foreach (var tag in activity.Tags)
         {
-            if (tag.Key == "db.statement")
+            if (tag.Key == DbStatementTag)
             {
                 var sql = tag.Value ?? "";
                 foreach (var pattern in BackgroundQueryPatterns)

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NotificationService.Domain.Constants;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 
@@ -25,196 +26,204 @@ public static class DbInitializer
             {
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadCreated",
+                    NotificationTypeConstants.LeadCreated,
                     NotificationChannel.Log,
-                    "[Lead Platform] Lead Created - {{CompanyName}}",
-                    @"Lead created successfully.
-                    Lead ID: {{LeadId}}
-                    Company: {{CompanyName}}
-                    Contact: {{ContactPerson}}
-                    Email: {{Email}}
-                    Source: {{Source}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "CompanyName", "ContactPerson", "Email", "Source", "Timestamp"]),
+                    $"[Lead Platform] Lead Created - {{{{{TemplateVariableKeys.CompanyName}}}}}",
+                    $@"Lead created successfully.
+                    Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Company: {{{{{TemplateVariableKeys.CompanyName}}}}}
+                    Contact: {{{{{TemplateVariableKeys.ContactPerson}}}}}
+                    Email: {{{{{TemplateVariableKeys.Email}}}}}
+                    Source: {{{{{TemplateVariableKeys.Source}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.CompanyName, TemplateVariableKeys.ContactPerson, 
+                     TemplateVariableKeys.Email, TemplateVariableKeys.Source, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadQualified",
+                    NotificationTypeConstants.LeadQualified,
                     NotificationChannel.Log,
-                    "[Lead Platform] Lead Qualified - {{CompanyName}} (Score: {{Score}})",
-                    @"Lead qualified successfully.
-                    Lead ID: {{LeadId}}
-                    Company: {{CompanyName}}
-                    Contact: {{ContactPerson}}
-                    Email: {{Email}}
-                    Score: {{Score}}
-                    Industry: {{Industry}}
-                    Company Size: {{CompanySize}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "CompanyName", "ContactPerson", "Email", "Score", "Industry", "CompanySize", "Timestamp"]),
+                    $"[Lead Platform] Lead Qualified - {{{{{TemplateVariableKeys.CompanyName}}}}} (Score: {{{{{TemplateVariableKeys.Score}}}}})",
+                    $@"Lead qualified successfully.
+                    Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Company: {{{{{TemplateVariableKeys.CompanyName}}}}}
+                    Contact: {{{{{TemplateVariableKeys.ContactPerson}}}}}
+                    Email: {{{{{TemplateVariableKeys.Email}}}}}
+                    Score: {{{{{TemplateVariableKeys.Score}}}}}
+                    Industry: {{{{{TemplateVariableKeys.Industry}}}}}
+                    Company Size: {{{{{TemplateVariableKeys.CompanySize}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.CompanyName, TemplateVariableKeys.ContactPerson, 
+                     TemplateVariableKeys.Email, TemplateVariableKeys.Score, TemplateVariableKeys.Industry, 
+                     TemplateVariableKeys.CompanySize, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadDistributed",
+                    NotificationTypeConstants.LeadDistributed,
                     NotificationChannel.Log,
-                    "[Lead Platform] Lead Distributed - Lead {{LeadId}}",
-                    @"Lead distributed successfully.
-                    Lead ID: {{LeadId}}
-                    Target: {{Target}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "Target", "Timestamp"]),
+                    $"[Lead Platform] Lead Distributed - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead distributed successfully.
+                    Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Target: {{{{{TemplateVariableKeys.Target}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.Target, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadDistributedFinal",
+                    NotificationTypeConstants.LeadDistributedFinal,
                     NotificationChannel.Log,
-                    "[Lead Platform] Lead Processing Completed (Distributed) - Lead {{LeadId}}",
-                    @"Lead processing completed (Distributed - Closed).
-                    Lead ID: {{LeadId}}
-                    Final Status: {{FinalStatus}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "FinalStatus", "Timestamp"]),
+                    $"[Lead Platform] Lead Processing Completed (Distributed) - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead processing completed (Distributed - Closed).
+                    Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Final Status: {{{{{TemplateVariableKeys.FinalStatus}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.FinalStatus, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadRejected",
+                    NotificationTypeConstants.LeadRejected,
                     NotificationChannel.Log,
-                    "[Lead Platform] Lead Rejected - Lead {{LeadId}}",
-                    @"Lead rejected.
-                    Lead ID: {{LeadId}}
-                    Reason: {{Reason}}
-                    Failure Type: {{FailureType}}
-                    Error Details: {{ErrorDetails}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "Reason", "FailureType", "ErrorDetails", "Timestamp"]),
+                    $"[Lead Platform] Lead Rejected - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead rejected.
+                    Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Reason: {{{{{TemplateVariableKeys.Reason}}}}}
+                    Failure Type: {{{{{TemplateVariableKeys.FailureType}}}}}
+                    Error Details: {{{{{TemplateVariableKeys.ErrorDetails}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.Reason, TemplateVariableKeys.FailureType, 
+                     TemplateVariableKeys.ErrorDetails, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadRejectedFinal",
+                    NotificationTypeConstants.LeadRejectedFinal,
                     NotificationChannel.Log,
-                    "[Lead Platform] Lead Processing Completed (Rejected) - Lead {{LeadId}}",
-                    @"Lead processing completed (Rejected - Closed).
-                    Lead ID: {{LeadId}}
-                    Final Status: {{FinalStatus}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "FinalStatus", "Timestamp"]),
+                    $"[Lead Platform] Lead Processing Completed (Rejected) - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead processing completed (Rejected - Closed).
+                    Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Final Status: {{{{{TemplateVariableKeys.FinalStatus}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.FinalStatus, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadDistributionFailed",
+                    NotificationTypeConstants.LeadDistributionFailed,
                     NotificationChannel.Log,
-                    "[Lead Platform] Lead Distribution Failed - Lead {{LeadId}}",
-                    @"Lead distribution failed.
-                    Lead ID: {{LeadId}}
-                    Reason: {{Reason}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "Reason", "Timestamp"]),
+                    $"[Lead Platform] Lead Distribution Failed - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead distribution failed.
+                    Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Reason: {{{{{TemplateVariableKeys.Reason}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.Reason, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadDistributionFailedFinal",
+                    NotificationTypeConstants.LeadDistributionFailedFinal,
                     NotificationChannel.Log,
-                    "[Lead Platform] Lead Processing Completed (Distribution Failed) - Lead {{LeadId}}",
-                    @"Lead processing completed (Distribution Failed - Closed).
-                    Lead ID: {{LeadId}}
-                    Final Status: {{FinalStatus}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "FinalStatus", "Timestamp"]),
+                    $"[Lead Platform] Lead Processing Completed (Distribution Failed) - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead processing completed (Distribution Failed - Closed).
+                    Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Final Status: {{{{{TemplateVariableKeys.FinalStatus}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.FinalStatus, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadCreated",
+                    NotificationTypeConstants.LeadCreated,
                     NotificationChannel.Email,
-                    "[Lead Platform] Lead Created - {{CompanyName}}",
-                    @"Lead ID: {{LeadId}}
-                    Company: {{CompanyName}}
-                    Contact: {{ContactPerson}}
-                    Email: {{Email}}
-                    Source: {{Source}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "CompanyName", "ContactPerson", "Email", "Source", "Timestamp"]),
+                    $"[Lead Platform] Lead Created - {{{{{TemplateVariableKeys.CompanyName}}}}}",
+                    $@"Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Company: {{{{{TemplateVariableKeys.CompanyName}}}}}
+                    Contact: {{{{{TemplateVariableKeys.ContactPerson}}}}}
+                    Email: {{{{{TemplateVariableKeys.Email}}}}}
+                    Source: {{{{{TemplateVariableKeys.Source}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.CompanyName, TemplateVariableKeys.ContactPerson,
+                     TemplateVariableKeys.Email, TemplateVariableKeys.Source, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadQualified",
+                    NotificationTypeConstants.LeadQualified,
                     NotificationChannel.Email,
-                    "[Lead Platform] Lead Qualified - {{CompanyName}} (Score: {{Score}})",
-                    @"Lead ID: {{LeadId}}
-                    Company: {{CompanyName}}
-                    Contact: {{ContactPerson}}
-                    Email: {{Email}}
-                    Score: {{Score}}
-                    Industry: {{Industry}}
-                    Company Size: {{CompanySize}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "CompanyName", "ContactPerson", "Email", "Score", "Industry", "CompanySize", "Timestamp"]),
+                    $"[Lead Platform] Lead Qualified - {{{{{TemplateVariableKeys.CompanyName}}}}} (Score: {{{{{TemplateVariableKeys.Score}}}}})",
+                    $@"Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Company: {{{{{TemplateVariableKeys.CompanyName}}}}}
+                    Contact: {{{{{TemplateVariableKeys.ContactPerson}}}}}
+                    Email: {{{{{TemplateVariableKeys.Email}}}}}
+                    Score: {{{{{TemplateVariableKeys.Score}}}}}
+                    Industry: {{{{{TemplateVariableKeys.Industry}}}}}
+                    Company Size: {{{{{TemplateVariableKeys.CompanySize}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.CompanyName, TemplateVariableKeys.ContactPerson,
+                     TemplateVariableKeys.Email, TemplateVariableKeys.Score, TemplateVariableKeys.Industry,
+                     TemplateVariableKeys.CompanySize, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadDistributed",
+                    NotificationTypeConstants.LeadDistributed,
                     NotificationChannel.Email,
-                    "[Lead Platform] Lead Distributed - Lead {{LeadId}}",
-                    @"Lead ID: {{LeadId}}
-                    Target: {{Target}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "Target", "Timestamp"]),
+                    $"[Lead Platform] Lead Distributed - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Target: {{{{{TemplateVariableKeys.Target}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.Target, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadDistributedFinal",
+                    NotificationTypeConstants.LeadDistributedFinal,
                     NotificationChannel.Email,
-                    "[Lead Platform] Lead Processing Completed (Distributed) - Lead {{LeadId}}",
-                    @"Lead ID: {{LeadId}}
-                    Final Status: {{FinalStatus}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "FinalStatus", "Timestamp"]),
+                    $"[Lead Platform] Lead Processing Completed (Distributed) - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Final Status: {{{{{TemplateVariableKeys.FinalStatus}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.FinalStatus, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadRejected",
+                    NotificationTypeConstants.LeadRejected,
                     NotificationChannel.Email,
-                    "[Lead Platform] Lead Rejected - Lead {{LeadId}}",
-                    @"Lead ID: {{LeadId}}
-                    Reason: {{Reason}}
-                    Failure Type: {{FailureType}}
-                    Error Details: {{ErrorDetails}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "Reason", "FailureType", "ErrorDetails", "Timestamp"]),
+                    $"[Lead Platform] Lead Rejected - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Reason: {{{{{TemplateVariableKeys.Reason}}}}}
+                    Failure Type: {{{{{TemplateVariableKeys.FailureType}}}}}
+                    Error Details: {{{{{TemplateVariableKeys.ErrorDetails}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.Reason, TemplateVariableKeys.FailureType,
+                     TemplateVariableKeys.ErrorDetails, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadRejectedFinal",
+                    NotificationTypeConstants.LeadRejectedFinal,
                     NotificationChannel.Email,
-                    "[Lead Platform] Lead Processing Completed (Rejected) - Lead {{LeadId}}",
-                    @"Lead ID: {{LeadId}}
-                    Final Status: {{FinalStatus}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "FinalStatus", "Timestamp"]),
+                    $"[Lead Platform] Lead Processing Completed (Rejected) - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Final Status: {{{{{TemplateVariableKeys.FinalStatus}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.FinalStatus, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadDistributionFailed",
+                    NotificationTypeConstants.LeadDistributionFailed,
                     NotificationChannel.Email,
-                    "[Lead Platform] Lead Distribution Failed - Lead {{LeadId}}",
-                    @"Lead ID: {{LeadId}}
-                    Reason: {{Reason}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "Reason", "Timestamp"]),
+                    $"[Lead Platform] Lead Distribution Failed - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Reason: {{{{{TemplateVariableKeys.Reason}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.Reason, TemplateVariableKeys.Timestamp]),
 
                 NotificationTemplate.Create(
                     Guid.NewGuid(),
-                    "LeadDistributionFailedFinal",
+                    NotificationTypeConstants.LeadDistributionFailedFinal,
                     NotificationChannel.Email,
-                    "[Lead Platform] Lead Processing Completed (Distribution Failed) - Lead {{LeadId}}",
-                    @"Lead ID: {{LeadId}}
-                    Final Status: {{FinalStatus}}
-                    Timestamp: {{Timestamp}}",
-                    ["LeadId", "FinalStatus", "Timestamp"])
+                    $"[Lead Platform] Lead Processing Completed (Distribution Failed) - Lead {{{{{TemplateVariableKeys.LeadId}}}}}",
+                    $@"Lead ID: {{{{{TemplateVariableKeys.LeadId}}}}}
+                    Final Status: {{{{{TemplateVariableKeys.FinalStatus}}}}}
+                    Timestamp: {{{{{TemplateVariableKeys.Timestamp}}}}}",
+                    [TemplateVariableKeys.LeadId, TemplateVariableKeys.FinalStatus, TemplateVariableKeys.Timestamp])
             };
 
             await context.NotificationTemplates.AddRangeAsync(templates, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
-            
+
             logger.LogInformation("Successfully seeded {Count} notification templates", templates.Count);
         }
         else

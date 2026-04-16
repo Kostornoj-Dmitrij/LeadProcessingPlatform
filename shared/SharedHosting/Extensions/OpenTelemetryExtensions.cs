@@ -7,6 +7,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Exporter;
+using SharedHosting.Constants;
 using SharedHosting.Filters;
 using SharedHosting.Options;
 
@@ -23,7 +24,7 @@ public static class OpenTelemetryExtensions
         string serviceName,
         string[]? additionalSources = null)
     {
-        var otelOptions = configuration.GetSection("OpenTelemetry")
+        var otelOptions = configuration.GetSection(ConfigurationKeys.OpenTelemetrySection)
             .Get<OpenTelemetryOptions>() ?? new OpenTelemetryOptions();
 
         var activitySource = new System.Diagnostics.ActivitySource(serviceName);
@@ -37,7 +38,7 @@ public static class OpenTelemetryExtensions
                 .AddTelemetrySdk()
                 .AddAttributes(new Dictionary<string, object>
                 {
-                    ["deployment.environment"] = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Development"
+                    ["deployment.environment"] = configuration[ConfigurationKeys.AspNetCoreEnvironment] ?? "Development"
                 }));
 
         if (otelOptions.EnableTracing)
@@ -45,11 +46,11 @@ public static class OpenTelemetryExtensions
             services.AddOpenTelemetry().WithTracing(tracing =>
             {
                 tracing.AddSource(serviceName);
-                tracing.AddSource("SharedInfrastructure");
-                tracing.AddSource("Microsoft.AspNetCore");
-                tracing.AddSource("Microsoft.EntityFrameworkCore");
-                tracing.AddSource("Npgsql");
-                tracing.AddSource("Confluent.Kafka");
+                tracing.AddSource(TelemetrySourceNames.SharedInfrastructure);
+                tracing.AddSource(TelemetrySourceNames.MicrosoftAspNetCore);
+                tracing.AddSource(TelemetrySourceNames.MicrosoftEntityFrameworkCore);
+                tracing.AddSource(TelemetrySourceNames.Npgsql);
+                tracing.AddSource(TelemetrySourceNames.ConfluentKafka);
 
                 if (additionalSources != null)
                 {
@@ -63,8 +64,8 @@ public static class OpenTelemetryExtensions
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.RecordException = true;
-                        options.Filter = (httpContext) => !httpContext.Request.Path.StartsWithSegments("/health") &&
-                                                          !httpContext.Request.Path.StartsWithSegments("/swagger");
+                        options.Filter = (httpContext) => !httpContext.Request.Path.StartsWithSegments(ConfigurationKeys.HealthPath) &&
+                                                          !httpContext.Request.Path.StartsWithSegments(ConfigurationKeys.SwaggerPath);
                     })
                     .AddHttpClientInstrumentation(options =>
                     {
@@ -72,9 +73,9 @@ public static class OpenTelemetryExtensions
                         options.FilterHttpRequestMessage = (httpRequestMessage) =>
                         {
                             var uri = httpRequestMessage.RequestUri?.AbsolutePath ?? "";
-                            return !uri.Contains("/health") && 
-                                   !uri.Contains("/subjects") &&
-                                   !uri.Contains("/schemas"); 
+                            return !uri.Contains(ConfigurationKeys.HealthPath) && 
+                                   !uri.Contains(ConfigurationKeys.SubjectsPath) &&
+                                   !uri.Contains(ConfigurationKeys.SchemasPath);
                         };
                     })
                     .AddEntityFrameworkCoreInstrumentation(options =>
@@ -84,13 +85,13 @@ public static class OpenTelemetryExtensions
                         options.Filter = (_, command) =>
                         {
                             var commandText = command.CommandText.ToLowerInvariant();
-                            return !commandText.Contains("inbox_messages") && 
-                                   !commandText.Contains("outbox_messages") &&
-                                   !commandText.Contains("pending_enriched_data") &&
-                                   !commandText.Contains("scoring_requests") &&
-                                   !commandText.Contains("scoring_rules") &&
-                                   !commandText.Contains("enrichment_requests") &&
-                                   !commandText.Contains("distribution_requests");
+                            return !commandText.Contains(BackgroundQueryPatterns.InboxMessages) && 
+                                   !commandText.Contains(BackgroundQueryPatterns.OutboxMessages) &&
+                                   !commandText.Contains(BackgroundQueryPatterns.PendingEnrichedData) &&
+                                   !commandText.Contains(BackgroundQueryPatterns.ScoringRequests) &&
+                                   !commandText.Contains(BackgroundQueryPatterns.ScoringRules) &&
+                                   !commandText.Contains(BackgroundQueryPatterns.EnrichmentRequests) &&
+                                   !commandText.Contains(BackgroundQueryPatterns.DistributionRequests);
                         };
                     })
                     .AddNpgsql();
@@ -99,7 +100,7 @@ public static class OpenTelemetryExtensions
 
                 if (!string.IsNullOrEmpty(otelOptions.Endpoint))
                 {
-                    var useGrpc = otelOptions.Endpoint.Contains("4317") || 
+                    var useGrpc = otelOptions.Endpoint.Contains(ConfigurationKeys.OtlpGrpcPort) || 
                                    otelOptions.Protocol.Equals("Grpc", StringComparison.OrdinalIgnoreCase);
 
                     tracing.AddOtlpExporter(options =>
@@ -123,17 +124,17 @@ public static class OpenTelemetryExtensions
             {
                 metrics
                     .AddMeter(serviceName)
-                    .AddMeter("LeadService.Metrics")
-                    .AddMeter("EnrichmentService.Metrics")
-                    .AddMeter("ScoringService.Metrics")
-                    .AddMeter("DistributionService.Metrics")
-                    .AddMeter("NotificationService.Metrics")
-                    .AddMeter("ApiGateway.Metrics")
-                    .AddMeter("SharedInfrastructure.Metrics")
-                    .AddMeter("Microsoft.AspNetCore.Hosting")
-                    .AddMeter("Microsoft.AspNetCore.Server.Kestrel")
-                    .AddMeter("System.Net.Http")
-                    .AddMeter("Npgsql");
+                    .AddMeter(TelemetrySourceNames.LeadServiceMetrics)
+                    .AddMeter(TelemetrySourceNames.EnrichmentServiceMetrics)
+                    .AddMeter(TelemetrySourceNames.ScoringServiceMetrics)
+                    .AddMeter(TelemetrySourceNames.DistributionServiceMetrics)
+                    .AddMeter(TelemetrySourceNames.NotificationServiceMetrics)
+                    .AddMeter(TelemetrySourceNames.ApiGatewayMetrics)
+                    .AddMeter(TelemetrySourceNames.SharedInfrastructureMetrics)
+                    .AddMeter(TelemetrySourceNames.AspNetCoreHosting)
+                    .AddMeter(TelemetrySourceNames.AspNetCoreKestrel)
+                    .AddMeter(TelemetrySourceNames.SystemNetHttp)
+                    .AddMeter(TelemetrySourceNames.Npgsql);
 
                 if (additionalSources != null)
                 {
@@ -150,7 +151,7 @@ public static class OpenTelemetryExtensions
 
                 if (!string.IsNullOrEmpty(otelOptions.Endpoint))
                 {
-                    var useGrpc = otelOptions.Endpoint.Contains("4317") || 
+                    var useGrpc = otelOptions.Endpoint.Contains(ConfigurationKeys.OtlpGrpcPort) || 
                                    otelOptions.Protocol.Equals("Grpc", StringComparison.OrdinalIgnoreCase);
 
                     metrics.AddOtlpExporter(options =>
@@ -174,7 +175,7 @@ public static class OpenTelemetryExtensions
             {
                 if (!string.IsNullOrEmpty(otelOptions.Endpoint))
                 {
-                    var useGrpc = otelOptions.Endpoint.Contains("4317") || 
+                    var useGrpc = otelOptions.Endpoint.Contains(ConfigurationKeys.OtlpGrpcPort) || 
                                    otelOptions.Protocol.Equals("Grpc", StringComparison.OrdinalIgnoreCase);
 
                     options.AddOtlpExporter(otlpOptions =>

@@ -7,6 +7,8 @@ using Confluent.SchemaRegistry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Constants;
+using SharedInfrastructure.Constants;
 using SharedInfrastructure.Serialization;
 using SharedInfrastructure.Telemetry;
 
@@ -33,8 +35,8 @@ public class KafkaEventBus : IEventBus
         _logger = logger;
         _serviceName = serviceName;
 
-        var bootstrapServers = configuration["Kafka:BootstrapServers"];
-        var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
+        var bootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers];
+        var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
 
         if (string.IsNullOrEmpty(schemaRegistryUrl))
             throw new InvalidOperationException("SchemaRegistryUrl is not configured");
@@ -82,10 +84,10 @@ public class KafkaEventBus : IEventBus
                 Value = messageValue,
                 Headers = new Headers
                 {
-                    { "event-type", Encoding.UTF8.GetBytes(typeof(TEvent).AssemblyQualifiedName!) },
-                    { "event-id", Encoding.UTF8.GetBytes(avroEvent.EventId.ToString()) },
-                    { "content-type", "application/avro"u8.ToArray() },
-                    { "timestamp", Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) }
+                    { KafkaHeaderKeys.EventType, Encoding.UTF8.GetBytes(typeof(TEvent).AssemblyQualifiedName!) },
+                    { KafkaHeaderKeys.EventId, Encoding.UTF8.GetBytes(avroEvent.EventId.ToString()) },
+                    { KafkaHeaderKeys.ContentType, KafkaHeaderValues.ContentTypeAvroBytes },
+                    { KafkaHeaderKeys.Timestamp, Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("O")) }
                 }
             };
 
@@ -94,19 +96,19 @@ public class KafkaEventBus : IEventBus
             if (leadIdProp != null && leadIdProp.GetValue(avroEvent) is Guid leadId)
             {
                 leadIdValue = leadId.ToString();
-                message.Headers.Add("lead-id", Encoding.UTF8.GetBytes(leadIdValue));
+                message.Headers.Add(KafkaHeaderKeys.LeadId, Encoding.UTF8.GetBytes(leadIdValue));
             }
 
             var currentActivity = Activity.Current;
             if (currentActivity != null)
             {
                 var traceparent = $"00-{currentActivity.TraceId}-{currentActivity.SpanId}-01";
-                message.Headers.Add("traceparent", Encoding.UTF8.GetBytes(traceparent));
+                message.Headers.Add(KafkaHeaderKeys.TraceParent, Encoding.UTF8.GetBytes(traceparent));
 
                 foreach (var item in currentActivity.Baggage)
                 {
                     if (item.Value != null)
-                        message.Headers.Add($"baggage-{item.Key}", Encoding.UTF8.GetBytes(item.Value));
+                        message.Headers.Add($"{KafkaHeaderKeys.BaggagePrefix}{item.Key}", Encoding.UTF8.GetBytes(item.Value));
                 }
             }
 

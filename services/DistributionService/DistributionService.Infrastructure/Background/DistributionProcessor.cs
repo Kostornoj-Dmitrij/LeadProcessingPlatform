@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using DistributionService.Application.Common.Interfaces;
 using DistributionService.Application.Metrics;
+using DistributionService.Domain.Constants;
 using DistributionService.Domain.Entities;
 using DistributionService.Domain.Enums;
 using DistributionService.Infrastructure.Data;
@@ -135,12 +136,12 @@ public class DistributionProcessor(
 
                     if (enrichedData != null)
                     {
-                        customFields["industry"] = enrichedData.Industry;
-                        customFields["company_size"] = enrichedData.CompanySize;
+                        customFields[RuleConfigKeys.CustomFieldIndustry] = enrichedData.Industry;
+                        customFields[RuleConfigKeys.CustomFieldCompanySize] = enrichedData.CompanySize;
                         if (enrichedData.Website != null)
-                            customFields["website"] = enrichedData.Website;
+                            customFields[RuleConfigKeys.CustomFieldWebsite] = enrichedData.Website;
                         if (enrichedData.RevenueRange != null)
-                            customFields["revenue_range"] = enrichedData.RevenueRange;
+                            customFields[RuleConfigKeys.CustomFieldRevenueRange] = enrichedData.RevenueRange;
                     }
                 }
                 catch (JsonException ex)

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Constants;
 using SharedInfrastructure.EventBus;
 using SharedInfrastructure.Inbox;
 using SharedInfrastructure.Outbox;
@@ -26,9 +27,9 @@ public static class DependencyInjection
     {
         services.AddSingleton<ISchemaRegistryClient>(_ =>
         {
-            var schemaRegistryUrl = configuration["Kafka:SchemaRegistryUrl"];
+            var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
             if (string.IsNullOrEmpty(schemaRegistryUrl))
-                throw new InvalidOperationException("Kafka:SchemaRegistryUrl is not configured");
+                throw new InvalidOperationException($"{ConfigurationKeys.KafkaSchemaRegistryUrl} is not configured");
 
             var config = new SchemaRegistryConfig { Url = schemaRegistryUrl };
             return new CachedSchemaRegistryClient(config);

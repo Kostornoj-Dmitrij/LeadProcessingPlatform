@@ -4,6 +4,8 @@ using ApiGateway.Host.Middleware;
 using SharedHosting.Extensions;
 using SharedHosting.Middleware;
 
+const string serviceName = "ApiGateway";
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenTelemetry().WithMetrics(metrics =>
@@ -21,7 +23,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     });
 
-builder.Services.AddSharedOpenTelemetry(builder.Configuration, "ApiGateway");
+builder.Services.AddSharedOpenTelemetry(builder.Configuration, serviceName);
 
 builder.Services.AddHealthChecks();
 
@@ -38,7 +40,7 @@ app.MapReverseProxy();
 app.MapGet("/health", () => Results.Ok(new
 {
     Status = "Healthy",
-    Service = "ApiGateway",
+    Service = serviceName,
     Timestamp = DateTime.UtcNow,
     Environment = app.Environment.EnvironmentName
 }));

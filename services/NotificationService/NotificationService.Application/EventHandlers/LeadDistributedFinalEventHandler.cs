@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using NotificationService.Domain.Constants;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
@@ -28,14 +29,14 @@ public class LeadDistributedFinalEventHandler(
 
         var variables = new Dictionary<string, string>
         {
-            ["LeadId"] = @event.LeadId.ToString(),
-            ["FinalStatus"] = @event.FinalStatus
+            [TemplateVariableKeys.LeadId] = @event.LeadId.ToString(),
+            [TemplateVariableKeys.FinalStatus] = @event.FinalStatus
         };
 
         var (success, subject, body) = await notificationSender.SendAsync(
-            "LeadDistributedFinal",
+            NotificationTypeConstants.LeadDistributedFinal,
             NotificationChannel.Email,
-            "analytics@example.com",
+            RecipientConstants.Analytics,
             variables,
             cancellationToken);
 
@@ -44,9 +45,9 @@ public class LeadDistributedFinalEventHandler(
             var notification = Notification.Create(
                 @event.LeadId,
                 @event.EventId.ToString(),
-                "LeadDistributedFinal",
+                NotificationTypeConstants.LeadDistributedFinal,
                 NotificationChannel.Email,
-                "analytics@example.com",
+                RecipientConstants.Analytics,
                 body,
                 subject);
 

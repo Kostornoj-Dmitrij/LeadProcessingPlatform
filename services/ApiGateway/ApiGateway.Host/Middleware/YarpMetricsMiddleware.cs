@@ -8,14 +8,18 @@ namespace ApiGateway.Host.Middleware;
 /// </summary>
 public class YarpMetricsMiddleware(RequestDelegate next)
 {
+    private const string TagPath = "path";
+    private const string TagMethod = "method";
+    private const string TagStatusCode = "status_code";
+
     public async Task InvokeAsync(HttpContext context)
     {
         var stopwatch = Stopwatch.StartNew();
 
         GatewayMetrics.GatewayRequests.Add(1, new TagList 
         { 
-            { "path", context.Request.Path },
-            { "method", context.Request.Method }
+            { TagPath, context.Request.Path },
+            { TagMethod, context.Request.Method }
         });
 
         context.Response.OnStarting(() =>
@@ -24,9 +28,9 @@ public class YarpMetricsMiddleware(RequestDelegate next)
             
             GatewayMetrics.ProxyDuration.Record(duration, new TagList
             {
-                { "path", context.Request.Path },
-                { "method", context.Request.Method },
-                { "status_code", context.Response.StatusCode }
+                { TagPath, context.Request.Path },
+                { TagMethod, context.Request.Method },
+                { TagStatusCode, context.Response.StatusCode }
             });
 
             return Task.CompletedTask;

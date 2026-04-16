@@ -1,5 +1,6 @@
 ﻿using AvroSchemas;
 using AvroSchemas.Messages.LeadEvents;
+using LeadService.Domain.Constants;
 using LeadService.Domain.Enums;
 using SharedKernel.Events;
 
@@ -24,7 +25,7 @@ public class LeadClosedDomainEvent(Guid leadId, LeadStatus previousStatus) : Dom
                 EventType = GetType().Name,
                 SchemaVersion = 1,
                 LeadId = LeadId,
-                FinalStatus = "Closed"
+                FinalStatus = FinalStatusConstants.Closed
             },
             LeadStatus.FailedDistribution => new LeadDistributionFailedFinal
             {
@@ -33,7 +34,7 @@ public class LeadClosedDomainEvent(Guid leadId, LeadStatus previousStatus) : Dom
                 EventType = GetType().Name,
                 SchemaVersion = 1,
                 LeadId = LeadId,
-                FinalStatus = "Closed"
+                FinalStatus = FinalStatusConstants.Closed
             },
             LeadStatus.Distributed => new LeadDistributedFinal
             {
@@ -42,7 +43,7 @@ public class LeadClosedDomainEvent(Guid leadId, LeadStatus previousStatus) : Dom
                 EventType = GetType().Name,
                 SchemaVersion = 1,
                 LeadId = LeadId,
-                FinalStatus = "Closed"
+                FinalStatus = FinalStatusConstants.Closed
             },
             _ => null!
         };

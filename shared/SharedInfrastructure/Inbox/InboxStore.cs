@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Constants;
 
 namespace SharedInfrastructure.Inbox;
 
@@ -43,7 +44,7 @@ public class InboxStore<TContext>(
             logger.LogDebug("Message {MessageId} added to inbox", messageId);
             return true;
         }
-        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: ConfigurationKeys.PostgresUniqueViolationSqlState })
         {
             logger.LogDebug("Message {MessageId} was already added by another process", messageId);
             return false;

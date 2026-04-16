@@ -11,12 +11,12 @@ namespace AvroSchemas;
 /// </summary>
 public static class KafkaTopics
 {
-    private const string LeadEvents = "lead-events";
-    private const string EnrichmentEvents = "enrichment-events";
-    private const string ScoringEvents = "scoring-events";
-    private const string DistributionEvents = "distribution-events";
-    private const string NotificationEvents = "notification-events";
-    private const string SagaEvents = "saga-events";
+    public const string LeadEvents = "lead-events";
+    public const string EnrichmentEvents = "enrichment-events";
+    public const string ScoringEvents = "scoring-events";
+    public const string DistributionEvents = "distribution-events";
+    public const string NotificationEvents = "notification-events";
+    public const string SagaEvents = "saga-events";
 
     private static readonly Dictionary<Type, string> TopicMappings = new();
 

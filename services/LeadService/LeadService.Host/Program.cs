@@ -40,12 +40,12 @@ if (app.Environment.IsDevelopment())
     await app.ApplyMigrationsAsync<ApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
     
     await KafkaExtensions.WaitForKafkaTopicsAsync(app.Services, [
-        "enrichment-events",
-        "scoring-events",
-        "distribution-events",
-        "saga-events",
-        "notification-events",
-        "lead-events"
+        KafkaTopics.EnrichmentEvents,
+        KafkaTopics.ScoringEvents,
+        KafkaTopics.DistributionEvents,
+        KafkaTopics.SagaEvents,
+        KafkaTopics.NotificationEvents,
+        KafkaTopics.LeadEvents
     ]);
 
     var logger = app.Services.GetRequiredService<ILogger<Program>>();

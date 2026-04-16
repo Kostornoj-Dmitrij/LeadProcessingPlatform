@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Application.Services;
+using NotificationService.Domain.Constants;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
 
@@ -31,17 +32,17 @@ public class LeadQualifiedEventHandler(
 
         var variables = new Dictionary<string, string>
         {
-            ["LeadId"] = @event.LeadId.ToString(),
-            ["CompanyName"] = @event.CompanyName,
-            ["ContactPerson"] = @event.ContactPerson ?? "Unknown",
-            ["Email"] = @event.Email,
-            ["Score"] = @event.Score.ToString(),
-            ["Industry"] = @event.EnrichedData?.Industry ?? "Unknown",
-            ["CompanySize"] = @event.EnrichedData?.CompanySize ?? "Unknown"
+            [TemplateVariableKeys.LeadId] = @event.LeadId.ToString(),
+            [TemplateVariableKeys.CompanyName] = @event.CompanyName,
+            [TemplateVariableKeys.ContactPerson] = @event.ContactPerson ?? "Unknown",
+            [TemplateVariableKeys.Email] = @event.Email,
+            [TemplateVariableKeys.Score] = @event.Score.ToString(),
+            [TemplateVariableKeys.Industry] = @event.EnrichedData?.Industry ?? "Unknown",
+            [TemplateVariableKeys.CompanySize] = @event.EnrichedData?.CompanySize ?? "Unknown"
         };
 
         var (success, subject, body) = await notificationSender.SendAsync(
-            "LeadQualified",
+            NotificationTypeConstants.LeadQualified,
             NotificationChannel.Email,
             @event.Email,
             variables,
@@ -52,7 +53,7 @@ public class LeadQualifiedEventHandler(
             var notification = Notification.Create(
                 @event.LeadId,
                 @event.EventId.ToString(),
-                "LeadQualified",
+                NotificationTypeConstants.LeadQualified,
                 NotificationChannel.Email,
                 @event.Email,
                 body,

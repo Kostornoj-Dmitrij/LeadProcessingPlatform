@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using AvroSchemas;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using EnrichmentService.Application.Common.Interfaces;
 using EnrichmentService.Infrastructure.Background;
@@ -25,9 +26,9 @@ public static class DependencyInjection
 
         var topics = new[]
         {
-            "lead-events",
-            "saga-events",
-            "distribution-events"
+            KafkaTopics.LeadEvents,
+            KafkaTopics.SagaEvents,
+            KafkaTopics.DistributionEvents
         };
 
         services.AddSharedInfrastructure<ApplicationDbContext>(

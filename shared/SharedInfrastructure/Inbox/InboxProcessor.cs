@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Constants;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Json;
 
@@ -168,10 +169,10 @@ public class InboxProcessor<TInboxStore>(
             Value = message.Payload,
             Headers = new Headers
             {
-                { "event-type", Encoding.UTF8.GetBytes(message.EventType) },
-                { "message-id", Encoding.UTF8.GetBytes(message.MessageId) },
-                { "original-topic", Encoding.UTF8.GetBytes(message.Topic) },
-                { "inbox-message-id", Encoding.UTF8.GetBytes(message.Id.ToString()) }
+                { KafkaHeaderKeys.EventType, Encoding.UTF8.GetBytes(message.EventType) },
+                { KafkaHeaderKeys.MessageId, Encoding.UTF8.GetBytes(message.MessageId) },
+                { KafkaHeaderKeys.OriginalTopic, Encoding.UTF8.GetBytes(message.Topic) },
+                { KafkaHeaderKeys.InboxMessageId, Encoding.UTF8.GetBytes(message.Id.ToString()) }
             }
         };
     }
@@ -181,14 +182,14 @@ public class InboxProcessor<TInboxStore>(
         try
         {
             using var doc = JsonDocument.Parse(payload);
-            if (doc.RootElement.TryGetProperty("LeadId", out var leadIdElement))
+            if (doc.RootElement.TryGetProperty(JsonPropertyKeys.LeadId, out var leadIdElement))
             {
                 var leadId = leadIdElement.GetString();
                 if (!string.IsNullOrEmpty(leadId))
                     return leadId;
             }
 
-            if (doc.RootElement.TryGetProperty("leadId", out var leadIdLowerElement))
+            if (doc.RootElement.TryGetProperty(JsonPropertyKeys.LeadIdLower, out var leadIdLowerElement))
             {
                 var leadId = leadIdLowerElement.GetString();
                 if (!string.IsNullOrEmpty(leadId))

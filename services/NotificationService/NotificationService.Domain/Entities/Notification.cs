@@ -1,4 +1,5 @@
-﻿using NotificationService.Domain.Enums;
+﻿using NotificationService.Domain.Constants;
+using NotificationService.Domain.Enums;
 using NotificationService.Domain.Events;
 using SharedKernel.Base;
 using SharedKernel.Events;
@@ -71,7 +72,7 @@ public class Notification : Entity<Guid>, IAggregateRoot
         UpdatedAt = DateTime.UtcNow;
         NextRetryAt = null;
 
-        AddDomainEvent(new NotificationSentDomainEvent(LeadId, NotificationType, Channel.ToString(), "Sent"));
+        AddDomainEvent(new NotificationSentDomainEvent(LeadId, NotificationType, Channel.ToString(), NotificationStatusConstants.Sent));
     }
 
     public void MarkAsFailed(string reason, DateTime? nextRetryAt = null)
@@ -85,7 +86,7 @@ public class Notification : Entity<Guid>, IAggregateRoot
         if (RetryCount >= MaxRetries)
         {
             AddDomainEvent(new NotificationSentDomainEvent(LeadId, NotificationType, Channel.ToString(),
-                $"Failed permanently: {reason}"));
+                NotificationStatusConstants.FailedPermanently(reason)));
         }
     }
 

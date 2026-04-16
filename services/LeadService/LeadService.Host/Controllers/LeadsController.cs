@@ -5,6 +5,7 @@ using LeadService.Application.Common.DTOs;
 using LeadService.Application.Queries.GetLeadById;
 using LeadService.Application.Queries.GetLeadsByStatus;
 using LeadService.Application.Queries.GetLeadsStatusSummary;
+using LeadService.Domain.Constants;
 using LeadService.Domain.Enums;
 
 namespace LeadService.Host.Controllers;
@@ -23,7 +24,7 @@ public class LeadsController(IMediator mediator, ILogger<LeadsController> logger
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<LeadDto>> CreateLead(
         [FromBody] CreateLeadCommand command,
-        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey = null)
+        [FromHeader(Name = HttpHeaderNames.IdempotencyKey)] string? idempotencyKey = null)
     {
         logger.LogInformation("Received request to create lead from source: {Source}", command.Source);
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using SharedHosting.Constants;
 
 namespace SharedHosting.Extensions;
 
@@ -17,7 +18,7 @@ public static class DatabaseExtensions
         Action<DbContextOptionsBuilder>? additionalOptions = null)
         where TContext : DbContext
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString = configuration.GetConnectionString(ConfigurationKeys.DefaultConnection);
 
         if (string.IsNullOrEmpty(connectionString))
         {

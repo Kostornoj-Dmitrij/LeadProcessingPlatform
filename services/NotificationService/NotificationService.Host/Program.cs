@@ -43,9 +43,9 @@ if (app.Environment.IsDevelopment())
     await DbInitializer.SeedAsync(context, logger);
 
     await KafkaExtensions.WaitForKafkaTopicsAsync(app.Services, [
-        "lead-events",
-        "distribution-events",
-        "notification-events"
+        KafkaTopics.LeadEvents,
+        KafkaTopics.DistributionEvents,
+        KafkaTopics.NotificationEvents
     ]);
 
     var schemaRegistry = app.Services.GetRequiredService<Confluent.SchemaRegistry.ISchemaRegistryClient>();

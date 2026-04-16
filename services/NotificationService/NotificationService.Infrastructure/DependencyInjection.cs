@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using AvroSchemas;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NotificationService.Application.Services;
 using NotificationService.Infrastructure.Data;
@@ -24,8 +25,8 @@ public static class DependencyInjection
 
         var topics = new[]
         {
-            "lead-events",
-            "distribution-events"
+            KafkaTopics.LeadEvents,
+            KafkaTopics.DistributionEvents
         };
 
         services.AddSharedInfrastructure<ApplicationDbContext>(
