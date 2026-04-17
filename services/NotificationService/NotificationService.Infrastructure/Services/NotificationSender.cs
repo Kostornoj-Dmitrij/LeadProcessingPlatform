@@ -7,6 +7,7 @@ using NotificationService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Metrics;
 using NotificationService.Domain.Constants;
+using SharedKernel.Json;
 
 namespace NotificationService.Infrastructure.Services;
 
@@ -55,7 +56,7 @@ public class NotificationSender(
             Timestamp = variables[TemplateVariableKeys.Timestamp]
         };
 
-        var json = JsonSerializer.Serialize(notification, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(notification, JsonDefaults.IndentedOptions);
 
         if (channel == NotificationChannel.Log)
         {

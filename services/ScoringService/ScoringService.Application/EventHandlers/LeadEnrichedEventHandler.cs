@@ -7,6 +7,7 @@ using ScoringService.Domain.Entities;
 using ScoringService.Domain.Enums;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
+using SharedKernel.Json;
 
 namespace ScoringService.Application.EventHandlers;
 
@@ -35,10 +36,7 @@ public class LeadEnrichedEventHandler(
             @event.Version
         };
 
-        var enrichedDataJson = JsonSerializer.Serialize(enrichedData, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
+        var enrichedDataJson = JsonSerializer.Serialize(enrichedData, JsonDefaults.Options);
 
         var scoringRequest = await unitOfWork.Set<ScoringRequest>()
             .FirstOrDefaultAsync(x => x.LeadId == @event.LeadId, cancellationToken);

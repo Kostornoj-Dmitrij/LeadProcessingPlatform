@@ -12,6 +12,7 @@ using ScoringService.Domain.Enums;
 using ScoringService.Infrastructure.Data;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Base;
+using SharedKernel.Json;
 
 namespace ScoringService.Infrastructure.Background;
 
@@ -102,7 +103,7 @@ public class ScoringProcessor(
                     {
                         enrichedData = JsonSerializer.Deserialize<EnrichedDataDto>(
                             request.EnrichedData,
-                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            JsonDefaults.Options);
                     }
                     catch (JsonException ex)
                     {
