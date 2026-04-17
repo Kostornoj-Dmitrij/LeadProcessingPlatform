@@ -17,6 +17,8 @@ builder.Services.AddSharedHosting(builder.Configuration, new HostingOptions
     EnableHealthChecks = true
 });
 
+builder.Services.AddTelemetryLogFilters(builder.Configuration);
+
 builder.Services.Configure<DatabaseOptions>(
     builder.Configuration.GetSection(DatabaseOptions.SectionName));
 builder.Services.Configure<KafkaOptions>(

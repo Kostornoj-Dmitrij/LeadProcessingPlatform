@@ -21,6 +21,8 @@ builder.Services.AddSharedHosting(builder.Configuration, new HostingOptions
     "ScoringService.RuleEvaluator"
 ]);
 
+builder.Services.AddTelemetryLogFilters(builder.Configuration);
+
 builder.Services.Configure<DatabaseOptions>(
     builder.Configuration.GetSection(DatabaseOptions.SectionName));
 builder.Services.Configure<KafkaOptions>(

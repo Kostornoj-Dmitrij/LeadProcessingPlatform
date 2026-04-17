@@ -96,7 +96,7 @@ public static class OpenTelemetryExtensions
                     })
                     .AddNpgsql();
 
-                tracing.AddProcessor(new DatabaseFilterProcessor());
+                tracing.AddProcessor(new DatabaseFilterProcessor(configuration));
 
                 if (!string.IsNullOrEmpty(otelOptions.Endpoint))
                 {
@@ -122,25 +122,33 @@ public static class OpenTelemetryExtensions
         {
             services.AddOpenTelemetry().WithMetrics(metrics =>
             {
-                metrics
-                    .AddMeter(serviceName)
-                    .AddMeter(TelemetrySourceNames.LeadServiceMetrics)
-                    .AddMeter(TelemetrySourceNames.EnrichmentServiceMetrics)
-                    .AddMeter(TelemetrySourceNames.ScoringServiceMetrics)
-                    .AddMeter(TelemetrySourceNames.DistributionServiceMetrics)
-                    .AddMeter(TelemetrySourceNames.NotificationServiceMetrics)
-                    .AddMeter(TelemetrySourceNames.ApiGatewayMetrics)
-                    .AddMeter(TelemetrySourceNames.SharedInfrastructureMetrics)
-                    .AddMeter(TelemetrySourceNames.AspNetCoreHosting)
-                    .AddMeter(TelemetrySourceNames.AspNetCoreKestrel)
-                    .AddMeter(TelemetrySourceNames.SystemNetHttp)
-                    .AddMeter(TelemetrySourceNames.Npgsql);
+                var allMeters = new[]
+                {
+                    serviceName,
+                    TelemetrySourceNames.LeadServiceMetrics,
+                    TelemetrySourceNames.EnrichmentServiceMetrics,
+                    TelemetrySourceNames.ScoringServiceMetrics,
+                    TelemetrySourceNames.DistributionServiceMetrics,
+                    TelemetrySourceNames.NotificationServiceMetrics,
+                    TelemetrySourceNames.ApiGatewayMetrics,
+                    TelemetrySourceNames.SharedInfrastructureMetrics,
+                    TelemetrySourceNames.AspNetCoreHosting,
+                    TelemetrySourceNames.AspNetCoreKestrel,
+                    TelemetrySourceNames.SystemNetHttp,
+                    TelemetrySourceNames.Npgsql};
+
+                foreach (var meterName in allMeters)
+                {
+                    if (IsMeterEnabled(otelOptions, meterName))
+                        metrics.AddMeter(meterName);
+                }
 
                 if (additionalSources != null)
                 {
                     foreach (var source in additionalSources)
                     {
-                        metrics.AddMeter(source);
+                        if (IsMeterEnabled(otelOptions, source))
+                            metrics.AddMeter(source);
                     }
                 }
 
@@ -193,5 +201,13 @@ public static class OpenTelemetryExtensions
         });
 
         return services;
+    }
+
+    private static bool IsMeterEnabled(OpenTelemetryOptions options, string meterName)
+    {
+        if (!options.EnableMetrics) return false;
+        var disabled = options.DisabledMetrics;
+
+        return !disabled.Contains(meterName);
     }
 }

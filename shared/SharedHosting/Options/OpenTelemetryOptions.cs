@@ -14,4 +14,8 @@ public class OpenTelemetryOptions
     public bool EnableTracing { get; set; } = true;
 
     public bool EnableMetrics { get; set; } = true;
+
+    public bool FilterBackgroundQueries { get; set; } = true;
+
+    public List<string> DisabledMetrics { get; set; } = [];
 }
