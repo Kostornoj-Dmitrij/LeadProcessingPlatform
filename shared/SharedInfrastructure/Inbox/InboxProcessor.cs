@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Telemetry;
 using SharedInfrastructure.Constants;
 using SharedInfrastructure.Telemetry;
 using SharedKernel.Json;
@@ -108,57 +109,37 @@ public class InboxProcessor<TInboxStore>(
         string leadId = ExtractLeadIdFromPayload(message.Payload);
         string eventTypeShort = GetSimpleTypeName(message.EventType);
 
-        ActivityContext? parentContext = TryRestoreContextFromTraceId(message.TraceId);
-        using var activity = parentContext.HasValue
-            ? new ActivityBuilder(TelemetryConstants.ActivitySource.StartActivity(
-                $"{TelemetrySpanNames.InboxProcess} {eventTypeShort}",
-                ActivityKind.Internal,
-                parentContext.Value))
-            : new ActivityBuilder(TelemetryConstants.ActivitySource.StartActivity(
-                $"{TelemetrySpanNames.InboxProcess} {eventTypeShort}"));
-
-        if (activity == null)
-            throw new InvalidOperationException("Failed to create activity");
-
-        activity.WithInboxProcessorTags(
-            message.EventType,
-            eventTypeShort,
-            leadId,
-            message.Topic,
-            message.Id,
-            message.ProcessingAttempts);
+        if (!string.IsNullOrEmpty(message.TraceId))
+        {
+            var newSpanId = ActivitySpanId.CreateRandom().ToString();
+            var traceParent = $"00-{message.TraceId}-{newSpanId}-01";
+            TraceContextCarrier.TraceParent = traceParent;
+        }
 
         var @event = JsonSerializer.Deserialize(message.Payload, eventType, JsonDefaults.Options) as IIntegrationEvent;
         if (@event == null)
             throw new InvalidOperationException($"Failed to deserialize event: {message.EventType}");
 
-        await mediator.Publish(@event, cancellationToken);
-    }
-
-    private ActivityContext? TryRestoreContextFromTraceId(string? traceId)
-    {
-        if (string.IsNullOrEmpty(traceId))
-            return null;
-
-        try
+        if (TelemetryConstants.ActivitySource != null)
         {
-            var newSpanId = ActivitySpanId.CreateRandom().ToString();
-            var traceparent = $"00-{traceId}-{newSpanId}-01";
+            var traceParent = TraceContextCarrier.TraceParent;
+            using var activity = ActivityBuilder.RestoreAndCreateActivity(
+                    $"{TelemetrySpanNames.InboxProcess} {eventTypeShort}",
+                    traceParent)
+                .WithInboxProcessorTags(
+                    message.EventType,
+                    eventTypeShort,
+                    leadId,
+                    message.Topic,
+                    message.Id,
+                    message.ProcessingAttempts);
 
-            if (ActivityContext.TryParse(traceparent, null, out var parsedContext))
-            {
-                logger.LogDebug(
-                    "Restored trace context from TraceId: TraceId={TraceId}, SpanId={SpanId}", 
-                    parsedContext.TraceId, parsedContext.SpanId);
-                return parsedContext;
-            }
+            await mediator.Publish(@event, cancellationToken);
         }
-        catch (Exception ex)
+        else
         {
-            logger.LogWarning(ex, "Failed to restore trace context from TraceId: {TraceId}", traceId);
+            await mediator.Publish(@event, cancellationToken);
         }
-
-        return null;
     }
 
     private Message<string, string> CreateKafkaMessageFromInbox(InboxMessage message)

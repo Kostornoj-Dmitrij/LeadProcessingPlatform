@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SharedHosting.Constants;
+using SharedHosting.Telemetry;
 using SharedInfrastructure.Constants;
 using SharedInfrastructure.Serialization;
 using SharedInfrastructure.Telemetry;
@@ -99,27 +100,30 @@ public class KafkaEventBus : IEventBus
                 message.Headers.Add(KafkaHeaderKeys.LeadId, Encoding.UTF8.GetBytes(leadIdValue));
             }
 
-            var currentActivity = Activity.Current;
-            if (currentActivity != null)
+            var traceParent = TraceContextCarrier.TraceParent;
+            if (!string.IsNullOrEmpty(traceParent))
             {
-                var traceparent = $"00-{currentActivity.TraceId}-{currentActivity.SpanId}-01";
-                message.Headers.Add(KafkaHeaderKeys.TraceParent, Encoding.UTF8.GetBytes(traceparent));
-
-                foreach (var item in currentActivity.Baggage)
-                {
-                    if (item.Value != null)
-                        message.Headers.Add($"{KafkaHeaderKeys.BaggagePrefix}{item.Key}", Encoding.UTF8.GetBytes(item.Value));
-                }
+                message.Headers.Add(KafkaHeaderKeys.TraceParent, Encoding.UTF8.GetBytes(traceParent));
             }
 
-            using var produceActivity = ActivityBuilder.ForProducer(
-                    TelemetrySpanNames.KafkaProduce,
-                    typeof(TEvent).Name.Replace("Event", ""))
-                .WithKafkaProducerTags(
-                    typeof(TEvent).Name,
-                    topic,
-                    _serviceName,
-                    leadIdValue);
+            foreach (var kv in TraceContextCarrier.GetBaggage())
+            {
+                message.Headers.Add($"{KafkaHeaderKeys.BaggagePrefix}{kv.Key}", Encoding.UTF8.GetBytes(kv.Value));
+            }
+
+            if (TelemetryConstants.ActivitySource != null)
+            {
+                using var activity = ActivityBuilder.RestoreAndCreateActivity(
+                        $"{TelemetrySpanNames.KafkaProduce} {typeof(TEvent).Name.Replace("Event", "")}",
+                        traceParent,
+                        ActivityKind.Producer)
+                    .WithKafkaProducerTags(
+                        typeof(TEvent).Name,
+                        topic,
+                        _serviceName,
+                        leadIdValue);
+            }
+
             TelemetryMetrics.KafkaMessagesPublished.Add(1, new TagList
             {
                 { "topic", topic },

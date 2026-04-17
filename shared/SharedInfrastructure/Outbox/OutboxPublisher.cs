@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SharedHosting.Telemetry;
 using SharedInfrastructure.Constants;
 using SharedInfrastructure.EventBus;
 using SharedInfrastructure.Inbox;
@@ -71,6 +72,9 @@ public class OutboxPublisher<TContext>(
         {
             try
             {
+                if (!string.IsNullOrEmpty(message.TraceParent))
+                    TraceContextCarrier.TraceParent = message.TraceParent;
+
                 var eventType = Type.GetType(message.EventType);
                 if (eventType == null)
                 {
@@ -93,25 +97,34 @@ public class OutboxPublisher<TContext>(
 
                 string eventTypeShort = GetSimpleTypeName(message.EventType);
 
-                using var activity = ActivityBuilder.RestoreAndCreateActivity(
-                        $"{TelemetrySpanNames.OutboxPublish} {eventTypeShort}",
-                        message.TraceParent,
-                        ActivityKind.Producer)
-                    .WithOutboxPublisherTags(
-                        message.EventType,
-                        eventTypeShort,
-                        message.AggregateId,
-                        message.AggregateType,
-                        message.Id,
-                        message.ProcessingAttempts);
-
                 var method = typeof(IEventBus).GetMethod("PublishAsync");
                 if (method == null)
                     throw new InvalidOperationException("PublishAsync method not found");
 
                 var genericMethod = method.MakeGenericMethod(eventType);
-                var task = (Task)genericMethod.Invoke(eventBus, [@event, cancellationToken])!;
-                await task;
+
+                if (TelemetryConstants.ActivitySource != null)
+                {
+                    using var activity = ActivityBuilder.RestoreAndCreateActivity(
+                            $"{TelemetrySpanNames.OutboxPublish} {eventTypeShort}",
+                            message.TraceParent,
+                            ActivityKind.Producer)
+                        .WithOutboxPublisherTags(
+                            message.EventType,
+                            eventTypeShort,
+                            message.AggregateId,
+                            message.AggregateType,
+                            message.Id,
+                            message.ProcessingAttempts);
+
+                    var task = (Task)genericMethod.Invoke(eventBus, [@event, cancellationToken])!;
+                    await task;
+                }
+                else
+                {
+                    var task = (Task)genericMethod.Invoke(eventBus, [@event, cancellationToken])!;
+                    await task;
+                }
 
                 message.ProcessedAt = DateTime.UtcNow;
                 message.ErrorMessage = null;

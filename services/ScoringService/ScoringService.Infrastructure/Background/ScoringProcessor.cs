@@ -79,6 +79,11 @@ public class ScoringProcessor(
 
         foreach (var request in pendingRequests)
         {
+            if (!string.IsNullOrEmpty(request.TraceParent))
+            {
+                TraceContextCarrier.TraceParent = request.TraceParent;
+            }
+
             using var activity = ActivityBuilder.RestoreAndCreateActivity(
                     TelemetrySpanNames.ScoringProcess,
                     request.TraceParent)

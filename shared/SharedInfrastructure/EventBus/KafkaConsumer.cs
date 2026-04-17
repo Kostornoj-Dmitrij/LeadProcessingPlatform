@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SharedHosting.Constants;
+using SharedHosting.Telemetry;
 using SharedInfrastructure.Constants;
 using SharedInfrastructure.Inbox;
 using SharedInfrastructure.Serialization;
@@ -196,9 +197,16 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         if (consumeResult.Message.Headers.TryGetLastBytes(KafkaHeaderKeys.TraceParent, out var traceParentBytes))
         {
             traceParent = Encoding.UTF8.GetString(traceParentBytes);
-            if (consumeResult.Message.Headers.TryGetLastBytes(KafkaHeaderKeys.TraceState, out var traceStateBytes))
+            TraceContextCarrier.TraceParent = traceParent;
+        }
+
+        foreach (var header in consumeResult.Message.Headers)
+        {
+            if (header.Key.StartsWith(KafkaHeaderKeys.BaggagePrefix))
             {
-                Encoding.UTF8.GetString(traceStateBytes);
+                var key = header.Key.Substring(KafkaHeaderKeys.BaggagePrefix.Length);
+                var value = Encoding.UTF8.GetString(header.GetValueBytes());
+                TraceContextCarrier.SetBaggage(key, value);
             }
         }
 
@@ -210,33 +218,31 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         }
 
         string spanName = $"{TelemetrySpanNames.KafkaConsume} {GetSimpleTypeName(eventTypeName)}";
+        string? traceIdToStore;
 
-        using var activity = ActivityBuilder.RestoreAndCreateActivity(
-                spanName,
-                traceParent,
-                ActivityKind.Consumer)
-            .WithKafkaConsumerTags(
-                eventTypeName,
-                GetSimpleTypeName(eventTypeName),
-                eventId,
-                consumeResult.Topic,
-                consumeResult.Partition.Value,
-                consumeResult.Offset.Value,
-                _consumer.MemberId,
-                _serviceName,
-                leadId);
-
-        foreach (var header in consumeResult.Message.Headers)
+        if (TelemetryConstants.ActivitySource != null)
         {
-            if (header.Key.StartsWith(KafkaHeaderKeys.BaggagePrefix))
-            {
-                var key = header.Key.Substring(8);
-                var value = Encoding.UTF8.GetString(header.GetValueBytes());
-                activity.SetBaggage(key, value);
-            }
-        }
+            using var activity = ActivityBuilder.RestoreAndCreateActivity(
+                    spanName,
+                    traceParent,
+                    ActivityKind.Consumer)
+                .WithKafkaConsumerTags(
+                    eventTypeName,
+                    GetSimpleTypeName(eventTypeName),
+                    eventId,
+                    consumeResult.Topic,
+                    consumeResult.Partition.Value,
+                    consumeResult.Offset.Value,
+                    _consumer.MemberId,
+                    _serviceName,
+                    leadId);
 
-        var traceIdToStore = activity.TraceId;
+            traceIdToStore = activity.TraceId;
+        }
+        else
+        {
+            traceIdToStore = traceParent?.Split('-')[1];
+        }
 
         var deserializerType = typeof(AvroDeserializer<>).MakeGenericType(eventType);
 

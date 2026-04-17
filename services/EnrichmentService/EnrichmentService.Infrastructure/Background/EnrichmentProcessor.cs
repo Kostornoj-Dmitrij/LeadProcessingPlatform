@@ -82,6 +82,11 @@ public class EnrichmentProcessor(
 
     private async Task ProcessSingleRequestAsync(EnrichmentRequest request, CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrEmpty(request.TraceParent))
+        {
+            TraceContextCarrier.TraceParent = request.TraceParent;
+        }
+
         var stopwatch = Stopwatch.StartNew();
 
         using var activity = ActivityBuilder.RestoreAndCreateActivity(

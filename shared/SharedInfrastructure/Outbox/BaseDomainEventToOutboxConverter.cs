@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using SharedInfrastructure.Telemetry;
 using SharedKernel.Entities;
 using SharedKernel.Events;
 using SharedKernel.Json;
@@ -19,9 +20,17 @@ public abstract class BaseDomainEventToOutboxConverter(ILogger logger) : IDomain
     {
         var outboxMessages = new List<OutboxMessage>();
 
-        var currentActivity = Activity.Current;
+        var traceParent = TraceContextCarrier.TraceParent;
+        if (string.IsNullOrEmpty(traceParent))
+        {
+            var currentActivity = Activity.Current;
+            traceParent = currentActivity != null 
+                ? $"00-{currentActivity.TraceId}-{currentActivity.SpanId}-01"
+                : null;
+        }
+
         logger.LogDebug("Converting domain events for aggregate {AggregateId}, TraceId: {TraceId}",
-            aggregateId, currentActivity?.TraceId.ToString() ?? "none");
+            aggregateId, traceParent ?? "none");
 
         foreach (var domainEvent in domainEvents)
         {
@@ -38,11 +47,8 @@ public abstract class BaseDomainEventToOutboxConverter(ILogger logger) : IDomain
                 Payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), JsonDefaults.Options),
                 CreatedAt = DateTime.UtcNow,
                 ProcessingAttempts = 0,
-
-                TraceParent = currentActivity != null 
-                    ? $"00-{currentActivity.TraceId}-{currentActivity.SpanId}-01"
-                    : null,
-                TraceState = currentActivity?.TraceStateString
+                TraceParent = traceParent,
+                TraceState = Activity.Current?.TraceStateString
             };
 
             outboxMessages.Add(outboxMessage);
@@ -52,7 +58,7 @@ public abstract class BaseDomainEventToOutboxConverter(ILogger logger) : IDomain
                 domainEvent.GetType().Name,
                 integrationEvent.GetType().Name,
                 aggregateId,
-                currentActivity?.TraceId.ToString() ?? "none");
+                traceParent ?? "none");
         }
 
         return outboxMessages;

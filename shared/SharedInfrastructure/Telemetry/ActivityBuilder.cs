@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using AvroSchemas.Messages.Base;
+using SharedHosting.Telemetry;
 
 namespace SharedInfrastructure.Telemetry;
 
@@ -13,6 +14,8 @@ public class ActivityBuilder(Activity? activity) : IDisposable
 
     public static ActivityBuilder ForCommand(string commandName)
     {
+        if (TelemetryConstants.ActivitySource == null) return new ActivityBuilder(null);
+
         var activity = TelemetryConstants.ActivitySource.StartActivity(
             $"{TelemetrySpanNames.CommandHandler} {commandName}");
         return new ActivityBuilder(activity);
@@ -20,6 +23,8 @@ public class ActivityBuilder(Activity? activity) : IDisposable
 
     public static ActivityBuilder ForEvent(IntegrationEventAvro @event, string? customName = null)
     {
+        if (TelemetryConstants.ActivitySource == null) return new ActivityBuilder(null);
+
         var eventName = customName ?? @event.GetType().Name;
         var leadIdProp = @event.GetType().GetProperty("LeadId");
         var leadId = leadIdProp?.GetValue(@event) as Guid?;
@@ -29,6 +34,8 @@ public class ActivityBuilder(Activity? activity) : IDisposable
 
     private static ActivityBuilder ForEvent(string eventName, Guid? leadId = null)
     {
+        if (TelemetryConstants.ActivitySource == null) return new ActivityBuilder(null);
+
         var activity = TelemetryConstants.ActivitySource.StartActivity(
             $"{TelemetrySpanNames.EventHandler} {eventName}");
 
@@ -45,6 +52,8 @@ public class ActivityBuilder(Activity? activity) : IDisposable
 
     public static ActivityBuilder ForHttpClient(string operationName, Guid? leadId = null)
     {
+        if (TelemetryConstants.ActivitySource == null) return new ActivityBuilder(null);
+
         var activity = TelemetryConstants.ActivitySource.StartActivity(
             operationName,
             ActivityKind.Client);
@@ -64,19 +73,13 @@ public class ActivityBuilder(Activity? activity) : IDisposable
         string? traceParent,
         ActivityKind kind = ActivityKind.Internal)
     {
+        if (TelemetryConstants.ActivitySource == null) return new ActivityBuilder(null);
+
         var activity = TelemetryRestorer.RestoreAndStartActivity(
             TelemetryConstants.ActivitySource,
             operationName,
             traceParent,
             kind);
-        return new ActivityBuilder(activity);
-    }
-
-    public static ActivityBuilder ForProducer(string operation, string eventName)
-    {
-        var activity = TelemetryConstants.ActivitySource.StartActivity(
-            $"{operation} {eventName}", 
-            ActivityKind.Producer);
         return new ActivityBuilder(activity);
     }
 
@@ -230,14 +233,15 @@ public class ActivityBuilder(Activity? activity) : IDisposable
             .WithTag(TelemetryAttributes.LeadId, leadId);
     }
 
-    public void WithInboxProcessorTags(string eventType,
+    public ActivityBuilder WithInboxProcessorTags(
+        string eventType,
         string eventName,
         string leadId,
         string topic,
         Guid messageId,
         int processingAttempts)
     {
-        WithTag(TelemetryAttributes.EventType, eventType)
+        return WithTag(TelemetryAttributes.EventType, eventType)
             .WithTag(TelemetryAttributes.EventName, eventName)
             .WithTag(TelemetryAttributes.LeadId, leadId)
             .WithTag(TelemetryAttributes.KafkaTopic, topic)
@@ -271,8 +275,6 @@ public class ActivityBuilder(Activity? activity) : IDisposable
     public string? TraceId => _activity?.TraceId.ToString();
 
     public void SetTag(string key, object? value) => _activity?.SetTag(key, value);
-
-    public void SetBaggage(string key, string? value) => _activity?.SetBaggage(key, value);
 
     public static implicit operator Activity?(ActivityBuilder builder) => builder._activity;
 

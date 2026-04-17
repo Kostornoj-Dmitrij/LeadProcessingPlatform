@@ -20,7 +20,7 @@ public static class TelemetryContext
 
     public static string? GetTraceParent()
     {
-        var current = Activity.Current;
-        return current != null ? $"00-{current.TraceId}-{current.SpanId}-01" : null;
+        return TraceContextCarrier.TraceParent ?? 
+               (Activity.Current != null ? $"00-{Activity.Current.TraceId}-{Activity.Current.SpanId}-01" : null);
     }
 }

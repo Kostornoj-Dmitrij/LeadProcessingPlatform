@@ -86,6 +86,11 @@ public class DistributionProcessor(
 
     private async Task ProcessSingleRequestAsync(DistributionRequest request, CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrEmpty(request.TraceParent))
+        {
+            TraceContextCarrier.TraceParent = request.TraceParent;
+        }
+
         var stopwatch = Stopwatch.StartNew();
 
         using var activity = ActivityBuilder.RestoreAndCreateActivity(

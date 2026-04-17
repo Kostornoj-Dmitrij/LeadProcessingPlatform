@@ -10,6 +10,7 @@ using OpenTelemetry.Exporter;
 using SharedHosting.Constants;
 using SharedHosting.Filters;
 using SharedHosting.Options;
+using SharedHosting.Telemetry;
 
 namespace SharedHosting.Extensions;
 
@@ -26,6 +27,8 @@ public static class OpenTelemetryExtensions
     {
         var otelOptions = configuration.GetSection(ConfigurationKeys.OpenTelemetrySection)
             .Get<OpenTelemetryOptions>() ?? new OpenTelemetryOptions();
+
+        TelemetryConstants.Initialize(otelOptions.EnableTracing);
 
         var activitySource = new System.Diagnostics.ActivitySource(serviceName);
         services.AddSingleton(activitySource);

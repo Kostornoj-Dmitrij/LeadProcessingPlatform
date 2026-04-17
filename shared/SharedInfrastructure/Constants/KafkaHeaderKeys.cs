@@ -10,7 +10,6 @@ public static class KafkaHeaderKeys
     public const string ContentType = "content-type";
     public const string Timestamp = "timestamp";
     public const string TraceParent = "traceparent";
-    public const string TraceState = "tracestate";
     public const string LeadId = "lead-id";
     public const string BaggagePrefix = "baggage-";
     public const string OriginalTopic = "original-topic";
