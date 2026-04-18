@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text;
 using AvroSchemas;
 using AvroSchemas.Messages.Base;
@@ -25,6 +26,8 @@ public class KafkaEventBus : IEventBus
     private readonly ILogger<KafkaEventBus> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly string _serviceName;
+
+    private static readonly ConcurrentDictionary<Type, Func<object, CancellationToken, Task>> PublishDelegates = new();
 
     public KafkaEventBus(
         IConfiguration configuration,
@@ -137,6 +140,36 @@ public class KafkaEventBus : IEventBus
             _logger.LogError(ex, "Failed to publish event {EventType}", typeof(TEvent).Name);
             throw;
         }
+    }
+
+    public Task PublishAsync(object @event, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(@event);
+
+        var eventType = @event.GetType();
+        var publisher = PublishDelegates.GetOrAdd(eventType, type =>
+        {
+            var method = typeof(KafkaEventBus)
+                .GetMethod(nameof(PublishAsync), 1, [type, typeof(CancellationToken)]);
+
+            if (method == null)
+            {
+                method = typeof(KafkaEventBus)
+                    .GetMethods()
+                    .FirstOrDefault(m => m.Name == nameof(PublishAsync) 
+                                         && m.IsGenericMethod 
+                                         && m.GetGenericArguments().Length == 1);
+            }
+
+            if (method == null)
+                throw new InvalidOperationException($"PublishAsync<{type.Name}> not found");
+
+            var genericMethod = method.MakeGenericMethod(type);
+
+            return (evt, ct) => (Task)genericMethod.Invoke(this, [evt, ct])!;
+        });
+
+        return publisher(@event, cancellationToken);
     }
 
     private string GetMessageKey(IntegrationEventAvro @event)

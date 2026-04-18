@@ -25,6 +25,8 @@ public static class DependencyInjection
         IEnumerable<string> topics)
         where TContext : DbContext, IUnitOfWork
     {
+        EventTypeRegistry.Initialize();
+
         services.AddSingleton<ISchemaRegistryClient>(_ =>
         {
             var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
@@ -69,9 +71,7 @@ public static class DependencyInjection
 
     private static void RegisterAvroSerializers(IServiceCollection services)
     {
-        var avroTypes = typeof(AvroSchemas.Messages.Base.IntegrationEventAvro).Assembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && typeof(AvroSchemas.Messages.Base.IntegrationEventAvro).IsAssignableFrom(t));
+        var avroTypes = EventTypeRegistry.AllTypes;
 
         foreach (var type in avroTypes)
         {

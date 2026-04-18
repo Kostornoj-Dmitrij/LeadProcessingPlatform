@@ -38,13 +38,19 @@ public abstract class BaseDomainEventToOutboxConverter(ILogger logger) : IDomain
             if (integrationEvent == null)
                 continue;
 
+            var eventType = integrationEvent.GetType();
+
+            var assemblyQualifiedName = integrationEvent is AvroSchemas.Messages.Base.IntegrationEventAvro avroEvent
+                ? avroEvent.AssemblyQualifiedName
+                : eventType.AssemblyQualifiedName!;
+
             var outboxMessage = new OutboxMessage
             {
                 Id = Guid.NewGuid(),
                 AggregateType = aggregateType,
                 AggregateId = aggregateId,
-                EventType = integrationEvent.GetType().AssemblyQualifiedName!,
-                Payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), JsonDefaults.Options),
+                EventType = assemblyQualifiedName,
+                Payload = JsonSerializer.Serialize(integrationEvent, eventType, JsonDefaults.Options),
                 CreatedAt = DateTime.UtcNow,
                 ProcessingAttempts = 0,
                 TraceParent = traceParent,
@@ -56,7 +62,7 @@ public abstract class BaseDomainEventToOutboxConverter(ILogger logger) : IDomain
             logger.LogDebug(
                 "Converted domain event {DomainEvent} to integration event {IntegrationEvent} for aggregate {AggregateId}, TraceId: {TraceId}",
                 domainEvent.GetType().Name,
-                integrationEvent.GetType().Name,
+                eventType.Name,
                 aggregateId,
                 traceParent ?? "none");
         }

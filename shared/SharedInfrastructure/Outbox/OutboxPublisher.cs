@@ -75,7 +75,7 @@ public class OutboxPublisher<TContext>(
                 if (!string.IsNullOrEmpty(message.TraceParent))
                     TraceContextCarrier.TraceParent = message.TraceParent;
 
-                var eventType = Type.GetType(message.EventType);
+                var eventType = EventTypeRegistry.GetType(message.EventType);
                 if (eventType == null)
                 {
                     logger.LogWarning("Unknown event type: {EventType}", message.EventType);
@@ -97,12 +97,6 @@ public class OutboxPublisher<TContext>(
 
                 string eventTypeShort = GetSimpleTypeName(message.EventType);
 
-                var method = typeof(IEventBus).GetMethod("PublishAsync");
-                if (method == null)
-                    throw new InvalidOperationException("PublishAsync method not found");
-
-                var genericMethod = method.MakeGenericMethod(eventType);
-
                 if (TelemetryConstants.ActivitySource != null)
                 {
                     using var activity = ActivityBuilder.RestoreAndCreateActivity(
@@ -117,13 +111,11 @@ public class OutboxPublisher<TContext>(
                             message.Id,
                             message.ProcessingAttempts);
 
-                    var task = (Task)genericMethod.Invoke(eventBus, [@event, cancellationToken])!;
-                    await task;
+                    await eventBus.PublishAsync(@event, cancellationToken);
                 }
                 else
                 {
-                    var task = (Task)genericMethod.Invoke(eventBus, [@event, cancellationToken])!;
-                    await task;
+                    await eventBus.PublishAsync(@event, cancellationToken);
                 }
 
                 message.ProcessedAt = DateTime.UtcNow;

@@ -1,4 +1,5 @@
-﻿using Avro;
+﻿using System.Diagnostics.CodeAnalysis;
+using Avro;
 using Avro.Specific;
 using MediatR;
 
@@ -29,6 +30,9 @@ public abstract class IntegrationEventAvro : ISpecificRecord, IIntegrationEvent,
         get => DateTimeOffset.FromUnixTimeMilliseconds(OccurredOnUtc).UtcDateTime;
         set => OccurredOnUtc = new DateTimeOffset(value).ToUnixTimeMilliseconds();
     }
+
+    [field: AllowNull, MaybeNull]
+    public string AssemblyQualifiedName => field ??= GetType().AssemblyQualifiedName!;
 
     public abstract object? Get(int fieldPos);
     public abstract void Put(int fieldPos, object fieldValue);

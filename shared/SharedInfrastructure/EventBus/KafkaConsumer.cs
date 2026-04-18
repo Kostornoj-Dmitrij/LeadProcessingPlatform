@@ -30,7 +30,6 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     private bool _isRunning;
     private readonly string _serviceName;
     private readonly IEnumerable<string> _topics;
-    private readonly Dictionary<string, Type> _eventTypeCache = new();
 
     public KafkaConsumer(
         IConfiguration configuration,
@@ -184,7 +183,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             throw new InvalidOperationException("Missing event-type header");
 
         var eventTypeName = Encoding.UTF8.GetString(eventTypeBytes);
-        var eventType = GetEventType(eventTypeName);
+        var eventType = EventTypeRegistry.GetType(eventTypeName);
         if (eventType == null)
             throw new InvalidOperationException($"Unknown event type: {eventTypeName}");
 
@@ -272,21 +271,6 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 
         if (!added)
             _logger.LogDebug("[{ServiceName}] Message {EventId} already in inbox, skipping", _serviceName, eventId);
-    }
-
-    private Type? GetEventType(string eventTypeName)
-    {
-        if (_eventTypeCache.TryGetValue(eventTypeName, out var cachedType))
-            return cachedType;
-
-        var type = Type.GetType(eventTypeName);
-        if (type != null)
-        {
-            _eventTypeCache[eventTypeName] = type;
-            return type;
-        }
-
-        return null;
     }
 
     private string GetSimpleTypeName(string eventTypeName)

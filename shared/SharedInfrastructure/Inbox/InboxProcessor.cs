@@ -102,7 +102,7 @@ public class InboxProcessor<TInboxStore>(
         IMediator mediator,
         CancellationToken cancellationToken)
     {
-        var eventType = Type.GetType(message.EventType);
+        var eventType = EventTypeRegistry.GetType(message.EventType);
         if (eventType == null)
             throw new InvalidOperationException($"Unknown event type: {message.EventType}");
 
