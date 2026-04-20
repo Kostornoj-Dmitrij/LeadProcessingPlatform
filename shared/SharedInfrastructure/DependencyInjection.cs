@@ -23,7 +23,8 @@ public static class DependencyInjection
     public static IServiceCollection AddSharedInfrastructure<TContext>(
         this IServiceCollection services,
         IConfiguration configuration,
-        string serviceName)
+        string serviceName,
+        string[] baseTopics)
         where TContext : DbContext, IUnitOfWork
     {
         EventTypeRegistry.Initialize();
@@ -50,15 +51,6 @@ public static class DependencyInjection
         services.AddSingleton(sp =>
         {
             var naming = sp.GetRequiredService<INamingConvention>();
-            var baseTopics = new[]
-            {
-                KafkaTopics.LeadEventsBase,
-                KafkaTopics.EnrichmentEventsBase,
-                KafkaTopics.ScoringEventsBase,
-                KafkaTopics.DistributionEventsBase,
-                KafkaTopics.NotificationEventsBase,
-                KafkaTopics.SagaEventsBase
-            };
             var topics = baseTopics.Select(naming.GetTopicName).ToList();
             var dlqTopic = naming.GetDlqTopicName(serviceName);
 

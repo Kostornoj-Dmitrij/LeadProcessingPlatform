@@ -1,4 +1,5 @@
-﻿using DistributionService.Application.Common.Interfaces;
+﻿using AvroSchemas;
+using DistributionService.Application.Common.Interfaces;
 using DistributionService.Infrastructure.Background;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,9 +35,17 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
+        var topics = new[]
+        {
+            KafkaTopics.LeadEventsBase,
+            KafkaTopics.SagaEventsBase,
+            KafkaTopics.DistributionEventsBase
+        };
+
         services.AddSharedInfrastructure<ApplicationDbContext>(
-            configuration,
-            "distribution-service");
+            configuration, 
+            "enrichment-service", 
+            topics);
 
         return services;
     }

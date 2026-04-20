@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using AvroSchemas;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using LeadService.Application.Common.Interfaces;
 using LeadService.Infrastructure.Data;
@@ -22,9 +23,19 @@ public static class DependencyInjection
 
         services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
 
+        var topics = new[]
+        {
+            KafkaTopics.EnrichmentEventsBase,
+            KafkaTopics.ScoringEventsBase,
+            KafkaTopics.DistributionEventsBase,
+            KafkaTopics.SagaEventsBase,
+            KafkaTopics.LeadEventsBase
+        };
+
         services.AddSharedInfrastructure<ApplicationDbContext>(
             configuration, 
-            "lead-service");
+            "lead-service", 
+            topics);
 
         return services;
     }
