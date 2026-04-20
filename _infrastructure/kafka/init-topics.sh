@@ -6,64 +6,33 @@ cub kafka-ready -b kafka:29092 1 30
 
 echo "Creating topics..."
 
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic lead-events \
-  --partitions 3 \
-  --replication-factor 1
+PREFIX=${TOPIC_PREFIX:-}
+SUFFIX=${TOPIC_SUFFIX:-}
 
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic enrichment-events \
-  --partitions 3 \
-  --replication-factor 1
+create_topic() {
+    local base=$1
+    local topic="${PREFIX}${base}${SUFFIX}"
+    kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+      --topic "$topic" \
+      --partitions 3 \
+      --replication-factor 1
+    echo "Created topic: $topic"
+}
 
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic scoring-events \
-  --partitions 3 \
-  --replication-factor 1
+create_topic "lead-events"
+create_topic "enrichment-events"
+create_topic "scoring-events"
+create_topic "distribution-events"
+create_topic "notification-events"
+create_topic "saga-events"
 
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic distribution-events \
-  --partitions 3 \
-  --replication-factor 1
+create_topic "lead-service-dlq"
+create_topic "enrichment-service-dlq"
+create_topic "scoring-service-dlq"
+create_topic "distribution-service-dlq"
+create_topic "notification-service-dlq"
 
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic notification-events \
-  --partitions 3 \
-  --replication-factor 1
+create_topic "healthcheck"
 
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic saga-events \
-  --partitions 3 \
-  --replication-factor 1
-
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic lead-service-dlq \
-  --partitions 3 \
-  --replication-factor 1
-
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic enrichment-service-dlq \
-  --partitions 3 \
-  --replication-factor 1
-
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic scoring-service-dlq \
-  --partitions 3 \
-  --replication-factor 1
-
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic distribution-service-dlq \
-  --partitions 3 \
-  --replication-factor 1
-
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic notification-service-dlq \
-  --partitions 3 \
-  --replication-factor 1
-
-kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-  --topic healthcheck \
-  --partitions 1 \
-  --replication-factor 1
 echo "Topics created:"
 kafka-topics --bootstrap-server kafka:29092 --list

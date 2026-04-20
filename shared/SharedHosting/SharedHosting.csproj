@@ -36,6 +36,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\AvroSchemas\AvroSchemas.csproj" />
         <ProjectReference Include="..\SharedKernel\SharedKernel.csproj" />
     </ItemGroup>
 

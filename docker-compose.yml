@@ -21,8 +21,9 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-lead_db}
-      POSTGRES_MULTIPLE_DATABASES: lead_db, enrichment_db, scoring_db, distribution_db, notification_db
+      POSTGRES_DB: ${DB_PREFIX}${POSTGRES_DB:-lead_db}${DB_SUFFIX}
+      DB_PREFIX: ${DB_PREFIX}
+      DB_SUFFIX: ${DB_SUFFIX}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -120,6 +121,9 @@ services:
 
   # ==================== INITIALIZATION ====================
   init-kafka:
+    environment:
+      TOPIC_PREFIX: ${TOPIC_PREFIX}
+      TOPIC_SUFFIX: ${TOPIC_SUFFIX}
     image: confluentinc/cp-kafka:${KAFKA_VERSION:-7.5.0}
     container_name: init-kafka
     depends_on:
@@ -197,11 +201,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:80
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=lead_db;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${DB_PREFIX}lead_db${DB_SUFFIX};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: lead-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
+      Naming__TopicPrefix: ${TOPIC_PREFIX}
+      Naming__TopicSuffix: ${TOPIC_SUFFIX}
+      Naming__DbPrefix: ${DB_PREFIX}
+      Naming__DbSuffix: ${DB_SUFFIX}
     depends_on:
       postgres:
         condition: service_healthy
@@ -221,11 +229,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:80
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=enrichment_db;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${DB_PREFIX}enrichment_db${DB_SUFFIX};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: enrichment-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
+      Naming__TopicPrefix: ${TOPIC_PREFIX}
+      Naming__TopicSuffix: ${TOPIC_SUFFIX}
+      Naming__DbPrefix: ${DB_PREFIX}
+      Naming__DbSuffix: ${DB_SUFFIX}
     depends_on:
       postgres:
         condition: service_healthy
@@ -243,11 +255,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:80
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=scoring_db;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${DB_PREFIX}scoring_db${DB_SUFFIX};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: scoring-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
+      Naming__TopicPrefix: ${TOPIC_PREFIX}
+      Naming__TopicSuffix: ${TOPIC_SUFFIX}
+      Naming__DbPrefix: ${DB_PREFIX}
+      Naming__DbSuffix: ${DB_SUFFIX}
     depends_on:
       postgres:
         condition: service_healthy
@@ -265,11 +281,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:80
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=distribution_db;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${DB_PREFIX}distribution_db${DB_SUFFIX};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: distribution-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
+      Naming__TopicPrefix: ${TOPIC_PREFIX}
+      Naming__TopicSuffix: ${TOPIC_SUFFIX}
+      Naming__DbPrefix: ${DB_PREFIX}
+      Naming__DbSuffix: ${DB_SUFFIX}
     depends_on:
       postgres:
         condition: service_healthy
@@ -287,11 +307,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:80
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=notification_db;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${DB_PREFIX}notification_db${DB_SUFFIX};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: notification-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
+      Naming__TopicPrefix: ${TOPIC_PREFIX}
+      Naming__TopicSuffix: ${TOPIC_SUFFIX}
+      Naming__DbPrefix: ${DB_PREFIX}
+      Naming__DbSuffix: ${DB_SUFFIX}
     depends_on:
       postgres:
         condition: service_healthy

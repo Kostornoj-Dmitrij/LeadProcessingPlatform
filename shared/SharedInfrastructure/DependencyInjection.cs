@@ -1,4 +1,6 @@
-﻿using Confluent.Kafka;
+﻿using AvroSchemas;
+using AvroSchemas.Naming;
+using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,8 +23,7 @@ public static class DependencyInjection
     public static IServiceCollection AddSharedInfrastructure<TContext>(
         this IServiceCollection services,
         IConfiguration configuration,
-        string serviceName,
-        IEnumerable<string> topics)
+        string serviceName)
         where TContext : DbContext, IUnitOfWork
     {
         EventTypeRegistry.Initialize();
@@ -46,12 +47,29 @@ public static class DependencyInjection
             serviceName));
         services.AddSingleton<IEventBus>(sp => sp.GetRequiredService<KafkaEventBus>());
 
-        services.AddSingleton(sp => new KafkaConsumer(
-            configuration,
-            sp.GetRequiredService<IServiceScopeFactory>(),
-            sp.GetRequiredService<ILogger<KafkaConsumer>>(),
-            serviceName,
-            topics));
+        services.AddSingleton(sp =>
+        {
+            var naming = sp.GetRequiredService<INamingConvention>();
+            var baseTopics = new[]
+            {
+                KafkaTopics.LeadEventsBase,
+                KafkaTopics.EnrichmentEventsBase,
+                KafkaTopics.ScoringEventsBase,
+                KafkaTopics.DistributionEventsBase,
+                KafkaTopics.NotificationEventsBase,
+                KafkaTopics.SagaEventsBase
+            };
+            var topics = baseTopics.Select(naming.GetTopicName).ToList();
+            var dlqTopic = naming.GetDlqTopicName(serviceName);
+
+            return new KafkaConsumer(
+                configuration,
+                sp.GetRequiredService<IServiceScopeFactory>(),
+                sp.GetRequiredService<ILogger<KafkaConsumer>>(),
+                serviceName,
+                topics,
+                dlqTopic);
+        });
 
         services.AddHostedService(sp => sp.GetRequiredService<KafkaConsumer>());
         services.AddScoped<IKafkaConsumer>(sp => sp.GetRequiredService<KafkaConsumer>());
@@ -62,7 +80,13 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<TContext>());
 
-        services.AddSingleton<IDeadLetterQueue, KafkaDeadLetterQueue>();
+        services.AddSingleton<IDeadLetterQueue>(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var logger = sp.GetRequiredService<ILogger<KafkaDeadLetterQueue>>();
+            var naming = sp.GetRequiredService<INamingConvention>();
+            return new KafkaDeadLetterQueue(config, logger, naming, serviceName);
+        });
 
         services.AddHostedService<OutboxPublisher<TContext>>();
 

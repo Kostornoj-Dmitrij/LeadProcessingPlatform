@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text;
 using AvroSchemas;
 using AvroSchemas.Messages.Base;
+using AvroSchemas.Naming;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Microsoft.Extensions.Configuration;
@@ -73,7 +74,9 @@ public class KafkaEventBus : IEventBus
 
         try
         {
-            var topic = KafkaTopics.GetTopic(typeof(TEvent));
+            var naming = _serviceProvider.GetRequiredService<INamingConvention>();
+            var baseTopic = KafkaTopics.GetBaseTopic<TEvent>();
+            var topic = naming.GetTopicName(baseTopic);
             var subject = $"{topic}-{typeof(TEvent).Name}";
             var serializerType = typeof(AvroSerializer<>).MakeGenericType(avroEvent.GetType());
             var serializer = _serviceProvider.GetRequiredService(serializerType);

@@ -10,11 +10,27 @@ using Spectre.Console;
 
 static IConfiguration LoadConfiguration()
 {
-    return new ConfigurationBuilder()
+    var dbPrefix = Environment.GetEnvironmentVariable("DB_PREFIX") ?? "";
+    var dbSuffix = Environment.GetEnvironmentVariable("DB_SUFFIX") ?? "";
+
+    var configuration = new ConfigurationBuilder()
         .SetBasePath(Directory.GetCurrentDirectory())
         .AddJsonFile("appsettings.json", optional: true)
         .AddEnvironmentVariables()
         .Build();
+
+    var rawConnectionString = configuration["ConnectionStrings:LeadDb"];
+    
+    if (!string.IsNullOrEmpty(rawConnectionString))
+    {
+        var resolvedConnectionString = rawConnectionString
+            .Replace("${DB_PREFIX}", dbPrefix)
+            .Replace("${DB_SUFFIX}", dbSuffix);
+
+        configuration["ConnectionStrings:LeadDb"] = resolvedConnectionString;
+    }
+
+    return configuration;
 }
 
 var configuration = LoadConfiguration();

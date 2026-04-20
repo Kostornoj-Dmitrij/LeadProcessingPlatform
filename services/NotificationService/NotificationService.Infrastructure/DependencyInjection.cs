@@ -1,5 +1,4 @@
-﻿using AvroSchemas;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NotificationService.Application.Services;
 using NotificationService.Infrastructure.Data;
@@ -23,16 +22,9 @@ public static class DependencyInjection
         services.AddScoped<IEmailSender, EmailSender>();
         services.AddScoped<ITemplateRenderer, TemplateRenderer>();
 
-        var topics = new[]
-        {
-            KafkaTopics.LeadEvents,
-            KafkaTopics.DistributionEvents
-        };
-
         services.AddSharedInfrastructure<ApplicationDbContext>(
             configuration,
-            "notification-service",
-            topics);
+            "notification-service");
 
         return services;
     }

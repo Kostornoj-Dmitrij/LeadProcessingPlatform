@@ -36,12 +36,14 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         IServiceScopeFactory scopeFactory,
         ILogger<KafkaConsumer> logger,
         string serviceName,
-        IEnumerable<string> topics)
+        IEnumerable<string> topics,
+        string dlqTopic)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _serviceName = serviceName;
         _topics = topics;
+        _dlqTopic = dlqTopic;
 
         var bootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers];
         var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
@@ -75,7 +77,6 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             Acks = Acks.All
         };
         _dlqProducer = new ProducerBuilder<string, byte[]>(producerConfig).Build();
-        _dlqTopic = configuration[ConfigurationKeys.KafkaDlqTopic] ?? $"{serviceName}-dlq";
     }
 
     public bool IsRunning => _isRunning;

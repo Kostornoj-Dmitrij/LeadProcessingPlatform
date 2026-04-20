@@ -5,6 +5,7 @@ using SharedHosting;
 using SharedHosting.Extensions;
 using SharedHosting.Options;
 using AvroSchemas;
+using AvroSchemas.Naming;
 using SharedHosting.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,18 +42,22 @@ if (app.Environment.IsDevelopment())
 {
     await app.ApplyMigrationsAsync<ApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
     
-    await KafkaExtensions.WaitForKafkaTopicsAsync(app.Services, [
-        KafkaTopics.EnrichmentEvents,
-        KafkaTopics.ScoringEvents,
-        KafkaTopics.DistributionEvents,
-        KafkaTopics.SagaEvents,
-        KafkaTopics.NotificationEvents,
-        KafkaTopics.LeadEvents
-    ]);
+    var naming = app.Services.GetRequiredService<INamingConvention>();
+    var requiredTopics = new[]
+    {
+        naming.GetTopicName(KafkaTopics.EnrichmentEventsBase),
+        naming.GetTopicName(KafkaTopics.ScoringEventsBase),
+        naming.GetTopicName(KafkaTopics.DistributionEventsBase),
+        naming.GetTopicName(KafkaTopics.SagaEventsBase),
+        naming.GetTopicName(KafkaTopics.NotificationEventsBase),
+        naming.GetTopicName(KafkaTopics.LeadEventsBase)
+    };
+    
+    await KafkaExtensions.WaitForKafkaTopicsAsync(app.Services, requiredTopics);
 
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
     var schemaRegistry = app.Services.GetRequiredService<Confluent.SchemaRegistry.ISchemaRegistryClient>();
-    await SchemaRegistryHelper.RegisterAllSchemasAsync(schemaRegistry, logger);
+    await SchemaRegistryHelper.RegisterAllSchemasAsync(schemaRegistry, naming, logger);
 }
 
 await app.RunAsync();

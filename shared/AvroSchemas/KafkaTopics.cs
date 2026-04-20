@@ -11,53 +11,47 @@ namespace AvroSchemas;
 /// </summary>
 public static class KafkaTopics
 {
-    public const string LeadEvents = "lead-events";
-    public const string EnrichmentEvents = "enrichment-events";
-    public const string ScoringEvents = "scoring-events";
-    public const string DistributionEvents = "distribution-events";
-    public const string NotificationEvents = "notification-events";
-    public const string SagaEvents = "saga-events";
+    public const string LeadEventsBase = "lead-events";
+    public const string EnrichmentEventsBase = "enrichment-events";
+    public const string ScoringEventsBase = "scoring-events";
+    public const string DistributionEventsBase = "distribution-events";
+    public const string NotificationEventsBase = "notification-events";
+    public const string SagaEventsBase = "saga-events";
 
     private static readonly Dictionary<Type, string> TopicMappings = new();
 
     static KafkaTopics()
     {
-        TopicMappings[typeof(LeadCreated)] = LeadEvents;
-        TopicMappings[typeof(LeadQualified)] = LeadEvents;
-        TopicMappings[typeof(LeadRejected)] = LeadEvents;
-        TopicMappings[typeof(LeadDistributed)] = LeadEvents;
-        TopicMappings[typeof(LeadDistributionFailed)] = LeadEvents;
-        TopicMappings[typeof(LeadRejectedFinal)] = LeadEvents;
-        TopicMappings[typeof(LeadDistributionFailedFinal)] = LeadEvents;
-        TopicMappings[typeof(LeadDistributedFinal)] = LeadEvents;
+        TopicMappings[typeof(LeadCreated)] = LeadEventsBase;
+        TopicMappings[typeof(LeadQualified)] = LeadEventsBase;
+        TopicMappings[typeof(LeadRejected)] = LeadEventsBase;
+        TopicMappings[typeof(LeadDistributed)] = LeadEventsBase;
+        TopicMappings[typeof(LeadDistributionFailed)] = LeadEventsBase;
+        TopicMappings[typeof(LeadRejectedFinal)] = LeadEventsBase;
+        TopicMappings[typeof(LeadDistributionFailedFinal)] = LeadEventsBase;
+        TopicMappings[typeof(LeadDistributedFinal)] = LeadEventsBase;
 
-        TopicMappings[typeof(LeadEnriched)] = EnrichmentEvents;
-        TopicMappings[typeof(LeadEnrichmentFailed)] = EnrichmentEvents;
-        TopicMappings[typeof(LeadEnrichmentCompensated)] = SagaEvents;
+        TopicMappings[typeof(LeadEnriched)] = EnrichmentEventsBase;
+        TopicMappings[typeof(LeadEnrichmentFailed)] = EnrichmentEventsBase;
+        TopicMappings[typeof(LeadEnrichmentCompensated)] = SagaEventsBase;
 
-        TopicMappings[typeof(LeadScored)] = ScoringEvents;
-        TopicMappings[typeof(LeadScoringFailed)] = ScoringEvents;
-        TopicMappings[typeof(LeadScoringCompensated)] = SagaEvents;
+        TopicMappings[typeof(LeadScored)] = ScoringEventsBase;
+        TopicMappings[typeof(LeadScoringFailed)] = ScoringEventsBase;
+        TopicMappings[typeof(LeadScoringCompensated)] = SagaEventsBase;
 
-        TopicMappings[typeof(DistributionSucceeded)] = DistributionEvents;
-        TopicMappings[typeof(DistributionFailed)] = DistributionEvents;
+        TopicMappings[typeof(DistributionSucceeded)] = DistributionEventsBase;
+        TopicMappings[typeof(DistributionFailed)] = DistributionEventsBase;
 
-        TopicMappings[typeof(NotificationSent)] = NotificationEvents;
+        TopicMappings[typeof(NotificationSent)] = NotificationEventsBase;
     }
 
-    public static string GetTopic<TEvent>() where TEvent : IIntegrationEvent
-    {
-        if (TopicMappings.TryGetValue(typeof(TEvent), out var topic))
-            return topic;
+    public static string GetBaseTopic<TEvent>() where TEvent : IIntegrationEvent
+        => GetBaseTopic(typeof(TEvent));
 
-        throw new KeyNotFoundException($"No topic configured for event type {typeof(TEvent).Name}");
-    }
-
-    public static string GetTopic(Type eventType)
+    public static string GetBaseTopic(Type eventType)
     {
         if (TopicMappings.TryGetValue(eventType, out var topic))
             return topic;
-
         throw new KeyNotFoundException($"No topic configured for event type {eventType.Name}");
     }
 }

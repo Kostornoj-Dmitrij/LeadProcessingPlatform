@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using AvroSchemas.Naming;
 using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -15,9 +16,12 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
     private readonly IProducer<string, string> _producer;
     private readonly ILogger<KafkaDeadLetterQueue> _logger;
     private readonly string _dlqTopic;
-    private const string DefaultDlqTopic = "default-dlq";
 
-    public KafkaDeadLetterQueue(IConfiguration configuration, ILogger<KafkaDeadLetterQueue> logger)
+    public KafkaDeadLetterQueue(
+        IConfiguration configuration,
+        ILogger<KafkaDeadLetterQueue> logger,
+        INamingConvention naming,
+        string serviceName)
     {
         _logger = logger;
 
@@ -29,7 +33,7 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
         };
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
-        _dlqTopic = configuration[ConfigurationKeys.KafkaDlqTopic] ?? DefaultDlqTopic;
+        _dlqTopic = naming.GetDlqTopicName(serviceName);
     }
 
     public async Task SendAsync(

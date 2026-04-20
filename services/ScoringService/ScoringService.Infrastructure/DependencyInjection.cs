@@ -1,5 +1,4 @@
-﻿using AvroSchemas;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ScoringService.Application.Services;
 using ScoringService.Infrastructure.Background;
@@ -23,18 +22,9 @@ public static class DependencyInjection
         services.AddScoped<IRuleEvaluator, RuleEvaluator>();
         services.AddHostedService<ScoringProcessor>();
 
-        var topics = new[]
-        {
-            KafkaTopics.LeadEvents,
-            KafkaTopics.SagaEvents,
-            KafkaTopics.DistributionEvents,
-            KafkaTopics.EnrichmentEvents
-        };
-
         services.AddSharedInfrastructure<ApplicationDbContext>(
             configuration, 
-            "scoring-service", 
-            topics);
+            "scoring-service");
 
         return services;
     }

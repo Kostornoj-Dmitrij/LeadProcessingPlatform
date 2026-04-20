@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using AvroSchemas.Naming;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,9 @@ public static class HostBuilderExtensions
         HostingOptions hostingOptions,
         string[]? additionalTelemetrySources = null)
     {
+        services.Configure<NamingOptions>(configuration.GetSection(NamingOptions.SectionName));
+        services.AddSingleton<INamingConvention, NamingConvention>();
+
         services.AddControllers()
             .AddJsonOptions(options =>
             {

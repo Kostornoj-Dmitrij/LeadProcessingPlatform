@@ -5,6 +5,7 @@ using AvroSchemas.Messages.EnrichmentEvents;
 using AvroSchemas.Messages.LeadEvents;
 using AvroSchemas.Messages.NotificationEvents;
 using AvroSchemas.Messages.ScoringEvents;
+using AvroSchemas.Naming;
 using AvroSchema = Avro.Schema;
 
 namespace AvroSchemas;
@@ -16,34 +17,42 @@ public static class SchemaRegistryHelper
 {
     public static async Task RegisterAllSchemasAsync(
         ISchemaRegistryClient schemaRegistry,
+        INamingConvention naming,
         ILogger? logger = null)
     {
+        var leadEventsTopic = naming.GetTopicName(KafkaTopics.LeadEventsBase);
+        var enrichmentEventsTopic = naming.GetTopicName(KafkaTopics.EnrichmentEventsBase);
+        var scoringEventsTopic = naming.GetTopicName(KafkaTopics.ScoringEventsBase);
+        var distributionEventsTopic = naming.GetTopicName(KafkaTopics.DistributionEventsBase);
+        var sagaEventsTopic = naming.GetTopicName(KafkaTopics.SagaEventsBase);
+        var notificationEventsTopic = naming.GetTopicName(KafkaTopics.NotificationEventsBase);
+
         var subjectsAndTypes = new Dictionary<string, Type>
         {
-            [$"{KafkaTopics.LeadEvents}-{nameof(LeadCreated)}-value"] = typeof(LeadCreated),
-            [$"{KafkaTopics.LeadEvents}-{nameof(LeadQualified)}-value"] = typeof(LeadQualified),
-            [$"{KafkaTopics.LeadEvents}-{nameof(LeadRejected)}-value"] = typeof(LeadRejected),
-            [$"{KafkaTopics.LeadEvents}-{nameof(LeadDistributed)}-value"] = typeof(LeadDistributed),
-            [$"{KafkaTopics.LeadEvents}-{nameof(LeadDistributionFailed)}-value"] = typeof(LeadDistributionFailed),
-            [$"{KafkaTopics.LeadEvents}-{nameof(LeadRejectedFinal)}-value"] = typeof(LeadRejectedFinal),
-            [$"{KafkaTopics.LeadEvents}-{nameof(LeadDistributionFailedFinal)}-value"] = typeof(LeadDistributionFailedFinal),
-            [$"{KafkaTopics.LeadEvents}-{nameof(LeadDistributedFinal)}-value"] = typeof(LeadDistributedFinal),
+            [$"{leadEventsTopic}-{nameof(LeadCreated)}-value"] = typeof(LeadCreated),
+            [$"{leadEventsTopic}-{nameof(LeadQualified)}-value"] = typeof(LeadQualified),
+            [$"{leadEventsTopic}-{nameof(LeadRejected)}-value"] = typeof(LeadRejected),
+            [$"{leadEventsTopic}-{nameof(LeadDistributed)}-value"] = typeof(LeadDistributed),
+            [$"{leadEventsTopic}-{nameof(LeadDistributionFailed)}-value"] = typeof(LeadDistributionFailed),
+            [$"{leadEventsTopic}-{nameof(LeadRejectedFinal)}-value"] = typeof(LeadRejectedFinal),
+            [$"{leadEventsTopic}-{nameof(LeadDistributionFailedFinal)}-value"] = typeof(LeadDistributionFailedFinal),
+            [$"{leadEventsTopic}-{nameof(LeadDistributedFinal)}-value"] = typeof(LeadDistributedFinal),
 
-            [$"{KafkaTopics.EnrichmentEvents}-{nameof(LeadEnriched)}-value"] = typeof(LeadEnriched),
-            [$"{KafkaTopics.EnrichmentEvents}-{nameof(LeadEnrichmentFailed)}-value"] = typeof(LeadEnrichmentFailed),
+            [$"{enrichmentEventsTopic}-{nameof(LeadEnriched)}-value"] = typeof(LeadEnriched),
+            [$"{enrichmentEventsTopic}-{nameof(LeadEnrichmentFailed)}-value"] = typeof(LeadEnrichmentFailed),
 
-            [$"{KafkaTopics.ScoringEvents}-{nameof(LeadScored)}-value"] = typeof(LeadScored),
-            [$"{KafkaTopics.ScoringEvents}-{nameof(LeadScoringFailed)}-value"] = typeof(LeadScoringFailed),
+            [$"{scoringEventsTopic}-{nameof(LeadScored)}-value"] = typeof(LeadScored),
+            [$"{scoringEventsTopic}-{nameof(LeadScoringFailed)}-value"] = typeof(LeadScoringFailed),
 
-            [$"{KafkaTopics.DistributionEvents}-{nameof(DistributionSucceeded)}-value"] = typeof(DistributionSucceeded),
-            [$"{KafkaTopics.DistributionEvents}-{nameof(DistributionFailed)}-value"] = typeof(DistributionFailed),
+            [$"{distributionEventsTopic}-{nameof(DistributionSucceeded)}-value"] = typeof(DistributionSucceeded),
+            [$"{distributionEventsTopic}-{nameof(DistributionFailed)}-value"] = typeof(DistributionFailed),
 
-            [$"{KafkaTopics.SagaEvents}-{nameof(LeadEnrichmentCompensated)}-value"] = typeof(LeadEnrichmentCompensated),
-            [$"{KafkaTopics.SagaEvents}-{nameof(LeadScoringCompensated)}-value"] = typeof(LeadScoringCompensated),
+            [$"{sagaEventsTopic}-{nameof(LeadEnrichmentCompensated)}-value"] = typeof(LeadEnrichmentCompensated),
+            [$"{sagaEventsTopic}-{nameof(LeadScoringCompensated)}-value"] = typeof(LeadScoringCompensated),
 
-            [$"{KafkaTopics.NotificationEvents}-{nameof(NotificationSent)}-value"] = typeof(NotificationSent),
+            [$"{notificationEventsTopic}-{nameof(NotificationSent)}-value"] = typeof(NotificationSent),
 
-            [$"{KafkaTopics.LeadEvents}-{nameof(EnrichedData)}-value"] = typeof(EnrichedData)
+            [$"{leadEventsTopic}-{nameof(EnrichedData)}-value"] = typeof(EnrichedData)
         };
 
         foreach (var (subject, type) in subjectsAndTypes)

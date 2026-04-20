@@ -1,5 +1,4 @@
-﻿using AvroSchemas;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using EnrichmentService.Application.Common.Interfaces;
 using EnrichmentService.Infrastructure.Background;
@@ -24,17 +23,9 @@ public static class DependencyInjection
         
         services.AddHttpClient<IExternalEnrichmentClient, ExternalEnrichmentClient>();
 
-        var topics = new[]
-        {
-            KafkaTopics.LeadEvents,
-            KafkaTopics.SagaEvents,
-            KafkaTopics.DistributionEvents
-        };
-
         services.AddSharedInfrastructure<ApplicationDbContext>(
             configuration, 
-            "enrichment-service", 
-            topics);
+            "enrichment-service");
 
         return services;
     }
