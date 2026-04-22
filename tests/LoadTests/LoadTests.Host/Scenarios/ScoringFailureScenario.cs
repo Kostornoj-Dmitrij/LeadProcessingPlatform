@@ -20,10 +20,13 @@ public static class ScoringFailureScenario
 
         return Scenario.Create("scoring_failure", async context =>
             {
+                var token = await AuthHelper.GetTokenAsync(apiGatewayUrl);
+
                 var lead = TestData.CreateScoringFailureLead();
 
                 using var request = Http.CreateRequest("POST", $"{apiGatewayUrl}/api/leads")
                     .WithHeader("Content-Type", "application/json")
+                    .WithHeader("Authorization", $"Bearer {token}")
                     .WithHeader("Idempotency-Key", Guid.NewGuid().ToString())
                     .WithBody(lead.ToJsonContent());
 

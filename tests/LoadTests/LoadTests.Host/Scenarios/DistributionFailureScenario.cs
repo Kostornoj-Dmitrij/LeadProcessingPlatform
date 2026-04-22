@@ -20,10 +20,13 @@ public static class DistributionFailureScenario
 
         return Scenario.Create("distribution_failure", async context =>
             {
+                var token = await AuthHelper.GetTokenAsync(apiGatewayUrl);
+
                 var lead = TestData.CreateDistributionFailureLead();
 
                 using var request = Http.CreateRequest("POST", $"{apiGatewayUrl}/api/leads")
                     .WithHeader("Content-Type", "application/json")
+                    .WithHeader("Authorization", $"Bearer {token}")
                     .WithHeader("Idempotency-Key", Guid.NewGuid().ToString())
                     .WithBody(lead.ToJsonContent());
 

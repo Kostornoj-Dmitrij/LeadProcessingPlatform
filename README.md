@@ -28,7 +28,7 @@
 
 | Компонент                | Ответственность                                                                                    | База данных       |
 |:-------------------------|:---------------------------------------------------------------------------------------------------|:------------------|
-| **API Gateway (YARP)**   | Единая точка входа, маршрутизация запросов к Lead Service                                          | —                 |
+| **API Gateway (YARP)**   | Единая точка входа, JWT-аутентификация, маршрутизация запросов к Lead Service                      | —                 |
 | **Lead Service**         | Центральный агрегат. Управляет жизненным циклом лида (конечный автомат), идемпотентностью HTTP API | `lead_db`         |
 | **Enrichment Service**   | Асинхронное обогащение данных из внешних источников (API эмулятор) с механизмом повторных попыток  | `enrichment_db`   |
 | **Scoring Service**      | Квалификация лида на основе динамических правил (хранятся в БД). Поддержка версионности правил     | `scoring_db`      |
@@ -49,6 +49,7 @@
 | **Наблюдаемость**    | OpenTelemetry, .NET Aspire Dashboard                   |
 | **Контейнеризация**  | Docker, Docker Compose                                 |
 | **API Gateway**      | YARP                                                   |
+| **Безопасность**     | JWT Bearer, Kafka SASL/SCRAM-SHA-256                   |
 | **Тестирование**     | NUnit, Moq, AutoFixture, NBomber                       |
 
 ## Старт
@@ -83,7 +84,32 @@ docker-compose down -v
 Все сервисы должны быть в статусе healthy или running (кроме init-kafka).
 
 ### Проверка работоспособности
-1. **Создание нового лида (через API Gateway)**
+1. **Получение JWT токена**
+
+| Параметр   | Значение                               |
+|:-----------|:---------------------------------------|
+| **Method** | `POST`                                 |
+| **URL**    | `http://localhost:8080/api/auth/token` |
+| **Header** | `Content-Type: application/json`       |
+
+**Тело запроса (JSON):**
+```json
+{
+  "clientId": "partner-system",
+  "apiKey": "dev-api-key"
+}
+```
+
+**Ответ:** `200 OK` с JWT токеном:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expiresIn": 3600,
+  "tokenType": "Bearer"
+}
+```
+
+2. **Создание нового лида (через API Gateway)**
 
 Используйте Postman (или любой другой клиент) для отправки запроса:
 
@@ -92,6 +118,7 @@ docker-compose down -v
 | **Method** | `POST`                                        |
 | **URL**    | `http://localhost:8080/api/leads`             |
 | **Header** | `Content-Type: application/json`              |
+| **Header** | `Authorization: Bearer <токен>`               |
 | **Header** | `Idempotency-Key: <уникальный-идентификатор>` |
 
 **Тело запроса (JSON):**
@@ -112,11 +139,43 @@ docker-compose down -v
 
 **Ответ:** `202 Accepted` с DTO созданного лида.
 
-2. **Мониторинг через Aspire Dashboard**
+3. **Мониторинг через Aspire Dashboard**
 
 Откройте в браузере: http://localhost:18888
 
 Здесь можно увидеть трассировки, метрики и централизованные логи всех сервисов.
+
+## Конфигурация
+
+Для запуска системы требуется файл `.env` в корне проекта. Ниже приведён шаблон с описанием всех переменных.
+
+| Переменная окружения     | Значение по умолчанию     | Описание                                                    |
+|--------------------------|---------------------------|-------------------------------------------------------------|
+| `KAFKA_VERSION`          | `7.5.0`                   | Версия образов Confluent Kafka                              |
+| `POSTGRES_USER`          | `postgres`                | Имя пользователя PostgreSQL                                 |
+| `POSTGRES_PASSWORD`      | `postgres`                | Пароль пользователя PostgreSQL                              |
+| `POSTGRES_DB`            | `lead_db`                 | Имя основной базы данных                                    |
+| `POSTGRES_PORT`          | `5432`                    | Порт PostgreSQL на хосте                                    |
+| `KAFKA_PORT`             | `9092`                    | Порт Kafka (PLAINTEXT) на хосте                             |
+| `ZOOKEEPER_PORT`         | `2181`                    | Порт Zookeeper на хосте                                     |
+| `SCHEMA_REGISTRY_PORT`   | `8085`                    | Порт Schema Registry на хосте                               |
+| `PGADMIN_EMAIL`          | `admin@lead-platform.com` | Email для входа в pgAdmin                                   |
+| `PGADMIN_PASSWORD`       | `admin`                   | Пароль для входа в pgAdmin                                  |
+| `PGADMIN_PORT`           | `5050`                    | Порт pgAdmin на хосте                                       |
+| `ASPIRE_DASHBOARD_PORT`  | `18888`                   | Порт Aspire Dashboard на хосте                              |
+| `GATEWAY_HTTP_PORT`      | `8080`                    | Порт API Gateway на хосте                                   |
+| `ASPNETCORE_ENVIRONMENT` | `Development`             | Окружение ASP.NET Core                                      |
+| `TOPIC_PREFIX`           |                           | Префикс для имён топиков Kafka (для мультитенантности)      |
+| `TOPIC_SUFFIX`           |                           | Суффикс для имён топиков Kafka                              |
+| `DB_PREFIX`              |                           | Префикс для имён баз данных                                 |
+| `DB_SUFFIX`              |                           | Суффикс для имён баз данных                                 |
+| `JWT_SECRET_KEY`         | `ajvboiabj...`            | Секретный ключ для подписи JWT токенов (минимум 32 символа) |
+| `KAFKA_ADMIN_PASSWORD`   | `admin-password`          | Пароль администратора Kafka                                 |
+| `KAFKA_LEAD_PASSWORD`    | `lead-password`           | Пароль для сервиса `lead-service`                           |
+| `KAFKA_ENRICH_PASSWORD`  | `enrich-password`         | Пароль для сервиса `enrichment-service`                     |
+| `KAFKA_SCORE_PASSWORD`   | `score-password`          | Пароль для сервиса `scoring-service`                        |
+| `KAFKA_DIST_PASSWORD`    | `dist-password`           | Пароль для сервиса `distribution-service`                   |
+| `KAFKA_NOTIFY_PASSWORD`  | `notify-password`         | Пароль для сервиса `notification-service`                   |
 
 ## Ключевые технические решения
 
@@ -166,6 +225,26 @@ docker-compose down -v
 - Отсутствие единой точки отказа
 - Сервисы слабо связаны — знают только о событиях, но не друг о друге
 - Легко добавлять новые этапы обработки без изменения существующего кода
+
+### 5. Безопасность
+
+| Уровень                         | Механизм               | Описание                                                                                    |
+|:--------------------------------|:-----------------------|:--------------------------------------------------------------------------------------------|
+| **Внешний доступ**              | JWT Bearer             | API Gateway валидирует JWT токены. Токен выдаётся через `/api/auth/token` по API-ключу      |
+| **Межсервисное взаимодействие** | Kafka SASL/SCRAM       | Каждый микросервис аутентифицируется в Kafka с уникальными учётными данными (SCRAM-SHA-256) |
+| **Schema Registry**             | Внутренняя Docker сеть | Доступен только микросервисам внутри сети                                                   |
+| **База данных**                 | Парольная защита       | PostgreSQL требует аутентификацию                                                           |
+
+**JWT Аутентификация:**
+- Эндпоинт `/api/auth/token` принимает `clientId` и `apiKey`
+- При успешной аутентификации выдаётся JWT токен сроком на 1 час
+- Все защищённые эндпоинты требуют заголовок `Authorization: Bearer <token>`
+- API-ключи конфигурируются в `appsettings.json`
+
+**Kafka SASL/SCRAM:**
+- Каждый сервис имеет уникальный логин и пароль
+- SCRAM пользователи создаются автоматически при первом запуске через `init-kafka-users`
+- Механизм: `SCRAM-SHA-256`
 
 ## Структура проекта
 

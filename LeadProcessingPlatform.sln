@@ -7,6 +7,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_infrastructure", "_infrast
 		_infrastructure\postgres\init\01-create-databases.sh = _infrastructure\postgres\init\01-create-databases.sh
 		_infrastructure\scripts\wait-for-it.sh = _infrastructure\scripts\wait-for-it.sh
 		_infrastructure\pgadmin\servers.json = _infrastructure\pgadmin\servers.json
+		_infrastructure\kafka\init-kafka-users.sh = _infrastructure\kafka\init-kafka-users.sh
+		_infrastructure\kafka\create-jaas.sh = _infrastructure\kafka\create-jaas.sh
+		_infrastructure\kafka\init-scram.sh = _infrastructure\kafka\init-scram.sh
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "services", "services", "{088EA90F-AD61-48FE-A100-B75E7ED1E6FD}"

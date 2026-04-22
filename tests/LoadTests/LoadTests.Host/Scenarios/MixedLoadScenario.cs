@@ -29,6 +29,8 @@ public static class MixedLoadScenario
 
         return Scenario.Create("mixed_load", async context =>
             {
+                var token = await AuthHelper.GetTokenAsync(apiGatewayUrl);
+
                 var random = Random.Shared.Next(totalWeight);
 
                 object lead;
@@ -57,6 +59,7 @@ public static class MixedLoadScenario
 
                 using var request = Http.CreateRequest("POST", $"{apiGatewayUrl}/api/leads")
                     .WithHeader("Content-Type", "application/json")
+                    .WithHeader("Authorization", $"Bearer {token}")
                     .WithHeader("Idempotency-Key", Guid.NewGuid().ToString())
                     .WithBody(lead.ToJsonContent());
 

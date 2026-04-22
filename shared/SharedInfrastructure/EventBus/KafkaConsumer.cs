@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SharedHosting.Constants;
+using SharedHosting.Extensions;
+using SharedHosting.Options;
 using SharedHosting.Telemetry;
 using SharedInfrastructure.Constants;
 using SharedInfrastructure.Inbox;
@@ -47,6 +49,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 
         var bootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers];
         var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
+        var kafkaOptions = configuration.GetSection(KafkaOptions.SectionName).Get<KafkaOptions>();
 
         if (string.IsNullOrEmpty(schemaRegistryUrl))
             throw new InvalidOperationException("SchemaRegistryUrl is not configured");
@@ -61,8 +64,9 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             MaxPollIntervalMs = 300000,
             SessionTimeoutMs = 30000,
             HeartbeatIntervalMs = 3000,
-            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
+            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky,
         };
+        consumerConfig.ApplySaslConfig(kafkaOptions);
 
         _consumer = new ConsumerBuilder<string, byte[]>(consumerConfig)
             .SetKeyDeserializer(Deserializers.Utf8)
@@ -74,8 +78,10 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         {
             BootstrapServers = bootstrapServers,
             EnableIdempotence = true,
-            Acks = Acks.All
+            Acks = Acks.All,
         };
+        producerConfig.ApplySaslConfig(kafkaOptions);
+
         _dlqProducer = new ProducerBuilder<string, byte[]>(producerConfig).Build();
     }
 

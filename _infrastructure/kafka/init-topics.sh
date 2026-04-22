@@ -1,8 +1,17 @@
 #!/bin/bash
 set -e
 
+cat > /tmp/admin_client.properties << EOF
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism=SCRAM-SHA-256
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="admin" password="${KAFKA_ADMIN_PASSWORD}";
+EOF
+
 echo "Waiting for Kafka to be ready..."
-cub kafka-ready -b kafka:29092 1 30
+while ! kafka-topics --bootstrap-server kafka:29092 --command-config /tmp/admin_client.properties --list &>/dev/null; do
+  echo "Waiting for Kafka SASL..."
+  sleep 2
+done
 
 echo "Creating topics..."
 
@@ -12,7 +21,9 @@ SUFFIX=${TOPIC_SUFFIX:-}
 create_topic() {
     local base=$1
     local topic="${PREFIX}${base}${SUFFIX}"
-    kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+    kafka-topics --bootstrap-server kafka:29092 \
+      --command-config /tmp/admin_client.properties \
+      --create --if-not-exists \
       --topic "$topic" \
       --partitions 3 \
       --replication-factor 1
@@ -35,4 +46,4 @@ create_topic "notification-service-dlq"
 create_topic "healthcheck"
 
 echo "Topics created:"
-kafka-topics --bootstrap-server kafka:29092 --list
+kafka-topics --bootstrap-server kafka:29092 --command-config /tmp/admin_client.properties --list

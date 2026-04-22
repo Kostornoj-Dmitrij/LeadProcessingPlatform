@@ -202,6 +202,7 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
         var startedAt = DateTime.UtcNow;
         var checkInterval = TimeSpan.FromSeconds(2);
         var allCompleted = false;
+        var token = await AuthHelper.GetTokenAsync(apiGatewayUrl);
 
         await AnsiConsole.Live(new Table().AddColumn("Status"))
             .StartAsync(async ctx =>
@@ -221,10 +222,17 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
                         Encoding.UTF8,
                         "application/json");
 
-                    var response = await _httpClient.PostAsync(
-                        $"{apiGatewayUrl}/api/leads/status-summary",
-                        content,
-                        cancellationToken);
+                    using var request = new HttpRequestMessage(HttpMethod.Post, $"{apiGatewayUrl}/api/leads/status-summary");
+                    request.Content = content;
+                    request.Headers.Add("Authorization", $"Bearer {token}");
+
+                    var response = await _httpClient.SendAsync(request, cancellationToken);
+
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        token = await AuthHelper.GetTokenAsync(apiGatewayUrl);
+                        continue;
+                    }
 
                     if (response.IsSuccessStatusCode)
                     {

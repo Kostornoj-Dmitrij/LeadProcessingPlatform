@@ -4,6 +4,8 @@ using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SharedHosting.Constants;
+using SharedHosting.Extensions;
+using SharedHosting.Options;
 using SharedInfrastructure.Constants;
 
 namespace SharedInfrastructure.Inbox;
@@ -25,12 +27,15 @@ public class KafkaDeadLetterQueue : IDeadLetterQueue
     {
         _logger = logger;
 
+        var kafkaOptions = configuration.GetSection(KafkaOptions.SectionName).Get<KafkaOptions>();
+
         var producerConfig = new ProducerConfig
         {
             BootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers],
             EnableIdempotence = true,
             Acks = Acks.All
         };
+        producerConfig.ApplySaslConfig(kafkaOptions);
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
         _dlqTopic = naming.GetDlqTopicName(serviceName);

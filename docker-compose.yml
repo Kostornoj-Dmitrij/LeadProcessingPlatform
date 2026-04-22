@@ -63,14 +63,17 @@ services:
     image: confluentinc/cp-kafka:${KAFKA_VERSION:-7.5.0}
     container_name: kafka
     depends_on:
+      init-kafka-users:
+        condition: service_completed_successfully
       zookeeper:
         condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,SASL_PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,SASL_PLAINTEXT://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -80,13 +83,34 @@ services:
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_DEFAULT_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
+      KAFKA_AUTHORIZER_CLASS_NAME: ""
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
+      KAFKA_SUPER_USERS: ""
+      ZOOKEEPER_SASL_ENABLED: "false"
+      KAFKA_ZOOKEEPER_SET_ACL: "false"
+      KAFKA_SKIP_ZOOKEEPER_PREFLIGHT: "true"
+      KAFKA_ADMIN_PASSWORD: ${KAFKA_ADMIN_PASSWORD}
+      KAFKA_LEAD_PASSWORD: ${KAFKA_LEAD_PASSWORD}
+      KAFKA_ENRICH_PASSWORD: ${KAFKA_ENRICH_PASSWORD}
+      KAFKA_SCORE_PASSWORD: ${KAFKA_SCORE_PASSWORD}
+      KAFKA_DIST_PASSWORD: ${KAFKA_DIST_PASSWORD}
+      KAFKA_NOTIFY_PASSWORD: ${KAFKA_NOTIFY_PASSWORD}
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/tmp/kafka_server_jaas.conf -Dzookeeper.sasl.client=false"
     ports:
       - "${KAFKA_PORT:-9092}:9092"
     volumes:
       - kafka-data:/var/lib/kafka/data
       - ./_infrastructure/kafka/log4j.properties:/etc/kafka/log4j.properties
+      - ./_infrastructure/kafka/create-jaas.sh:/tmp/create-jaas.sh
     networks:
       - lead-network
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        /tmp/create-jaas.sh
+        exec /etc/confluent/docker/run
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 30s
@@ -102,10 +126,12 @@ services:
         condition: service_healthy
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8085
       SCHEMA_REGISTRY_AVRO_COMPATIBILITY_LEVEL: backward
       SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: INFO
+      SCHEMA_REGISTRY_SKIP_KAFKA_PREFLIGHT: "true"
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: PLAINTEXT
     ports:
       - "8085:8085"
     volumes:
@@ -121,9 +147,6 @@ services:
 
   # ==================== INITIALIZATION ====================
   init-kafka:
-    environment:
-      TOPIC_PREFIX: ${TOPIC_PREFIX}
-      TOPIC_SUFFIX: ${TOPIC_SUFFIX}
     image: confluentinc/cp-kafka:${KAFKA_VERSION:-7.5.0}
     container_name: init-kafka
     depends_on:
@@ -135,11 +158,48 @@ services:
       - lead-network
     volumes:
       - ./_infrastructure/kafka/init-topics.sh:/init-topics.sh
-    entrypoint: [ "/bin/sh", "-c" ]
-    command: |
-      "
-      /init-topics.sh
-      "
+    environment:
+      TOPIC_PREFIX: ${TOPIC_PREFIX}
+      TOPIC_SUFFIX: ${TOPIC_SUFFIX}
+      KAFKA_ADMIN_PASSWORD: ${KAFKA_ADMIN_PASSWORD}
+    entrypoint: [ "/bin/bash", "-c" ]
+    command: /init-topics.sh
+
+  init-kafka-users:
+    image: confluentinc/cp-kafka:${KAFKA_VERSION:-7.5.0}
+    container_name: init-kafka-users
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    networks:
+      - lead-network
+    volumes:
+      - ./_infrastructure/kafka/init-scram.sh:/init-scram.sh
+      - ./_infrastructure/kafka/init-kafka-users.sh:/init-kafka-users.sh
+      - ./_infrastructure/kafka/log4j.properties:/etc/kafka/log4j.properties
+    environment:
+      KAFKA_BROKER_ID: 99
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      ZOOKEEPER_SASL_ENABLED: "false"
+      KAFKA_ZOOKEEPER_SET_ACL: "false"
+      KAFKA_SKIP_ZOOKEEPER_PREFLIGHT: "true"
+      KAFKA_OPTS: "-Dzookeeper.sasl.client=false"
+      KAFKA_LEAD_PASSWORD: ${KAFKA_LEAD_PASSWORD}
+      KAFKA_ENRICH_PASSWORD: ${KAFKA_ENRICH_PASSWORD}
+      KAFKA_SCORE_PASSWORD: ${KAFKA_SCORE_PASSWORD}
+      KAFKA_DIST_PASSWORD: ${KAFKA_DIST_PASSWORD}
+      KAFKA_NOTIFY_PASSWORD: ${KAFKA_NOTIFY_PASSWORD}
+      KAFKA_ADMIN_PASSWORD: ${KAFKA_ADMIN_PASSWORD}
+    entrypoint: [ "/bin/bash", "-c" ]
+    command: /init-scram.sh
 
   # ==================== MONITORING & MANAGEMENT ====================
   kafbat-ui:
@@ -153,6 +213,11 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       KAFKA_CLUSTERS_0_METRICS_PORT: 9997
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8085
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM: SCRAM-SHA-256
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"admin\" password=\"${KAFKA_ADMIN_PASSWORD}\";"
+      KAFKA_CLUSTERS_0_METRICS_TYPE: "NONE"
+      KAFKA_ADMIN_PASSWORD: ${KAFKA_ADMIN_PASSWORD}
     ports:
       - "8081:8080"
     networks:
@@ -205,6 +270,10 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: lead-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
+      Kafka__Username: lead-service
+      Kafka__Password: ${KAFKA_LEAD_PASSWORD}
+      Kafka__SecurityProtocol: SaslPlaintext
+      Kafka__SaslMechanism: ScramSha256
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
       Naming__TopicPrefix: ${TOPIC_PREFIX}
       Naming__TopicSuffix: ${TOPIC_SUFFIX}
@@ -233,6 +302,10 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: enrichment-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
+      Kafka__Username: enrichment-service
+      Kafka__Password: ${KAFKA_ENRICH_PASSWORD}
+      Kafka__SecurityProtocol: SaslPlaintext
+      Kafka__SaslMechanism: ScramSha256
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
       Naming__TopicPrefix: ${TOPIC_PREFIX}
       Naming__TopicSuffix: ${TOPIC_SUFFIX}
@@ -259,6 +332,10 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: scoring-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
+      Kafka__Username: scoring-service
+      Kafka__Password: ${KAFKA_SCORE_PASSWORD}
+      Kafka__SecurityProtocol: SaslPlaintext
+      Kafka__SaslMechanism: ScramSha256
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
       Naming__TopicPrefix: ${TOPIC_PREFIX}
       Naming__TopicSuffix: ${TOPIC_SUFFIX}
@@ -285,6 +362,10 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: distribution-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
+      Kafka__Username: distribution-service
+      Kafka__Password: ${KAFKA_DIST_PASSWORD}
+      Kafka__SecurityProtocol: SaslPlaintext
+      Kafka__SaslMechanism: ScramSha256
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
       Naming__TopicPrefix: ${TOPIC_PREFIX}
       Naming__TopicSuffix: ${TOPIC_SUFFIX}
@@ -311,6 +392,10 @@ services:
       Kafka__BootstrapServers: kafka:29092
       Kafka__GroupId: notification-service
       Kafka__SchemaRegistryUrl: http://schema-registry:8085
+      Kafka__Username: notification-service
+      Kafka__Password: ${KAFKA_NOTIFY_PASSWORD}
+      Kafka__SecurityProtocol: SaslPlaintext
+      Kafka__SaslMechanism: ScramSha256
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
       Naming__TopicPrefix: ${TOPIC_PREFIX}
       Naming__TopicSuffix: ${TOPIC_SUFFIX}
@@ -335,6 +420,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       Services__LeadService: http://lead-service:80
       OpenTelemetry__Endpoint: http://aspire-dashboard:4317
+      Jwt__SecretKey: ${JWT_SECRET_KEY}
     ports:
       - "${GATEWAY_HTTP_PORT:-8080}:8080"
     depends_on:

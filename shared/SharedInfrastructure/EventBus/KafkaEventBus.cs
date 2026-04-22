@@ -10,6 +10,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SharedHosting.Constants;
+using SharedHosting.Extensions;
+using SharedHosting.Options;
 using SharedHosting.Telemetry;
 using SharedInfrastructure.Constants;
 using SharedInfrastructure.Serialization;
@@ -42,6 +44,7 @@ public class KafkaEventBus : IEventBus
 
         var bootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers];
         var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
+        var kafkaOptions = configuration.GetSection(KafkaOptions.SectionName).Get<KafkaOptions>();
 
         if (string.IsNullOrEmpty(schemaRegistryUrl))
             throw new InvalidOperationException("SchemaRegistryUrl is not configured");
@@ -58,6 +61,7 @@ public class KafkaEventBus : IEventBus
             RetryBackoffMs = 1000,
             EnableDeliveryReports = true
         };
+        producerConfig.ApplySaslConfig(kafkaOptions);
 
         _producer = new ProducerBuilder<string, byte[]>(producerConfig)
             .SetErrorHandler((_, error) => _logger.LogError("Kafka producer error: {Error}", error.Reason))

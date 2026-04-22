@@ -1,5 +1,4 @@
-﻿using AvroSchemas;
-using AvroSchemas.Naming;
+﻿using AvroSchemas.Naming;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Microsoft.EntityFrameworkCore;

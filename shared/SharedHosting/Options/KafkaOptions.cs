@@ -13,6 +13,14 @@ public class KafkaOptions
 
     public string GroupId { get; set; } = string.Empty;
 
+    public string? Username { get; set; }
+
+    public string? Password { get; set; }
+
+    public string SecurityProtocol { get; set; } = "SaslPlaintext";
+
+    public string SaslMechanism { get; set; } = "ScramSha256";
+
     public int ConsumerMaxPollIntervalMs { get; set; } = 300000;
 
     public int ConsumerSessionTimeoutMs { get; set; } = 30000;
