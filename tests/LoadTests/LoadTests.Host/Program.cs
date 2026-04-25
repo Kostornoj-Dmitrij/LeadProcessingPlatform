@@ -162,13 +162,15 @@ try
 
         var validator = new ConsistencyValidator(connectionString, apiGatewayUrl);
 
-        var maxWaitSeconds = Math.Max(1200, durationSeconds * 3);
+        var maxWaitSeconds = Math.Max(300, durationSeconds * 3);
+        var waitStart = DateTime.UtcNow;
         var completed = await validator.WaitForAllClosedAsync(
-            generator.CreatedLeadIds.ToList(), 
+            generator.CreatedLeadIds.ToList(),
             maxWaitSeconds);
+        var waitElapsed = (DateTime.UtcNow - waitStart).TotalSeconds;
 
         AnsiConsole.MarkupLine(completed
-            ? "[green]✓ All leads reached Closed state![/]"
+            ? $"[green]✓ All leads reached Closed state! (waited {waitElapsed:F0}s)[/]"
             : "[red]✗ Timeout: Not all leads completed[/]");
 
         AnsiConsole.WriteLine();
@@ -183,7 +185,7 @@ try
             AnsiConsole.MarkupLine("[green]✓ ALL VALIDATIONS PASSED![/]");
             AnsiConsole.MarkupLine($"[green]  - {validationReport.TotalLeads} leads processed[/]");
             AnsiConsole.MarkupLine($"[green]  - {validationReport.CompletedLeads} reached Closed state[/]");
-            AnsiConsole.MarkupLine($"[green]  - 0 state transition violations[/]");
+            AnsiConsole.MarkupLine("[green]  - 0 state transition violations[/]");
         }
         else
         {
