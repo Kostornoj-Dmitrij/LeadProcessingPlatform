@@ -17,6 +17,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddMemoryCache();
+
         services.AddScoped<IDomainEventToOutboxConverter, DomainEventToOutboxConverter>();
 
         services.AddScoped<INotificationSender, NotificationSender>();

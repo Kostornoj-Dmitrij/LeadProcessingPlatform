@@ -27,7 +27,7 @@ public class OutboxPublisher<TContext>(
 {
     private readonly int _batchSize = 200;
     private const int MaxRetryAttempts = 5;
-    private const int MaxDegreeOfParallelism = 10;
+    private const int MaxDegreeOfParallelism = 5;
 
     private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(10);
     private readonly TimeSpan _maxInterval = TimeSpan.FromMilliseconds(500);

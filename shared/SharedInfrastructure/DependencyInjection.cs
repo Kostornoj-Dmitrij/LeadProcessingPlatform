@@ -55,6 +55,7 @@ public static class DependencyInjection
 
             return new KafkaConsumer(
                 configuration,
+                sp,
                 sp.GetRequiredService<IServiceScopeFactory>(),
                 sp.GetRequiredService<ILogger<KafkaConsumer>>(),
                 serviceName,

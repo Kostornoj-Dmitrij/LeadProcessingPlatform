@@ -27,7 +27,7 @@ public class DistributionProcessor(
 {
     private readonly int _batchSize = 100;
     private const int MaxRetryAttempts = 3;
-    private const int MaxDegreeOfParallelism = 10;
+    private const int MaxDegreeOfParallelism = 5;
     private static readonly TimeSpan[] RetryDelays =
     [
         TimeSpan.FromSeconds(2),

@@ -26,6 +26,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 {
     private readonly IConsumer<string, byte[]> _consumer;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IServiceProvider _rootProvider;
     private readonly ILogger<KafkaConsumer> _logger;
     private readonly IProducer<string, byte[]> _dlqProducer;
     private readonly string _dlqTopic;
@@ -38,12 +39,14 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 
     public KafkaConsumer(
         IConfiguration configuration,
+        IServiceProvider rootProvider,
         IServiceScopeFactory scopeFactory,
         ILogger<KafkaConsumer> logger,
         string serviceName,
         IEnumerable<string> topics,
         string dlqTopic)
     {
+        _rootProvider = rootProvider;
         _scopeFactory = scopeFactory;
         _logger = logger;
         _serviceName = serviceName;
@@ -92,7 +95,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 
         _messageChannel = Channel.CreateUnbounded<ConsumeResult<string, byte[]>>(
             new UnboundedChannelOptions { SingleReader = false });
-        _parallelismDegree = Math.Max(1, Environment.ProcessorCount / 2);
+        _parallelismDegree = Math.Max(2, Environment.ProcessorCount / 2);
     }
 
     public bool IsRunning => _isRunning;
@@ -266,20 +269,11 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         if (TelemetryConstants.ActivitySource != null)
         {
             using var activity = ActivityBuilder.RestoreAndCreateActivity(
-                    spanName,
-                    traceParent,
-                    ActivityKind.Consumer)
+                    spanName, traceParent, ActivityKind.Consumer)
                 .WithKafkaConsumerTags(
-                    eventTypeName,
-                    GetSimpleTypeName(eventTypeName),
-                    eventId,
-                    consumeResult.Topic,
-                    consumeResult.Partition.Value,
-                    consumeResult.Offset.Value,
-                    _consumer.MemberId,
-                    _serviceName,
-                    leadId);
-
+                    eventTypeName, GetSimpleTypeName(eventTypeName), eventId,
+                    consumeResult.Topic, consumeResult.Partition.Value, consumeResult.Offset.Value,
+                    _consumer.MemberId, _serviceName, leadId);
             traceIdToStore = activity.TraceId;
         }
         else
@@ -288,21 +282,19 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         }
 
         var deserializerType = typeof(AvroDeserializer<>).MakeGenericType(eventType);
-
-        using var scope = _scopeFactory.CreateScope();
-        var deserializer = scope.ServiceProvider.GetRequiredService(deserializerType);
-
+        var deserializer = _rootProvider.GetRequiredService(deserializerType);
         dynamic dynamicDeserializer = deserializer;
+
         var data = new ReadOnlyMemory<byte>(consumeResult.Message.Value);
         var context = new SerializationContext(MessageComponentType.Value, consumeResult.Topic);
 
         var avroEvent = await dynamicDeserializer.DeserializeAsync(data, false, context);
 
         var integrationEvent = (IIntegrationEvent)avroEvent;
-
         var payloadJson = System.Text.Json.JsonSerializer.Serialize(
             integrationEvent, eventType, SharedKernel.Json.JsonDefaults.Options);
 
+        using var scope = _scopeFactory.CreateScope();
         var inboxStore = scope.ServiceProvider.GetRequiredService<IInboxStore>();
 
         var added = await inboxStore.TryAddAsync(
