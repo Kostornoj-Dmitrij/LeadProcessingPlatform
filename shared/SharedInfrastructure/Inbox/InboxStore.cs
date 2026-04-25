@@ -75,13 +75,18 @@ public class InboxStore<TContext>(
 
     public async Task MarkAsProcessedAsync(Guid messageId, CancellationToken cancellationToken = default)
     {
-        var message = await context.Set<InboxMessage>().FindAsync([messageId], cancellationToken);
-        if (message != null)
-        {
-            message.ProcessedAt = DateTime.UtcNow;
-            message.ErrorMessage = null;
-            await context.SaveChangesAsync(cancellationToken);
-        }
+        var rowsAffected = await context.Set<InboxMessage>()
+            .Where(x => x.Id == messageId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(x => x.ProcessedAt, DateTime.UtcNow)
+                    .SetProperty(x => x.ErrorMessage, (string?)null),
+                cancellationToken);
+
+        if (rowsAffected > 0)
+            logger.LogDebug("Marked inbox message {MessageId} as processed", messageId);
+        else
+            logger.LogWarning("Inbox message {MessageId} not found for processing", messageId);
     }
 
     public async Task IncrementAttemptsAsync(
@@ -90,22 +95,22 @@ public class InboxStore<TContext>(
         DateTime? nextRetryAt,
         CancellationToken cancellationToken = default)
     {
-        var message = await context.Set<InboxMessage>().FindAsync([messageId], cancellationToken);
-        if (message != null)
-        {
-            message.ProcessingAttempts++;
-            message.ErrorMessage = errorMessage;
-            message.NextRetryAt = nextRetryAt;
+        var rowsAffected = await context.Set<InboxMessage>()
+            .Where(x => x.Id == messageId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(x => x.ProcessingAttempts, x => x.ProcessingAttempts + 1)
+                    .SetProperty(x => x.ErrorMessage, errorMessage)
+                    .SetProperty(x => x.NextRetryAt, nextRetryAt)
+                    .SetProperty(x => x.ProcessedAt, x => 
+                        x.ProcessingAttempts + 1 >= MaxRetryAttempts 
+                            ? DateTime.UtcNow 
+                            : x.ProcessedAt),
+                cancellationToken);
 
-            if (message.ProcessingAttempts >= MaxRetryAttempts)
-            {
-                message.ProcessedAt = DateTime.UtcNow;
-                logger.LogWarning("Message {MessageId} reached max attempts ({Attempts}). Marking as failed.",
-                    message.MessageId, message.ProcessingAttempts);
-            }
-
-            await context.SaveChangesAsync(cancellationToken);
-        }
+        if (rowsAffected > 0)
+            logger.LogWarning("Message {MessageId} reached max attempts ({Attempts}). Marking as failed.",
+                messageId, MaxRetryAttempts);
     }
 
     public async Task<InboxMessage?> GetByMessageIdAsync(
@@ -121,20 +126,18 @@ public class InboxStore<TContext>(
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
-        var message = await context.Set<InboxMessage>().FindAsync([messageId], cancellationToken);
-        if (message != null)
-        {
-            message.ProcessedAt = DateTime.UtcNow;
-            message.ErrorMessage = $"MOVED TO DLQ: {errorMessage}";
-            message.ProcessingAttempts++;
+        var rowsAffected = await context.Set<InboxMessage>()
+            .Where(x => x.Id == messageId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(x => x.ProcessedAt, DateTime.UtcNow)
+                    .SetProperty(x => x.ErrorMessage, $"MOVED TO DLQ: {errorMessage}")
+                    .SetProperty(x => x.ProcessingAttempts, x => x.ProcessingAttempts + 1),
+                cancellationToken);
 
-            await context.SaveChangesAsync(cancellationToken);
-
+        if (rowsAffected > 0)
             logger.LogWarning(
                 "Message {MessageId} moved to DLQ after {Attempts} attempts. Error: {Error}",
-                message.MessageId,
-                message.ProcessingAttempts,
-                errorMessage);
-        }
+                messageId, MaxRetryAttempts, errorMessage);
     }
 }

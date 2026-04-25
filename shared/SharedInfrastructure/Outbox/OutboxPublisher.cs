@@ -25,9 +25,13 @@ public class OutboxPublisher<TContext>(
     : BackgroundService
     where TContext : DbContext
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromMilliseconds(100);
     private readonly int _batchSize = 200;
     private const int MaxRetryAttempts = 5;
+    private const int MaxDegreeOfParallelism = 10;
+
+    private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(10);
+    private readonly TimeSpan _maxInterval = TimeSpan.FromMilliseconds(500);
+    private TimeSpan _currentInterval = TimeSpan.FromMilliseconds(100);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -35,110 +39,152 @@ public class OutboxPublisher<TContext>(
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            bool hasWork;
             try
             {
-                await PublishPendingMessages(stoppingToken);
+                hasWork = await PublishPendingMessages(stoppingToken);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error publishing outbox messages");
+                hasWork = true;
             }
 
-            await Task.Delay(_pollingInterval, stoppingToken);
+            _currentInterval = hasWork 
+                ? _minInterval 
+                : TimeSpan.FromTicks(Math.Min(_currentInterval.Ticks * 2, _maxInterval.Ticks));
+
+            await Task.Delay(_currentInterval, stoppingToken);
         }
 
         logger.LogInformation("Outbox Publisher stopped");
     }
 
-    private async Task PublishPendingMessages(CancellationToken cancellationToken)
+    private async Task<bool> PublishPendingMessages(CancellationToken cancellationToken)
     {
-        using var scope = scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TContext>();
-        var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
-        var deadLetterQueue = scope.ServiceProvider.GetRequiredService<IDeadLetterQueue>();
+        List<OutboxMessage> messages;
+        IEventBus eventBus;
+        IDeadLetterQueue deadLetterQueue;
 
-        var messages = await context.Set<OutboxMessage>()
-            .Where(x => x.ProcessedAt == null && x.ProcessingAttempts < MaxRetryAttempts)
-            .OrderBy(x => x.CreatedAt)
-            .Take(_batchSize)
-            .ToListAsync(cancellationToken);
+        using (var scope = scopeFactory.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TContext>();
+            eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
+            deadLetterQueue = scope.ServiceProvider.GetRequiredService<IDeadLetterQueue>();
 
-        if (!messages.Any())
-            return;
+            messages = await context.Set<OutboxMessage>()
+                .Where(x => x.ProcessedAt == null && x.ProcessingAttempts < MaxRetryAttempts)
+                .OrderBy(x => x.CreatedAt)
+                .Take(_batchSize)
+                .ToListAsync(cancellationToken);
+        }
+
+        if (messages.Count == 0)
+            return false;
 
         logger.LogInformation("Found {Count} pending outbox messages", messages.Count);
 
-        foreach (var message in messages)
+        var parallelOptions = new ParallelOptions
         {
-            try
+            MaxDegreeOfParallelism = MaxDegreeOfParallelism,
+            CancellationToken = cancellationToken
+        };
+
+        await Parallel.ForEachAsync(messages, parallelOptions, async (message, ct) =>
+        {
+            await PublishSingleMessageAsync(message, eventBus, deadLetterQueue, ct);
+        });
+
+        using (var scope = scopeFactory.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TContext>();
+
+            foreach (var message in messages)
             {
-                if (!string.IsNullOrEmpty(message.TraceParent))
-                    TraceContextCarrier.TraceParent = message.TraceParent;
-
-                var eventType = EventTypeRegistry.GetType(message.EventType);
-                if (eventType == null)
-                {
-                    logger.LogWarning("Unknown event type: {EventType}", message.EventType);
-                    await MoveToDeadLetterQueueAsync(message,
-                        new Exception($"Unknown event type: {message.EventType}"),
-                        deadLetterQueue, cancellationToken);
-                    continue;
-                }
-
-                var @event = JsonSerializer.Deserialize(message.Payload, eventType, JsonDefaults.Options);
-                if (@event == null)
-                {
-                    logger.LogWarning("Failed to deserialize event: {EventType}", message.EventType);
-                    await MoveToDeadLetterQueueAsync(message,
-                        new Exception($"Failed to deserialize event: {message.EventType}"),
-                        deadLetterQueue, cancellationToken);
-                    continue;
-                }
-
-                string eventTypeShort = GetSimpleTypeName(message.EventType);
-
-                if (TelemetryConstants.ActivitySource != null)
-                {
-                    using var activity = ActivityBuilder.RestoreAndCreateActivity(
-                            $"{TelemetrySpanNames.OutboxPublish} {eventTypeShort}",
-                            message.TraceParent,
-                            ActivityKind.Producer)
-                        .WithOutboxPublisherTags(
-                            message.EventType,
-                            eventTypeShort,
-                            message.AggregateId,
-                            message.AggregateType,
-                            message.Id,
-                            message.ProcessingAttempts);
-
-                    await eventBus.PublishAsync(@event, cancellationToken);
-                }
-                else
-                {
-                    await eventBus.PublishAsync(@event, cancellationToken);
-                }
-
-                message.ProcessedAt = DateTime.UtcNow;
-                message.ErrorMessage = null;
-                logger.LogDebug("Published outbox message {MessageId} of type {EventType}",
-                    message.Id, message.EventType);
+                var entry = context.Entry(message);
+                if (entry.State == EntityState.Detached)
+                    context.Attach(message);
+                entry.State = EntityState.Modified;
             }
-            catch (Exception ex)
-            {
-                message.ProcessingAttempts++;
-                message.ErrorMessage = ex.Message;
 
-                logger.LogError(ex, "Failed to publish outbox message {MessageId}, attempt {Attempts}",
-                    message.Id, message.ProcessingAttempts);
-
-                if (message.ProcessingAttempts >= MaxRetryAttempts)
-                {
-                    await MoveToDeadLetterQueueAsync(message, ex, deadLetterQueue, cancellationToken);
-                }
-            }
+            await context.SaveChangesAsync(cancellationToken);
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    private async Task PublishSingleMessageAsync(
+        OutboxMessage message,
+        IEventBus eventBus,
+        IDeadLetterQueue deadLetterQueue,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(message.TraceParent))
+                TraceContextCarrier.TraceParent = message.TraceParent;
+
+            var eventType = EventTypeRegistry.GetType(message.EventType);
+            if (eventType == null)
+            {
+                logger.LogWarning("Unknown event type: {EventType}", message.EventType);
+                await MoveToDeadLetterQueueAsync(message,
+                    new Exception($"Unknown event type: {message.EventType}"),
+                    deadLetterQueue, cancellationToken);
+                return;
+            }
+
+            var @event = JsonSerializer.Deserialize(message.Payload, eventType, JsonDefaults.Options);
+            if (@event == null)
+            {
+                logger.LogWarning("Failed to deserialize event: {EventType}", message.EventType);
+                await MoveToDeadLetterQueueAsync(message,
+                    new Exception($"Failed to deserialize event: {message.EventType}"),
+                    deadLetterQueue, cancellationToken);
+                return;
+            }
+
+            var eventTypeShort = GetSimpleTypeName(message.EventType);
+
+            if (TelemetryConstants.ActivitySource != null)
+            {
+                using var activity = ActivityBuilder.RestoreAndCreateActivity(
+                        $"{TelemetrySpanNames.OutboxPublish} {eventTypeShort}",
+                        message.TraceParent,
+                        ActivityKind.Producer)
+                    .WithOutboxPublisherTags(
+                        message.EventType,
+                        eventTypeShort,
+                        message.AggregateId,
+                        message.AggregateType,
+                        message.Id,
+                        message.ProcessingAttempts);
+
+                var publisher = EventTypeRegistry.GetPublisher(eventType);
+                await publisher(eventBus, @event, cancellationToken);
+            }
+            else
+            {
+                var publisher = EventTypeRegistry.GetPublisher(eventType);
+                await publisher(eventBus, @event, cancellationToken);
+            }
+
+            message.ProcessedAt = DateTime.UtcNow;
+            message.ErrorMessage = null;
+            logger.LogDebug("Published outbox message {MessageId} of type {EventType}",
+                message.Id, message.EventType);
+        }
+        catch (Exception ex)
+        {
+            message.ProcessingAttempts++;
+            message.ErrorMessage = ex.Message;
+
+            logger.LogError(ex, "Failed to publish outbox message {MessageId}, attempt {Attempts}",
+                message.Id, message.ProcessingAttempts);
+
+            if (message.ProcessingAttempts >= MaxRetryAttempts)
+                await MoveToDeadLetterQueueAsync(message, ex, deadLetterQueue, cancellationToken);
+        }
     }
 
     private async Task MoveToDeadLetterQueueAsync(
@@ -191,9 +237,7 @@ public class OutboxPublisher<TContext>(
                 var fullTypeName = parts[0].Trim();
                 var lastDotIndex = fullTypeName.LastIndexOf('.');
                 if (lastDotIndex >= 0)
-                {
                     return fullTypeName.Substring(lastDotIndex + 1);
-                }
                 return fullTypeName;
             }
         }
@@ -205,10 +249,7 @@ public class OutboxPublisher<TContext>(
         var cleaned = assemblyQualifiedName.Split(',')[0];
         var lastDot = cleaned.LastIndexOf('.');
         if (lastDot >= 0)
-        {
             return cleaned.Substring(lastDot + 1);
-        }
-
         return assemblyQualifiedName;
     }
 }

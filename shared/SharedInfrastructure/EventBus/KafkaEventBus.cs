@@ -1,11 +1,9 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 using AvroSchemas;
 using AvroSchemas.Messages.Base;
 using AvroSchemas.Naming;
 using Confluent.Kafka;
-using Confluent.SchemaRegistry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -14,7 +12,6 @@ using SharedHosting.Extensions;
 using SharedHosting.Options;
 using SharedHosting.Telemetry;
 using SharedInfrastructure.Constants;
-using SharedInfrastructure.Serialization;
 using SharedInfrastructure.Telemetry;
 
 namespace SharedInfrastructure.EventBus;
@@ -25,12 +22,9 @@ namespace SharedInfrastructure.EventBus;
 public class KafkaEventBus : IEventBus
 {
     private readonly IProducer<string, byte[]> _producer;
-    private readonly ISchemaRegistryClient _schemaRegistry;
     private readonly ILogger<KafkaEventBus> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly string _serviceName;
-
-    private static readonly ConcurrentDictionary<Type, Func<object, CancellationToken, Task>> PublishDelegates = new();
 
     public KafkaEventBus(
         IConfiguration configuration,
@@ -43,14 +37,7 @@ public class KafkaEventBus : IEventBus
         _serviceName = serviceName;
 
         var bootstrapServers = configuration[ConfigurationKeys.KafkaBootstrapServers];
-        var schemaRegistryUrl = configuration[ConfigurationKeys.KafkaSchemaRegistryUrl];
         var kafkaOptions = configuration.GetSection(KafkaOptions.SectionName).Get<KafkaOptions>();
-
-        if (string.IsNullOrEmpty(schemaRegistryUrl))
-            throw new InvalidOperationException("SchemaRegistryUrl is not configured");
-
-        var schemaRegistryConfig = new SchemaRegistryConfig { Url = schemaRegistryUrl };
-        _schemaRegistry = new CachedSchemaRegistryClient(schemaRegistryConfig);
 
         var producerConfig = new ProducerConfig
         {
@@ -82,12 +69,10 @@ public class KafkaEventBus : IEventBus
             var baseTopic = KafkaTopics.GetBaseTopic<TEvent>();
             var topic = naming.GetTopicName(baseTopic);
             var subject = $"{topic}-{typeof(TEvent).Name}";
-            var serializerType = typeof(AvroSerializer<>).MakeGenericType(avroEvent.GetType());
-            var serializer = _serviceProvider.GetRequiredService(serializerType);
-            var serializeMethod = serializerType.GetMethod("SerializeAsync");
 
-            var messageValue = await (Task<byte[]>)serializeMethod!.Invoke(serializer,
-                [avroEvent, new SerializationContext(MessageComponentType.Value, subject)])!;
+            var serializer = _serviceProvider.GetRequiredService<IAsyncSerializer<TEvent>>();
+            var messageValue = await serializer.SerializeAsync(@event,
+                new SerializationContext(MessageComponentType.Value, subject));
 
             var message = new Message<string, byte[]>
             {
@@ -102,11 +87,9 @@ public class KafkaEventBus : IEventBus
                 }
             };
 
-            var leadIdProp = avroEvent.GetType().GetProperty("LeadId");
-            string? leadIdValue = null;
-            if (leadIdProp != null && leadIdProp.GetValue(avroEvent) is Guid leadId)
+            var leadIdValue = LeadIdCache.GetLeadId(avroEvent);
+            if (!string.IsNullOrEmpty(leadIdValue))
             {
-                leadIdValue = leadId.ToString();
                 message.Headers.Add(KafkaHeaderKeys.LeadId, Encoding.UTF8.GetBytes(leadIdValue));
             }
 
@@ -118,7 +101,8 @@ public class KafkaEventBus : IEventBus
 
             foreach (var kv in TraceContextCarrier.GetBaggage())
             {
-                message.Headers.Add($"{KafkaHeaderKeys.BaggagePrefix}{kv.Key}", Encoding.UTF8.GetBytes(kv.Value));
+                message.Headers.Add($"{KafkaHeaderKeys.BaggagePrefix}{kv.Key}",
+                    Encoding.UTF8.GetBytes(kv.Value));
             }
 
             if (TelemetryConstants.ActivitySource != null)
@@ -149,48 +133,14 @@ public class KafkaEventBus : IEventBus
         }
     }
 
-    public Task PublishAsync(object @event, CancellationToken cancellationToken = default)
+    private static string GetMessageKey(IntegrationEventAvro @event)
     {
-        ArgumentNullException.ThrowIfNull(@event);
-
-        var eventType = @event.GetType();
-        var publisher = PublishDelegates.GetOrAdd(eventType, type =>
-        {
-            var method = typeof(KafkaEventBus)
-                .GetMethod(nameof(PublishAsync), 1, [type, typeof(CancellationToken)]);
-
-            if (method == null)
-            {
-                method = typeof(KafkaEventBus)
-                    .GetMethods()
-                    .FirstOrDefault(m => m.Name == nameof(PublishAsync) 
-                                         && m.IsGenericMethod 
-                                         && m.GetGenericArguments().Length == 1);
-            }
-
-            if (method == null)
-                throw new InvalidOperationException($"PublishAsync<{type.Name}> not found");
-
-            var genericMethod = method.MakeGenericMethod(type);
-
-            return (evt, ct) => (Task)genericMethod.Invoke(this, [evt, ct])!;
-        });
-
-        return publisher(@event, cancellationToken);
-    }
-
-    private string GetMessageKey(IntegrationEventAvro @event)
-    {
-        var leadIdProp = @event.GetType().GetProperty("LeadId");
-        if (leadIdProp != null && leadIdProp.GetValue(@event) is Guid leadId)
-            return leadId.ToString();
-
-        return Guid.NewGuid().ToString();
+        var leadId = LeadIdCache.GetLeadId(@event);
+        return leadId ?? Guid.NewGuid().ToString();
     }
 
     public void Dispose()
     {
         _producer.Dispose();
-        _schemaRegistry.Dispose();
     }
 }

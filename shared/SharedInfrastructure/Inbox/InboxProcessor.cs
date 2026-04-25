@@ -24,9 +24,12 @@ public class InboxProcessor<TInboxStore>(
     : BackgroundService
     where TInboxStore : IInboxStore
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromMilliseconds(100);
     private readonly int _batchSize = 200;
     private const int MaxRetryAttempts = 5;
+
+    private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(10);
+    private readonly TimeSpan _maxInterval = TimeSpan.FromMilliseconds(500);
+    private TimeSpan _currentInterval = TimeSpan.FromMilliseconds(100);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -34,22 +37,28 @@ public class InboxProcessor<TInboxStore>(
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            bool hasWork;
             try
             {
-                await ProcessPendingMessages(stoppingToken);
+                hasWork = await ProcessPendingMessages(stoppingToken);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing inbox messages");
+                hasWork = true;
             }
 
-            await Task.Delay(_pollingInterval, stoppingToken);
+            _currentInterval = hasWork 
+                ? _minInterval 
+                : TimeSpan.FromTicks(Math.Min(_currentInterval.Ticks * 2, _maxInterval.Ticks));
+
+            await Task.Delay(_currentInterval, stoppingToken);
         }
 
         logger.LogInformation("Inbox Processor stopped");
     }
 
-    private async Task ProcessPendingMessages(CancellationToken cancellationToken)
+    private async Task<bool> ProcessPendingMessages(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
         var inboxStore = scope.ServiceProvider.GetRequiredService<TInboxStore>();
@@ -59,7 +68,7 @@ public class InboxProcessor<TInboxStore>(
         var messages = await inboxStore.GetPendingMessagesAsync(_batchSize, cancellationToken);
 
         if (!messages.Any())
-            return;
+            return false;
 
         logger.LogInformation("Processing {Count} inbox messages", messages.Count);
 
@@ -95,6 +104,8 @@ public class InboxProcessor<TInboxStore>(
                 }
             }
         }
+
+        return true;
     }
 
     private async Task ProcessMessageAsync(

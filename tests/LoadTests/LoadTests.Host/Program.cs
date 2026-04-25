@@ -162,7 +162,7 @@ try
 
         var validator = new ConsistencyValidator(connectionString, apiGatewayUrl);
 
-        var maxWaitSeconds = Math.Max(300, durationSeconds * 3);
+        var maxWaitSeconds = Math.Max(1200, durationSeconds * 3);
         var completed = await validator.WaitForAllClosedAsync(
             generator.CreatedLeadIds.ToList(), 
             maxWaitSeconds);

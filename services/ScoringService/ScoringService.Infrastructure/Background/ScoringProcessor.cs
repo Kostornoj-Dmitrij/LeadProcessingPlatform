@@ -24,9 +24,12 @@ public class ScoringProcessor(
     ILogger<ScoringProcessor> logger)
     : BackgroundService
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromMilliseconds(100);
     private readonly int _batchSize = 100;
     private const int MaxRetryAttempts = 3;
+
+    private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(10);
+    private readonly TimeSpan _maxInterval = TimeSpan.FromMilliseconds(500);
+    private TimeSpan _currentInterval = TimeSpan.FromMilliseconds(100);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -34,22 +37,28 @@ public class ScoringProcessor(
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            bool hasWork;
             try
             {
-                await ProcessPendingRequests(stoppingToken);
+                hasWork = await ProcessPendingRequests(stoppingToken);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing scoring requests");
+                hasWork = true;
             }
 
-            await Task.Delay(_pollingInterval, stoppingToken);
+            _currentInterval = hasWork 
+                ? _minInterval 
+                : TimeSpan.FromTicks(Math.Min(_currentInterval.Ticks * 2, _maxInterval.Ticks));
+
+            await Task.Delay(_currentInterval, stoppingToken);
         }
 
         logger.LogInformation("Scoring Processor stopped");
     }
 
-    private async Task ProcessPendingRequests(CancellationToken cancellationToken)
+    private async Task<bool> ProcessPendingRequests(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -67,7 +76,8 @@ public class ScoringProcessor(
             .Where(x => x.IsReadyForProcessing(MaxRetryAttempts))
             .ToList();
 
-        if (!pendingRequests.Any()) return;
+        if (pendingRequests.Count == 0)
+            return false;
 
         logger.LogInformation("Processing {Count} scoring requests", pendingRequests.Count);
 
@@ -172,5 +182,7 @@ public class ScoringProcessor(
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
+
+        return true;
     }
 }

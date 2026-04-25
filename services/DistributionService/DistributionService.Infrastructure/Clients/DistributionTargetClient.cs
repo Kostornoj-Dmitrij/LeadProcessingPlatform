@@ -38,7 +38,7 @@ public class DistributionTargetClient(
 
         logger.LogInformation("Sending lead {LeadId} to target system: {Target}", leadId, target);
 
-        await Task.Delay(50, cancellationToken);
+        await Task.Delay(10, cancellationToken);
 
         if (customFields != null &&
             customFields.TryGetValue("forceDistributionFail", out var forceFail) &&

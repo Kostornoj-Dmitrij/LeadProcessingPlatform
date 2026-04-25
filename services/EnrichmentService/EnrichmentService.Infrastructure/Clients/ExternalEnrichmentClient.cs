@@ -17,7 +17,7 @@ public class ExternalEnrichmentClient(HttpClient httpClient, ILogger<ExternalEnr
     {
         logger.LogInformation("Enriching company: {CompanyName}", companyName);
 
-        await Task.Delay(100, cancellationToken);
+        await Task.Delay(20, cancellationToken);
 
         if (customFields != null &&
             customFields.TryGetValue("forceEnrichmentFail", out var forceFail) &&

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using System.Threading.Channels;
 using AvroSchemas;
 using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,8 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     private bool _isRunning;
     private readonly string _serviceName;
     private readonly IEnumerable<string> _topics;
+    private readonly Channel<ConsumeResult<string, byte[]>> _messageChannel;
+    private readonly int _parallelismDegree;
 
     public KafkaConsumer(
         IConfiguration configuration,
@@ -59,12 +62,15 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             BootstrapServers = bootstrapServers,
             GroupId = configuration[ConfigurationKeys.KafkaGroupId] ?? $"{serviceName}",
             AutoOffsetReset = AutoOffsetReset.Earliest,
-            EnableAutoCommit = true,
+            EnableAutoCommit = false,
             EnableAutoOffsetStore = false,
-            MaxPollIntervalMs = 300000,
-            SessionTimeoutMs = 30000,
+            MaxPollIntervalMs = kafkaOptions?.ConsumerMaxPollIntervalMs ?? 300000,
+            SessionTimeoutMs = kafkaOptions?.ConsumerSessionTimeoutMs ?? 30000,
             HeartbeatIntervalMs = 3000,
-            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky,
+            MaxPartitionFetchBytes = 1048576,
+            FetchMinBytes = kafkaOptions?.ConsumerFetchMinBytes ?? 1024,
+            FetchWaitMaxMs = kafkaOptions?.ConsumerFetchMaxWaitMs ?? 50,
+            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
         };
         consumerConfig.ApplySaslConfig(kafkaOptions);
 
@@ -78,11 +84,15 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         {
             BootstrapServers = bootstrapServers,
             EnableIdempotence = true,
-            Acks = Acks.All,
+            Acks = Acks.All
         };
         producerConfig.ApplySaslConfig(kafkaOptions);
 
         _dlqProducer = new ProducerBuilder<string, byte[]>(producerConfig).Build();
+
+        _messageChannel = Channel.CreateUnbounded<ConsumeResult<string, byte[]>>(
+            new UnboundedChannelOptions { SingleReader = false });
+        _parallelismDegree = Math.Max(1, Environment.ProcessorCount / 2);
     }
 
     public bool IsRunning => _isRunning;
@@ -104,8 +114,11 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
     {
         _logger.LogInformation("[{ServiceName}] Kafka Consumer started", _serviceName);
         _isRunning = true;
-
         Subscribe(_topics);
+
+        var workers = Enumerable.Range(0, _parallelismDegree)
+            .Select(_ => Task.Run(() => ProcessMessagesAsync(stoppingToken), stoppingToken))
+            .ToArray();
 
         try
         {
@@ -113,12 +126,11 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             {
                 try
                 {
-                    var consumeResult = _consumer.Consume(stoppingToken);
+                    var consumeResult = _consumer.Consume(TimeSpan.FromMilliseconds(100));
                     if (consumeResult == null || consumeResult.IsPartitionEOF)
                         continue;
 
-                    await ProcessMessageWithRetryAsync(consumeResult, stoppingToken);
-                    _consumer.StoreOffset(consumeResult);
+                    await _messageChannel.Writer.WriteAsync(consumeResult, stoppingToken);
                 }
                 catch (ConsumeException ex)
                 {
@@ -135,37 +147,60 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         }
         finally
         {
+            _messageChannel.Writer.Complete();
+            await Task.WhenAll(workers);
+
+            try
+            {
+                _consumer.Commit();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[{ServiceName}] Error committing offset during shutdown", _serviceName);
+            }
+
             _isRunning = false;
             _consumer.Close();
         }
     }
 
-    private async Task ProcessMessageWithRetryAsync(
+    private async Task ProcessMessagesAsync(CancellationToken cancellationToken)
+    {
+        await foreach (var consumeResult in _messageChannel.Reader.ReadAllAsync(cancellationToken))
+        {
+            var success = await ProcessMessageWithRetryAsync(consumeResult, cancellationToken);
+
+            if (success)
+                _consumer.StoreOffset(consumeResult);
+        }
+    }
+
+    private async Task<bool> ProcessMessageWithRetryAsync(
         ConsumeResult<string, byte[]> consumeResult,
         CancellationToken cancellationToken)
     {
-        int attempt = 0;
+        var attempt = 0;
         while (attempt < _maxRetryAttempts)
         {
             try
             {
                 await ProcessMessageAsync(consumeResult, cancellationToken);
-                return;
+                return true;
             }
             catch (Exception ex) when (IsTransientError(ex))
             {
                 attempt++;
-                _logger.LogWarning(ex, 
-                    "[{ServiceName}] Transient error processing message (attempt {Attempt}/{MaxAttempts}), Topic: {Topic}, Offset: {Offset}", 
+                _logger.LogWarning(ex,
+                    "[{ServiceName}] Transient error processing message (attempt {Attempt}/{MaxAttempts}), Topic: {Topic}, Offset: {Offset}",
                     _serviceName, attempt, _maxRetryAttempts, consumeResult.Topic, consumeResult.Offset);
 
                 if (attempt >= _maxRetryAttempts)
                 {
-                    _logger.LogError(ex, 
-                        "[{ServiceName}] Max retry attempts reached. Moving to DLQ. Topic: {Topic}, Offset: {Offset}", 
+                    _logger.LogError(ex,
+                        "[{ServiceName}] Max retry attempts reached. Moving to DLQ. Topic: {Topic}, Offset: {Offset}",
                         _serviceName, consumeResult.Topic, consumeResult.Offset);
                     await MoveToDeadLetterQueueAsync(consumeResult, ex);
-                    return;
+                    return true;
                 }
 
                 var delay = TimeSpan.FromMilliseconds(Math.Pow(2, attempt) * 100);
@@ -173,13 +208,15 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, 
-                    "[{ServiceName}] Non-transient error. Moving to DLQ. Topic: {Topic}, Offset: {Offset}", 
+                _logger.LogError(ex,
+                    "[{ServiceName}] Non-transient error. Moving to DLQ. Topic: {Topic}, Offset: {Offset}",
                     _serviceName, consumeResult.Topic, consumeResult.Offset);
                 await MoveToDeadLetterQueueAsync(consumeResult, ex);
-                return;
+                return true;
             }
         }
+
+        return false;
     }
 
     private async Task ProcessMessageAsync(
@@ -216,14 +253,14 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
             }
         }
 
-        string leadId = ExtractLeadIdFromMessage(consumeResult.Message);
+        var leadId = ExtractLeadIdFromMessage(consumeResult.Message);
         if (!string.IsNullOrEmpty(leadId))
         {
             TelemetryContext.SetBaggage(TelemetryBaggageKeys.LeadId, leadId);
             TelemetryContext.SetBaggage(TelemetryBaggageKeys.BusinessProcess, TelemetryBaggageKeys.LeadProcessing);
         }
 
-        string spanName = $"{TelemetrySpanNames.KafkaConsume} {GetSimpleTypeName(eventTypeName)}";
+        var spanName = $"{TelemetrySpanNames.KafkaConsume} {GetSimpleTypeName(eventTypeName)}";
         string? traceIdToStore;
 
         if (TelemetryConstants.ActivitySource != null)
@@ -263,7 +300,8 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
 
         var integrationEvent = (IIntegrationEvent)avroEvent;
 
-        var payloadJson = System.Text.Json.JsonSerializer.Serialize(integrationEvent, eventType, SharedKernel.Json.JsonDefaults.Options);
+        var payloadJson = System.Text.Json.JsonSerializer.Serialize(
+            integrationEvent, eventType, SharedKernel.Json.JsonDefaults.Options);
 
         var inboxStore = scope.ServiceProvider.GetRequiredService<IInboxStore>();
 
@@ -290,9 +328,7 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
                 var fullTypeName = parts[0].Trim();
                 var lastDotIndex = fullTypeName.LastIndexOf('.');
                 if (lastDotIndex >= 0)
-                {
                     return fullTypeName.Substring(lastDotIndex + 1);
-                }
                 return fullTypeName;
             }
         }
@@ -304,24 +340,17 @@ public class KafkaConsumer : BackgroundService, IKafkaConsumer
         var cleaned = eventTypeName.Split(',')[0];
         var lastDot = cleaned.LastIndexOf('.');
         if (lastDot >= 0)
-        {
             return cleaned.Substring(lastDot + 1);
-        }
-
         return eventTypeName;
     }
 
     private string ExtractLeadIdFromMessage(Message<string, byte[]> message)
     {
         if (message.Headers.TryGetLastBytes(KafkaHeaderKeys.LeadId, out var leadIdBytes))
-        {
             return Encoding.UTF8.GetString(leadIdBytes);
-        }
 
         if (!string.IsNullOrEmpty(message.Key) && Guid.TryParse(message.Key, out _))
-        {
             return message.Key;
-        }
 
         return string.Empty;
     }

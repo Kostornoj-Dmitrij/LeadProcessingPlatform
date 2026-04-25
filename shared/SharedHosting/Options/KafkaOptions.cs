@@ -25,6 +25,12 @@ public class KafkaOptions
 
     public int ConsumerSessionTimeoutMs { get; set; } = 30000;
 
+    public int ConsumerMaxPollRecords { get; set; } = 500;
+
+    public int ConsumerFetchMinBytes { get; set; } = 1024;
+
+    public int ConsumerFetchMaxWaitMs { get; set; } = 50;
+
     public bool ProducerEnableIdempotence { get; set; } = true;
 
     public int ProducerMaxRetries { get; set; } = 3;

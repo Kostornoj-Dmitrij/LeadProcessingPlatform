@@ -25,15 +25,18 @@ public class DistributionProcessor(
     ILogger<DistributionProcessor> logger)
     : BackgroundService
 {
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromMilliseconds(100);
     private readonly int _batchSize = 100;
     private const int MaxRetryAttempts = 3;
+    private const int MaxDegreeOfParallelism = 10;
     private static readonly TimeSpan[] RetryDelays =
     [
         TimeSpan.FromSeconds(2),
         TimeSpan.FromSeconds(4),
         TimeSpan.FromSeconds(8)
     ];
+    private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(10);
+    private readonly TimeSpan _maxInterval = TimeSpan.FromMilliseconds(500);
+    private TimeSpan _currentInterval = TimeSpan.FromMilliseconds(100);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -41,22 +44,28 @@ public class DistributionProcessor(
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            bool hasWork;
             try
             {
-                await ProcessPendingRequests(stoppingToken);
+                hasWork = await ProcessPendingRequests(stoppingToken);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing distribution requests");
+                hasWork = true;
             }
 
-            await Task.Delay(_pollingInterval, stoppingToken);
+            _currentInterval = hasWork 
+                ? _minInterval 
+                : TimeSpan.FromTicks(Math.Min(_currentInterval.Ticks * 2, _maxInterval.Ticks));
+
+            await Task.Delay(_currentInterval, stoppingToken);
         }
 
         logger.LogInformation("Distribution Processor stopped");
     }
 
-    private async Task ProcessPendingRequests(CancellationToken cancellationToken)
+    private async Task<bool> ProcessPendingRequests(CancellationToken cancellationToken)
     {
         using var readScope = scopeFactory.CreateScope();
         var readContext = readScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -74,14 +83,22 @@ public class DistributionProcessor(
             .ToListAsync(cancellationToken);
 
         if (!requests.Any())
-            return;
+            return false;
 
         logger.LogInformation("Found {Count} distribution requests ready for processing", requests.Count);
 
-        foreach (var request in requests)
+        var parallelOptions = new ParallelOptions
         {
-            await ProcessSingleRequestAsync(request, cancellationToken);
-        }
+            MaxDegreeOfParallelism = MaxDegreeOfParallelism,
+            CancellationToken = cancellationToken
+        };
+
+        await Parallel.ForEachAsync(requests, parallelOptions, async (request, ct) =>
+        {
+            await ProcessSingleRequestAsync(request, ct);
+        });
+
+        return true;
     }
 
     private async Task ProcessSingleRequestAsync(DistributionRequest request, CancellationToken cancellationToken)
