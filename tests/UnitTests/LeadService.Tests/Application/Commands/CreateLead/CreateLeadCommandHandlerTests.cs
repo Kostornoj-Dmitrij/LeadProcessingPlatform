@@ -1,5 +1,5 @@
 ﻿using System.Text.Json;
-using AutoFixture.NUnit3;
+using AutoFixture.NUnit4;
 using LeadService.Application.Commands.CreateLead;
 using LeadService.Application.Common.DTOs;
 using LeadService.Application.Common.Interfaces;

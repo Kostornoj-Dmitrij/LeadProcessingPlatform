@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using LeadService.Application.Queries.GetLeadsByStatus;
 using LeadService.Domain.Entities;
 using LeadService.Domain.Enums;

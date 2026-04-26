@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using NUnit.Framework;
 using AvroSchemas.Messages.NotificationEvents;
 using NotificationService.Domain.Events;

@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using NUnit.Framework;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;

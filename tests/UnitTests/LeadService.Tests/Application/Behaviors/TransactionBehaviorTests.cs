@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using LeadService.Application.Common.Behaviors;
 using LeadService.Tests.Common.TestData;
 using MediatR;

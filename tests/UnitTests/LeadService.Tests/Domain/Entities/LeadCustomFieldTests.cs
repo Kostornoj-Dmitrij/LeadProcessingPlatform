@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using LeadService.Domain.Entities;
 using NUnit.Framework;
 

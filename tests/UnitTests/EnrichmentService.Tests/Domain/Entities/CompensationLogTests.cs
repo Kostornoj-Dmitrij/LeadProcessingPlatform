@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using EnrichmentService.Domain.Constants;
 using EnrichmentService.Domain.Entities;
 using EnrichmentService.Domain.Events;

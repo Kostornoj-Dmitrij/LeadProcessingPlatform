@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using LeadService.Application.Commands.CreateLead;
 using LeadService.Tests.Common.Attributes;
 using NUnit.Framework;

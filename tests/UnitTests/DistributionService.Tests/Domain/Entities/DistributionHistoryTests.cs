@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using DistributionService.Domain.Entities;
 using DistributionService.Domain.Enums;
 using DistributionService.Domain.Events;

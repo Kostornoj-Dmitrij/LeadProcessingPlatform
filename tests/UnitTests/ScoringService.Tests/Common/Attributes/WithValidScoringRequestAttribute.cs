@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 using AutoFixture;
 using AutoFixture.AutoMoq;
-using AutoFixture.NUnit3;
+using AutoFixture.NUnit4;
 using ScoringService.Tests.Common.Customizations;
 
 namespace ScoringService.Tests.Common.Attributes;

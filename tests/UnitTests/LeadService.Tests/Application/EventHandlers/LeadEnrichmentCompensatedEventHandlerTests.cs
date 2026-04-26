@@ -1,4 +1,4 @@
-﻿using AutoFixture.NUnit3;
+﻿using AutoFixture.NUnit4;
 using AvroSchemas.Messages.EnrichmentEvents;
 using LeadService.Application.EventHandlers;
 using LeadService.Domain.Entities;
