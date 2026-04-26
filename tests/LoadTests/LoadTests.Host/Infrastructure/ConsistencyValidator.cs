@@ -27,6 +27,7 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
         }
 
         var history = await LoadStatusHistoryAsync(leadIds, cancellationToken);
+        var leadData = await LoadLeadDataAsync(leadIds, cancellationToken);
         report.TotalLeads = leadIds.Count;
         report.LeadsWithHistory = history.Keys.Count;
 
@@ -42,16 +43,12 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
             var statusNames = new List<string>();
 
             if (statusSequence[0].OldStatus != null)
-            {
                 statusNames.Add(statusSequence[0].OldStatus!);
-            }
 
             statusNames.AddRange(statusSequence.Select(s => s.NewStatus));
 
             if (statusNames[0] != "Initial")
-            {
                 report.AddError(leadId, $"First status is {statusNames[0]}, expected Initial");
-            }
 
             var finalStatus = statusSequence[^1].NewStatus;
             if (finalStatus != "Closed")
@@ -67,10 +64,8 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
             if (expectedPaths.TryGetValue(leadId, out var expectedPath))
             {
                 if (!ValidateExpectedPath(statusNames, expectedPath))
-                {
                     report.AddError(leadId, 
                         $"Expected path {GetExpectedSequence(expectedPath)} but got: {string.Join(" -> ", statusNames)}");
-                }
 
                 var createdAt = statusSequence[0].ChangedAt;
                 var closedAt = statusSequence[^1].ChangedAt;
@@ -85,10 +80,14 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
                 });
             }
 
-            if (!ValidateStateTransitionsFromNames(statusNames))
+            if (leadData.TryGetValue(leadId, out var lead))
             {
-                report.AddError(leadId, $"Invalid state transition: {string.Join(" -> ", statusNames)}");
+                if (expectedPaths.TryGetValue(leadId, out expectedPath))
+                    ValidateDataConsistency(leadId, lead, expectedPath, report);
             }
+
+            if (!ValidateStateTransitionsFromNames(statusNames))
+                report.AddError(leadId, $"Invalid state transition: {string.Join(" -> ", statusNames)}");
         }
 
         return report;
@@ -168,6 +167,107 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
         }
 
         return result;
+    }
+
+    private async Task<Dictionary<Guid, LeadConsistencyDto>> LoadLeadDataAsync(
+        List<Guid> leadIds,
+        CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<Guid, LeadConsistencyDto>();
+
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        for (int i = 0; i < leadIds.Count; i += 1000)
+        {
+            var batch = leadIds.Skip(i).Take(1000).ToList();
+            var sql = @"
+            SELECT id, status, score, 
+                   is_enrichment_received, is_scoring_received,
+                   is_enrichment_compensated, is_scoring_compensated,
+                   enriched_data
+            FROM leads 
+            WHERE id = ANY(@leadIds)";
+
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("leadIds", batch);
+
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result[reader.GetGuid(0)] = new LeadConsistencyDto
+                {
+                    Id = reader.GetGuid(0),
+                    Status = reader.GetInt32(1).ToString(),
+                    Score = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                    IsEnrichmentReceived = reader.GetBoolean(3),
+                    IsScoringReceived = reader.GetBoolean(4),
+                    IsEnrichmentCompensated = reader.GetBoolean(5),
+                    IsScoringCompensated = reader.GetBoolean(6),
+                    EnrichedData = reader.IsDBNull(7) ? null : reader.GetString(7)
+                };
+            }
+        }
+
+        return result;
+    }
+
+    private void ValidateDataConsistency(
+        Guid leadId,
+        LeadConsistencyDto lead,
+        ExpectedScenarioPath expectedPath,
+        ValidationReport report)
+    {
+        switch (expectedPath)
+        {
+            case ExpectedScenarioPath.Success:
+                if (lead.Score is null or < 0)
+                    report.AddError(leadId, $"Success: score should be >= 0, got {lead.Score}");
+                if (!lead.IsEnrichmentReceived)
+                    report.AddError(leadId, "Success: is_enrichment_received should be true");
+                if (!lead.IsScoringReceived)
+                    report.AddError(leadId, "Success: is_scoring_received should be true");
+                if (lead.IsEnrichmentCompensated)
+                    report.AddError(leadId, "Success: is_enrichment_compensated should be false");
+                if (lead.IsScoringCompensated)
+                    report.AddError(leadId, "Success: is_scoring_compensated should be false");
+                if (string.IsNullOrEmpty(lead.EnrichedData))
+                    report.AddError(leadId, "Success: enriched_data should not be null");
+                break;
+
+            case ExpectedScenarioPath.EnrichmentFailure:
+                if (lead.Score != null)
+                    report.AddError(leadId, $"EnrichmentFailure: score should be null after compensation, got {lead.Score}");
+                if (!lead.IsEnrichmentCompensated)
+                    report.AddError(leadId, "EnrichmentFailure: is_enrichment_compensated should be true");
+                if (!lead.IsScoringCompensated)
+                    report.AddError(leadId, "EnrichmentFailure: is_scoring_compensated should be true");
+                if (!string.IsNullOrEmpty(lead.EnrichedData))
+                    report.AddError(leadId, "EnrichmentFailure: enriched_data should be null after compensation");
+                break;
+
+            case ExpectedScenarioPath.ScoringFailure:
+                if (lead.Score != null)
+                    report.AddError(leadId, $"ScoringFailure: score should be null after compensation, got {lead.Score}");
+                if (!lead.IsEnrichmentCompensated)
+                    report.AddError(leadId, "ScoringFailure: is_enrichment_compensated should be true");
+                if (!lead.IsScoringCompensated)
+                    report.AddError(leadId, "ScoringFailure: is_scoring_compensated should be true");
+                if (!string.IsNullOrEmpty(lead.EnrichedData))
+                    report.AddError(leadId, "ScoringFailure: enriched_data should be null after compensation");
+                break;
+
+            case ExpectedScenarioPath.DistributionFailure:
+                if (lead.Score != null)
+                    report.AddError(leadId, $"DistributionFailure: score should be null after compensation, got {lead.Score}");
+                if (!lead.IsEnrichmentCompensated)
+                    report.AddError(leadId, "DistributionFailure: is_enrichment_compensated should be true");
+                if (!lead.IsScoringCompensated)
+                    report.AddError(leadId, "DistributionFailure: is_scoring_compensated should be true");
+                if (!string.IsNullOrEmpty(lead.EnrichedData))
+                    report.AddError(leadId, "DistributionFailure: enriched_data should be null after compensation");
+                break;
+        }
     }
 
     private bool ValidateStateTransitionsFromNames(List<string> statuses)
