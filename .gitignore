@@ -112,3 +112,8 @@ Thumbs.db
 # Load test reports
 **/LoadTests/**/Reports/
 **/Reports/
+
+# dotnet-trace and profiling artifacts
+dotnet-trace
+*.nettrace
+*.nettrace.States
