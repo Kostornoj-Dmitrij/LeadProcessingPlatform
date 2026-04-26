@@ -26,8 +26,15 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
             return report;
         }
 
-        var history = await LoadStatusHistoryAsync(leadIds, cancellationToken);
-        var leadData = await LoadLeadDataAsync(leadIds, cancellationToken);
+        var history = new Dictionary<Guid, List<LeadStatusHistoryDto>>();
+        var leadData = new Dictionary<Guid, LeadConsistencyDto>();
+
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await LoadStatusHistoryInternalAsync(conn, leadIds, history, cancellationToken);
+        await LoadLeadDataInternalAsync(conn, leadIds, leadData, cancellationToken);
+
         report.TotalLeads = leadIds.Count;
         report.LeadsWithHistory = history.Keys.Count;
 
@@ -126,23 +133,20 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
         return expectedIndex == expectedSequence.Length;
     }
 
-    private async Task<Dictionary<Guid, List<LeadStatusHistoryDto>>> LoadStatusHistoryAsync(
+    private async Task LoadStatusHistoryInternalAsync(
+        NpgsqlConnection conn,
         List<Guid> leadIds,
+        Dictionary<Guid, List<LeadStatusHistoryDto>> result,
         CancellationToken cancellationToken)
     {
-        var result = new Dictionary<Guid, List<LeadStatusHistoryDto>>();
-
-        await using var conn = new NpgsqlConnection(connectionString);
-        await conn.OpenAsync(cancellationToken);
-
         for (int i = 0; i < leadIds.Count; i += 1000)
         {
             var batch = leadIds.Skip(i).Take(1000).ToList();
             var sql = @"
-                SELECT lead_id, old_status, new_status, changed_at 
-                FROM lead_status_history 
-                WHERE lead_id = ANY(@leadIds)
-                ORDER BY lead_id, changed_at";
+            SELECT lead_id, old_status, new_status, changed_at 
+            FROM lead_status_history 
+            WHERE lead_id = ANY(@leadIds)
+            ORDER BY lead_id, changed_at";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("leadIds", batch);
@@ -165,19 +169,14 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
                 result[leadId].Add(record);
             }
         }
-
-        return result;
     }
 
-    private async Task<Dictionary<Guid, LeadConsistencyDto>> LoadLeadDataAsync(
+    private async Task LoadLeadDataInternalAsync(
+        NpgsqlConnection conn,
         List<Guid> leadIds,
+        Dictionary<Guid, LeadConsistencyDto> result,
         CancellationToken cancellationToken)
     {
-        var result = new Dictionary<Guid, LeadConsistencyDto>();
-
-        await using var conn = new NpgsqlConnection(connectionString);
-        await conn.OpenAsync(cancellationToken);
-
         for (int i = 0; i < leadIds.Count; i += 1000)
         {
             var batch = leadIds.Skip(i).Take(1000).ToList();
@@ -208,8 +207,6 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
                 };
             }
         }
-
-        return result;
     }
 
     private void ValidateDataConsistency(

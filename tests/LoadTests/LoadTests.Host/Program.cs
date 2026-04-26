@@ -167,6 +167,8 @@ try
         var completed = await validator.WaitForAllClosedAsync(
             generator.CreatedLeadIds.ToList(),
             maxWaitSeconds);
+        if (completed)
+            await Task.Delay(TimeSpan.FromSeconds(3));
         var waitElapsed = (DateTime.UtcNow - waitStart).TotalSeconds;
 
         AnsiConsole.MarkupLine(completed
