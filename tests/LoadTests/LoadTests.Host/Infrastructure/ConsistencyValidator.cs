@@ -29,11 +29,33 @@ public class ConsistencyValidator(string connectionString, string apiGatewayUrl)
         var history = new Dictionary<Guid, List<LeadStatusHistoryDto>>();
         var leadData = new Dictionary<Guid, LeadConsistencyDto>();
 
-        await using var conn = new NpgsqlConnection(connectionString);
-        await conn.OpenAsync(cancellationToken);
+        var retries = 3;
+        for (int attempt = 1; attempt <= retries; attempt++)
+        {
+            try
+            {
+                await using var conn = new NpgsqlConnection(connectionString);
+                await conn.OpenAsync(cancellationToken);
 
-        await LoadStatusHistoryInternalAsync(conn, leadIds, history, cancellationToken);
-        await LoadLeadDataInternalAsync(conn, leadIds, leadData, cancellationToken);
+                await LoadStatusHistoryInternalAsync(conn, leadIds, history, cancellationToken);
+                await LoadLeadDataInternalAsync(conn, leadIds, leadData, cancellationToken);
+                break;
+            }
+            catch (TimeoutException) when (attempt < retries)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5 * attempt), cancellationToken);
+            }
+            catch (NpgsqlException ex) when (ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) && attempt < retries)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5 * attempt), cancellationToken);
+            }
+        }
+
+        if (history.Count == 0 && leadData.Count == 0)
+        {
+            report.AddError("Failed to connect to database after retries");
+            return report;
+        }
 
         report.TotalLeads = leadIds.Count;
         report.LeadsWithHistory = history.Keys.Count;
